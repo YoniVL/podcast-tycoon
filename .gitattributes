@@ -1,0 +1,32 @@
+# Unity — normalize text, force Unity YAML merge, mark binaries
+* text=auto eol=lf
+
+# Unity YAML assets: use Unity's Smart Merge (configure with `git config merge.unityyamlmerge …`)
+*.unity     merge=unityyamlmerge eol=lf
+*.prefab    merge=unityyamlmerge eol=lf
+*.asset     merge=unityyamlmerge eol=lf
+*.meta      merge=unityyamlmerge eol=lf
+*.controller merge=unityyamlmerge eol=lf
+*.anim      merge=unityyamlmerge eol=lf
+
+# Scripts / config
+*.cs        text diff=csharp
+*.shader    text
+*.json      text
+*.md        text
+
+# Binary assets
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.psd       binary
+*.aseprite  binary
+*.ase       binary
+*.wav       binary
+*.mp3       binary
+*.ogg       binary
+*.fbx       binary
+*.ttf       binary
+*.otf       binary
+*.dll       binary
