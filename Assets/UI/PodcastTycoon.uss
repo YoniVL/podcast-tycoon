@@ -309,3 +309,29 @@
     margin-top: 4px;
 }
 .unity-foldout__text { color: rgb(236, 233, 242); }
+
+/* ---- tab bar ---- */
+.tabbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 4px;
+    margin-bottom: 14px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(48, 46, 60);
+}
+
+.tab {
+    -unity-font-style: bold;
+    font-size: 13px;
+    padding: 9px 14px;
+    margin-right: 2px;
+    margin-bottom: 0;
+    background-color: rgba(0, 0, 0, 0);
+    color: rgb(150, 144, 165);
+    border-width: 0;
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(0, 0, 0, 0);
+    border-radius: 0;
+}
+.tab:hover { background-color: rgba(0, 0, 0, 0); color: rgb(219, 215, 229); }
+.tab.active { color: rgb(244, 242, 250); }

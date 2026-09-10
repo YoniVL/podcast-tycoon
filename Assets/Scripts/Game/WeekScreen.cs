@@ -13,6 +13,14 @@ namespace PodcastTycoon.Game
         readonly ProductionPlan _plan = new ProductionPlan();
         Topic _picked;
 
+        // tabs
+        static readonly string[] TabNames = { "This Week", "The Club", "Business", "Logbook", "Help" };
+        int _activeTab;
+        readonly List<Button> _tabButtons = new List<Button>();
+        ScrollView _scroll;
+        VisualElement _tabContent;
+
+        // this-week widgets (rebuilt whenever the This Week tab is shown)
         VisualElement _topicList;
         VisualElement _prepBlock;
         VisualElement _previewBlock;
@@ -35,30 +43,59 @@ namespace PodcastTycoon.Game
         {
             var ctx = E.CurrentWeek;
             var st = E.State;
-            _prep.Clear();
+
+            // An unresolved interrupt has to be dealt with on This Week before anything else.
+            if (E.Events.Pending != null) _activeTab = 0;
 
             var screen = Ui.Box("screen");
             var col = Ui.Box("column");
-            var scroll = new ScrollView(ScrollViewMode.Vertical);
-            scroll.AddToClassList("scroll");
-            col.Add(scroll);
             screen.Add(col);
 
-            // --- header bar ---
+            // --- persistent chrome ---
+            col.Add(BuildHeaderBar(ctx, st));
+            col.Add(BuildResourceStrip(st));
+
+            if (E.Events.Pending != null)
+            {
+                var banner = Ui.Box("toast", "toast-bad");
+                banner.Add(Ui.Wrapping(
+                    "Something's come up this week. Deal with it on This Week before you can release.", "body"));
+                col.Add(banner);
+            }
+
+            col.Add(BuildTabBar());
+
+            _scroll = new ScrollView(ScrollViewMode.Vertical);
+            _scroll.AddToClassList("scroll");
+            _tabContent = Ui.Box();
+            _scroll.Add(_tabContent);
+            col.Add(_scroll);
+
+            RenderActiveTab();
+            return screen;
+        }
+
+        // ------------------------------------------------------------------
+        VisualElement BuildHeaderBar(WeekContext ctx, GameState st)
+        {
             var bar = Ui.Box("panel", "panel-tight");
             _host.Theme.PaintBar(bar);
-            var barInk = _host.Theme.Ink(_host.Theme.Primary);
+            var ink = _host.Theme.Ink(_host.Theme.Primary);
+
             var t1 = Ui.Text(st.PodcastName, "h2");
-            t1.style.color = barInk;
+            t1.style.color = ink;
             t1.style.marginTop = 0;
             t1.style.marginBottom = 0;
-            var t2 = Ui.Text($"Season {st.Season} · Week {ctx.Turn} · {st.ClubName} sit {ctx.LeaguePositionLabel}", "body");
-            t2.style.color = barInk;
+            var t2 = Ui.Text(
+                $"Season {st.Season} · Week {ctx.Turn} · {st.ClubName} sit {ctx.LeaguePositionLabel}", "body");
+            t2.style.color = ink;
             bar.Add(t1);
             bar.Add(t2);
-            scroll.Add(bar);
+            return bar;
+        }
 
-            // --- resource strip ---
+        VisualElement BuildResourceStrip(GameState st)
+        {
             var strip = Ui.Box("statstrip");
             strip.Add(Ui.Stat("Money", Ui.Money(st.Money), st.Money < 0 ? "bad" : null,
                 "Cash. Overhead bleeds it every week."));
@@ -68,19 +105,78 @@ namespace PodcastTycoon.Game
                 "How respected the show is. Raises your growth ceiling."));
             strip.Add(Ui.Stat("Buzz", st.Buzz.ToString(), null,
                 "Hype from breakout episodes. Spends on redraws."));
-            scroll.Add(strip);
+            return strip;
+        }
 
-            // --- story headlines from the start of this week ---
+        VisualElement BuildTabBar()
+        {
+            _tabButtons.Clear();
+            var bar = Ui.Box("tabbar");
+            for (int i = 0; i < TabNames.Length; i++)
+            {
+                int idx = i;
+                var b = Ui.Btn(TabNames[i], () => SwitchTab(idx), "tab");
+                _tabButtons.Add(b);
+                bar.Add(b);
+            }
+            PaintTabs();
+            return bar;
+        }
+
+        void PaintTabs()
+        {
+            for (int i = 0; i < _tabButtons.Count; i++)
+            {
+                bool active = i == _activeTab;
+                _tabButtons[i].EnableInClassList("active", active);
+                _tabButtons[i].style.borderBottomColor = active
+                    ? new StyleColor(_host.Theme.Secondary)
+                    : new StyleColor(new Color(0, 0, 0, 0));
+            }
+        }
+
+        void SwitchTab(int i)
+        {
+            if (_activeTab == i && _tabContent.childCount > 0) return;
+            _activeTab = i;
+            PaintTabs();
+            RenderActiveTab();
+            if (_scroll != null) _scroll.scrollOffset = Vector2.zero;
+        }
+
+        void RenderActiveTab()
+        {
+            _tabContent.Clear();
+            _prep.Clear();
+            var ctx = E.CurrentWeek;
+            switch (_activeTab)
+            {
+                case 0: BuildThisWeekTab(_tabContent, ctx); break;
+                case 1: BuildClubTab(_tabContent, ctx); break;
+                case 2: BuildBusinessTab(_tabContent, ctx); break;
+                case 3: BuildLogbookTab(_tabContent); break;
+                default: BuildHelpTab(_tabContent); break;
+            }
+        }
+
+        // ================================================================
+        // TAB 0 — This Week
+        // ================================================================
+        void BuildThisWeekTab(VisualElement root, WeekContext ctx)
+        {
+            var st = E.State;
+
+            // story headlines from the start of this week
             foreach (var te in ctx.ThreadEvents)
             {
                 var toast = Ui.Box("toast");
                 if (te.IsResolution) toast.AddToClassList("toast-story");
                 toast.Add(Ui.Text(te.Headline.ToUpperInvariant(), "eyebrow"));
                 toast.Add(Ui.Wrapping(te.Body, "body"));
-                scroll.Add(toast);
+                root.Add(toast);
             }
 
-            // --- an interrupt event, if one fired ---
+            // an interrupt event, if one fired
             if (E.Events.Pending != null)
             {
                 var ev = E.Events.Pending;
@@ -95,13 +191,13 @@ namespace PodcastTycoon.Game
                     b.style.marginTop = 4;
                     card.Add(b);
                 }
-                scroll.Add(card);
+                root.Add(card);
             }
             else if (!string.IsNullOrEmpty(E.Events.LastOutcome))
             {
                 var toast = Ui.Box("toast");
                 toast.Add(Ui.Wrapping(E.Events.LastOutcome, "body"));
-                scroll.Add(toast);
+                root.Add(toast);
             }
 
             if (ctx.SponsorNews != null)
@@ -110,40 +206,23 @@ namespace PodcastTycoon.Game
                 if (!ctx.SponsorNews.Good) toast.AddToClassList("toast-bad");
                 toast.Add(Ui.Text(ctx.SponsorNews.Headline.ToUpperInvariant(), "eyebrow"));
                 toast.Add(Ui.Wrapping(ctx.SponsorNews.Body, "body"));
-                scroll.Add(toast);
+                root.Add(toast);
             }
 
-            // --- how it works (open on the very first week) ---
-            var help = new Foldout { text = "How it works", value = st.GlobalWeek == 1 };
-            help.AddToClassList("help-foldout");
-            help.Add(Ui.Text("THE WEEK", "eyebrow"));
-            help.Add(Ui.Wrapping(
-                "Every week your club plays. You see the result and how surprising it was, then you make one episode about it.\n" +
-                "1. Pick a topic. Each has a \"draw\" (how many people it pulls in this week) and a \"prep needed\".\n" +
-                "2. Split your prep points between the topic and three levers — research, audio, promo.\n" +
-                "3. Release it. The result is a surprise until it's out.\n" +
-                "Spend what you earn on gear and a co-host. Keep money above water. Grow the audience.", "body"));
-            help.Add(Ui.Divider());
-            help.Add(Ui.Text("THE NUMBERS", "eyebrow"));
-            help.Add(Ui.Wrapping(
-                "Listeners — your audience and your score. A bigger audience means every episode reaches further, " +
-                "so growth compounds — but it slows down as you approach the size the fanbase can realistically support.\n\n" +
-                "Reputation (0–100) — how seriously the show is taken. Thoughtful, well-made episodes and measured takes build it; " +
-                "lazy episodes and cheap drama burn it. It matters because a well-regarded show can grow much bigger — high reputation " +
-                "lifts the ceiling on your audience. Some topics also need a minimum reputation before you can cover them.\n\n" +
-                "Money — ad income barely covers the weekly overhead on its own, so the budget is tight until the audience is large. " +
-                "Three straight weeks more than €200 in the red and the show folds.\n\n" +
-                "Buzz — earned when an episode punches above its weight. Right now it only pays to redraw the topic offer; " +
-                "it unlocks more later.", "body"));
-            scroll.Add(help);
+            root.Add(BuildMatchPanel(ctx));
 
-            // --- the week ---
-            scroll.Add(BuildMatchPanel(ctx));
-            var threads = BuildThreadsPanel(ctx);
-            if (threads != null) scroll.Add(threads);
-            scroll.Add(BuildSquadPanel());
+            // running-story reminder (the full panel lives on The Club)
+            if (ctx.ActiveThreads != null && ctx.ActiveThreads.Count > 0)
+            {
+                var note = Ui.Box("toast", "toast-story");
+                note.Add(Ui.Text("RUNNING STORIES", "eyebrow"));
+                foreach (var t in ctx.ActiveThreads)
+                    note.Add(Ui.Wrapping("• " + t.Label + " — " + LeanLabel(t.Momentum), "body"));
+                note.Add(Ui.Wrapping("Pick the STORY topic below to weigh in. Full detail on The Club.", "body", "dim"));
+                root.Add(note);
+            }
 
-            // --- topic offer ---
+            // topic offer
             var offerPanel = Ui.Box("panel");
             var offerHead = Ui.Row();
             offerHead.Add(Ui.Text("This week's episode", "h2"));
@@ -157,9 +236,9 @@ namespace PodcastTycoon.Game
             _topicList = Ui.Box();
             offerPanel.Add(_topicList);
             RenderTopics();
-            scroll.Add(offerPanel);
+            root.Add(offerPanel);
 
-            // --- production ---
+            // production
             _prepBlock = Ui.Box("panel");
             _prepBlock.style.display = DisplayStyle.None;
             _prepBlock.Add(Ui.Text("Production", "h2"));
@@ -179,34 +258,127 @@ namespace PodcastTycoon.Game
             _prepBlock.Add(Ui.Divider());
             _previewBlock = Ui.Box();
             _prepBlock.Add(_previewBlock);
-            scroll.Add(_prepBlock);
+            root.Add(_prepBlock);
 
-            // --- sponsors ---
-            scroll.Add(BuildSponsorPanel(ctx));
-
-            // --- studio ---
-            scroll.Add(BuildStudioPanel());
-
-            // --- reference ---
-            scroll.Add(BuildTablePanel());
-            scroll.Add(BuildEpisodeLog());
-
-            // --- publish ---
             _publish = Ui.Btn("Record & release", Publish, "btn-primary");
             _host.Theme.PaintPrimaryButton(_publish);
             _publish.style.marginTop = 6;
             _publish.SetEnabled(false);
-            scroll.Add(_publish);
+            root.Add(_publish);
 
-            // Restore selection if this is a re-render (e.g. after buying gear).
+            // restore selection on a re-render (e.g. after buying gear on Business)
             if (_picked != null)
             {
                 _prepBlock.style.display = DisplayStyle.Flex;
                 SyncSliders();
                 RefreshPreview();
             }
+        }
 
-            return screen;
+        // ================================================================
+        // TAB 1 — The Club
+        // ================================================================
+        void BuildClubTab(VisualElement root, WeekContext ctx)
+        {
+            var threads = BuildThreadsPanel(ctx);
+            if (threads != null) root.Add(threads);
+            else
+            {
+                var quiet = Ui.Box("panel");
+                quiet.Add(Ui.Text("Running stories", "h2"));
+                quiet.Add(Ui.Wrapping("Nothing brewing around the club right now.", "body", "dim"));
+                root.Add(quiet);
+            }
+            root.Add(BuildSquadPanel());
+            root.Add(BuildTablePanel());
+        }
+
+        // ================================================================
+        // TAB 2 — Business
+        // ================================================================
+        void BuildBusinessTab(VisualElement root, WeekContext ctx)
+        {
+            root.Add(BuildSponsorPanel(ctx));
+            root.Add(BuildStudioPanel());
+        }
+
+        // ================================================================
+        // TAB 3 — Logbook
+        // ================================================================
+        void BuildLogbookTab(VisualElement root)
+        {
+            var st = E.State;
+            var prog = Ui.Box("panel");
+            prog.Add(Ui.Text("Progress", "h2"));
+            int avg = st.AverageListeners(E.Config.AvgListenerWindow);
+            prog.Add(Ui.Wrapping($"Average listeners (last {E.Config.AvgListenerWindow} weeks): {avg:N0}", "body"));
+            prog.Add(Ui.Wrapping(
+                $"Peak: {st.PeakListeners:N0}   ·   Episodes released: {st.EpisodesPublished}", "body", "dim"));
+
+            if (!st.GoalReached)
+            {
+                int next = st.NextMilestoneIndex < E.Config.Milestones.Length
+                    ? E.Config.Milestones[st.NextMilestoneIndex]
+                    : E.Config.GoalListeners;
+                prog.Add(Ui.Divider());
+                prog.Add(Ui.Wrapping($"Next milestone: {next:N0} listeners.", "body", "dim"));
+                prog.Add(Ui.Wrapping($"Goal: {E.Config.GoalListeners:N0} average listeners, then endless milestones.", "body", "dim"));
+            }
+            else
+            {
+                prog.Add(Ui.Divider());
+                prog.Add(Ui.Wrapping("Goal reached — you're chasing milestones now, for as long as you like.", "body", "good"));
+            }
+            root.Add(prog);
+
+            root.Add(BuildEpisodeLog());
+        }
+
+        // ================================================================
+        // TAB 4 — Help
+        // ================================================================
+        void BuildHelpTab(VisualElement root)
+        {
+            var week = Ui.Box("panel");
+            week.Add(Ui.Text("THE WEEK", "eyebrow"));
+            week.Add(Ui.Wrapping(
+                "Every week your club plays. You see the result and how surprising it was, then you make one episode about it.\n" +
+                "1. Pick a topic. Each has a \"draw\" (how many people it pulls in this week) and a \"prep needed\".\n" +
+                "2. Split your prep points between the topic and three levers — research, audio, promo.\n" +
+                "3. Release it. The result is a surprise until it's out.\n" +
+                "Spend what you earn on gear and a co-host. Keep money above water. Grow the audience.", "body"));
+            root.Add(week);
+
+            var numbers = Ui.Box("panel");
+            numbers.Add(Ui.Text("THE NUMBERS", "eyebrow"));
+            numbers.Add(Ui.Wrapping(
+                "Listeners — your audience and your score. A bigger audience means every episode reaches further, " +
+                "so growth compounds — but it slows down as you approach the size the fanbase can realistically support.\n\n" +
+                "Reputation (0–100) — how seriously the show is taken. Thoughtful, well-made episodes and measured takes build it; " +
+                "lazy episodes and cheap drama burn it. It matters because a well-regarded show can grow much bigger — high reputation " +
+                "lifts the ceiling on your audience. Some topics also need a minimum reputation before you can cover them.\n\n" +
+                "Money — ad income barely covers the weekly overhead on its own, so the budget is tight until the audience is large. " +
+                "Three straight weeks more than €200 in the red and the show folds.\n\n" +
+                "Buzz — earned when an episode punches above its weight. Right now it only pays to redraw the topic offer; " +
+                "it unlocks more later.", "body"));
+            root.Add(numbers);
+
+            var gloss = Ui.Box("panel");
+            gloss.Add(Ui.Text("GLOSSARY", "eyebrow"));
+            void Term(string t, string d)
+            {
+                gloss.Add(Ui.Text(t, "topiccard-title"));
+                gloss.Add(Ui.Wrapping(d, "body", "dim"));
+                gloss.Add(Ui.Divider());
+            }
+            Term("Draw", "How many listeners a topic pulls in this week, before quality. Shifts with the result, the fixture and story context.");
+            Term("Prep needed", "The prep points it takes to cover a topic properly. Under it and the episode sounds thin; a point or two over gives a small edge.");
+            Term("Risk", "How much the outcome can swing. Research prep narrows it — a gamble becomes a safer bet.");
+            Term("Surprise", "How far the match result landed from what was expected. Drives the mood you're reacting to and which topics land.");
+            Term("Topic prep / Research / Audio / Promo", "Topic prep = the homework. Research = less variance. Audio = a better episode and less churn. Promo = a one-week reach bump only.");
+            Term("Running stories", "Ongoing club storylines. Pick the STORY topic to take a side; match the eventual outcome and you gain reputation and buzz, call it wrong and it costs you.");
+            Term("Sponsors", "A deal pays weekly but sets a growth target and a deadline. Hit it for a bonus and a better renewal; miss it and the deal ends badly.");
+            root.Add(gloss);
         }
 
         // ------------------------------------------------------------------
@@ -220,6 +392,7 @@ namespace PodcastTycoon.Game
                 panel.Add(Ui.Wrapping(ctx.Headline, "body"));
                 if (!string.IsNullOrEmpty(ctx.Advice))
                     panel.Add(Ui.Wrapping(ctx.Advice, "body", "dim"));
+                AppendSquadNews(panel, ctx);
                 return panel;
             }
 
@@ -305,8 +478,8 @@ namespace PodcastTycoon.Game
 
         VisualElement BuildSquadPanel()
         {
-            var fold = new Foldout { text = "The squad", value = false };
-            fold.AddToClassList("help-foldout");
+            var panel = Ui.Box("panel");
+            panel.Add(Ui.Text("The squad", "h2"));
             foreach (var p in E.Roster.Players)
             {
                 var row = Ui.Row();
@@ -316,16 +489,16 @@ namespace PodcastTycoon.Game
                 var status = Ui.Text(p.StatusLine, "body", p.IsFit ? "dim" : "bad");
                 row.Add(left);
                 row.Add(status);
-                fold.Add(row);
+                panel.Add(row);
             }
-            fold.Add(Ui.Wrapping("★ marks the players whose absence actually weakens the team.", "body", "dim"));
-            return fold;
+            panel.Add(Ui.Wrapping("★ marks the players whose absence actually weakens the team.", "body", "dim"));
+            return panel;
         }
 
         VisualElement BuildTablePanel()
         {
-            var fold = new Foldout { text = "League table & fixtures", value = false };
-            fold.AddToClassList("help-foldout");
+            var panel = Ui.Box("panel");
+            panel.Add(Ui.Text("League table & fixtures", "h2"));
 
             var standings = E.Calendar.Standings();
             int i = 1;
@@ -339,12 +512,12 @@ namespace PodcastTycoon.Game
                 var pts = Ui.Text($"P{c.Played}  {c.Points}pts  ({(c.GoalDifference >= 0 ? "+" : "")}{c.GoalDifference})", "body", "dim");
                 row.Add(name);
                 row.Add(pts);
-                fold.Add(row);
+                panel.Add(row);
                 i++;
             }
 
-            fold.Add(Ui.Divider());
-            fold.Add(Ui.Text("NEXT UP", "eyebrow"));
+            panel.Add(Ui.Divider());
+            panel.Add(Ui.Text("NEXT UP", "eyebrow"));
             foreach (var fx in E.Calendar.UpcomingFixtures(E.State.SeasonTurn + 1, 4))
             {
                 string line = fx.IsInternationalBreak ? "International break"
@@ -352,24 +525,24 @@ namespace PodcastTycoon.Game
                     : $"{(fx.Home ? "H" : "A")}  {fx.Opponent}"
                       + (fx.Importance == FixtureImportance.Derby ? "  · derby"
                          : fx.Importance == FixtureImportance.BigMatch ? "  · big match" : "");
-                fold.Add(Ui.Text(line, "body", "dim"));
+                panel.Add(Ui.Text(line, "body", "dim"));
             }
-            return fold;
+            return panel;
         }
 
         VisualElement BuildEpisodeLog()
         {
-            var fold = new Foldout { text = "Recent episodes", value = false };
-            fold.AddToClassList("help-foldout");
+            var panel = Ui.Box("panel");
+            panel.Add(Ui.Text("Recent episodes", "h2"));
 
             var eps = E.State.Episodes;
             if (eps.Count == 0)
             {
-                fold.Add(Ui.Wrapping("Nothing published yet.", "body", "dim"));
-                return fold;
+                panel.Add(Ui.Wrapping("Nothing published yet.", "body", "dim"));
+                return panel;
             }
 
-            int from = Mathf.Max(0, eps.Count - 8);
+            int from = Mathf.Max(0, eps.Count - 16);
             for (int i = eps.Count - 1; i >= from; i--)
             {
                 var e = eps[i];
@@ -381,9 +554,9 @@ namespace PodcastTycoon.Game
                     e.ListenerDelta >= 0 ? "dim" : "bad");
                 row.Add(l);
                 row.Add(r);
-                fold.Add(row);
+                panel.Add(row);
             }
-            return fold;
+            return panel;
         }
 
         VisualElement BuildSponsorPanel(WeekContext ctx)
@@ -443,10 +616,8 @@ namespace PodcastTycoon.Game
 
         VisualElement BuildStudioPanel()
         {
-            bool anythingToBuy = !E.State.HasGear(Gear.XlrMic) || !E.State.HasGear(Gear.AcousticPanels)
-                                 || !E.State.HasGear(Gear.EditingSoftware) || !E.State.HasCoHost;
-            var panel = new Foldout { text = "Studio — gear & co-host", value = anythingToBuy && E.State.GlobalWeek <= 3 };
-            panel.AddToClassList("help-foldout");
+            var panel = Ui.Box("panel");
+            panel.Add(Ui.Text("Studio — gear & co-host", "h2"));
             var st = E.State;
 
             void GearRow(string name, Gear g, string effect)
@@ -688,6 +859,7 @@ namespace PodcastTycoon.Game
         // --- headless capture hooks ---
         public void DebugPickFirst()
         {
+            if (_activeTab != 0) SwitchTab(0);
             if (E.Offer.Count > 0) Pick(E.Offer[0]);
         }
 
