@@ -83,6 +83,7 @@ namespace PodcastTycoon.Game
 
             // --- the week ---
             scroll.Add(BuildMatchPanel(ctx));
+            scroll.Add(BuildSquadPanel());
 
             // --- topic offer ---
             var offerPanel = Ui.Box("panel");
@@ -124,6 +125,10 @@ namespace PodcastTycoon.Game
 
             // --- studio ---
             scroll.Add(BuildStudioPanel());
+
+            // --- reference ---
+            scroll.Add(BuildTablePanel());
+            scroll.Add(BuildEpisodeLog());
 
             // --- publish ---
             _publish = Ui.Btn("Record & release", Publish, "btn-primary");
@@ -181,7 +186,106 @@ namespace PodcastTycoon.Game
             panel.Add(Ui.Wrapping(ctx.Headline, "body"));
             if (!string.IsNullOrEmpty(ctx.Advice))
                 panel.Add(Ui.Wrapping(ctx.Advice, "body", "dim"));
+
+            if (ctx.KeyPlayersOut > 0)
+                panel.Add(Ui.Wrapping(
+                    $"{ctx.KeyPlayersOut} key player{(ctx.KeyPlayersOut == 1 ? "" : "s")} missing — the team was weaker for this one.",
+                    "body", "dim"));
+
+            AppendSquadNews(panel, ctx);
             return panel;
+        }
+
+        void AppendSquadNews(VisualElement panel, WeekContext ctx)
+        {
+            if (ctx.SquadNews == null || ctx.SquadNews.Count == 0) return;
+            panel.Add(Ui.Divider());
+            panel.Add(Ui.Text("SQUAD NEWS", "eyebrow"));
+            foreach (var line in ctx.SquadNews)
+                panel.Add(Ui.Wrapping("• " + line, "body"));
+        }
+
+        VisualElement BuildSquadPanel()
+        {
+            var fold = new Foldout { text = "The squad", value = false };
+            fold.AddToClassList("help-foldout");
+            foreach (var p in E.Roster.Players)
+            {
+                var row = Ui.Row();
+                row.style.marginBottom = 3;
+                var left = Ui.Text($"{p.Name}  ({p.Position})" + (p.IsKey ? "  ★" : ""), "body");
+                left.style.flexGrow = 1;
+                var status = Ui.Text(p.StatusLine, "body", p.IsFit ? "dim" : "bad");
+                row.Add(left);
+                row.Add(status);
+                fold.Add(row);
+            }
+            fold.Add(Ui.Wrapping("★ marks the players whose absence actually weakens the team.", "body", "dim"));
+            return fold;
+        }
+
+        VisualElement BuildTablePanel()
+        {
+            var fold = new Foldout { text = "League table & fixtures", value = false };
+            fold.AddToClassList("help-foldout");
+
+            var standings = E.Calendar.Standings();
+            int i = 1;
+            foreach (var c in standings)
+            {
+                var row = Ui.Row();
+                row.style.marginBottom = 2;
+                var name = Ui.Text($"{i,2}. {c.Name}", "body", c.IsPlayer ? null : "dim");
+                if (c.IsPlayer) name.style.color = _host.Theme.Secondary;
+                name.style.flexGrow = 1;
+                var pts = Ui.Text($"P{c.Played}  {c.Points}pts  ({(c.GoalDifference >= 0 ? "+" : "")}{c.GoalDifference})", "body", "dim");
+                row.Add(name);
+                row.Add(pts);
+                fold.Add(row);
+                i++;
+            }
+
+            fold.Add(Ui.Divider());
+            fold.Add(Ui.Text("NEXT UP", "eyebrow"));
+            foreach (var fx in E.Calendar.UpcomingFixtures(E.State.SeasonTurn + 1, 4))
+            {
+                string line = fx.IsInternationalBreak ? "International break"
+                    : fx.IsOffseason ? "Offseason"
+                    : $"{(fx.Home ? "H" : "A")}  {fx.Opponent}"
+                      + (fx.Importance == FixtureImportance.Derby ? "  · derby"
+                         : fx.Importance == FixtureImportance.BigMatch ? "  · big match" : "");
+                fold.Add(Ui.Text(line, "body", "dim"));
+            }
+            return fold;
+        }
+
+        VisualElement BuildEpisodeLog()
+        {
+            var fold = new Foldout { text = "Recent episodes", value = false };
+            fold.AddToClassList("help-foldout");
+
+            var eps = E.State.Episodes;
+            if (eps.Count == 0)
+            {
+                fold.Add(Ui.Wrapping("Nothing published yet.", "body", "dim"));
+                return fold;
+            }
+
+            int from = Mathf.Max(0, eps.Count - 8);
+            for (int i = eps.Count - 1; i >= from; i--)
+            {
+                var e = eps[i];
+                var row = Ui.Row();
+                row.style.marginBottom = 2;
+                var l = Ui.Text($"Wk {e.GlobalWeek}: {e.TopicName}", "body");
+                l.style.flexGrow = 1;
+                var r = Ui.Text($"{e.QualityLabel} · {Ui.Signed(e.ListenerDelta)} listeners", "body",
+                    e.ListenerDelta >= 0 ? "dim" : "bad");
+                row.Add(l);
+                row.Add(r);
+                fold.Add(row);
+            }
+            return fold;
         }
 
         VisualElement BuildStudioPanel()

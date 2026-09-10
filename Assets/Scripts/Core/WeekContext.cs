@@ -34,6 +34,12 @@ namespace PodcastTycoon.Core
 
         /// <summary>A longer line on what this week's mood means for the episode you make.</summary>
         public string Advice;
+
+        /// <summary>Injuries, returns, call-ups and form swings that happened this week.</summary>
+        public System.Collections.Generic.List<string> SquadNews = new System.Collections.Generic.List<string>();
+
+        /// <summary>How many key players were missing for this week's match.</summary>
+        public int KeyPlayersOut;
     }
 
     public static class ContextResolver

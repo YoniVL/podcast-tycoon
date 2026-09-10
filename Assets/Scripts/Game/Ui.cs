@@ -7,24 +7,31 @@ namespace PodcastTycoon.Game
     /// <summary>Tiny builders so the screen code stays readable.</summary>
     public static class Ui
     {
+        static void AddClasses(VisualElement e, string[] classes)
+        {
+            if (classes == null) return;
+            foreach (var c in classes)
+                if (!string.IsNullOrEmpty(c)) e.AddToClassList(c);
+        }
+
         public static VisualElement Box(params string[] classes)
         {
             var e = new VisualElement();
-            foreach (var c in classes) e.AddToClassList(c);
+            AddClasses(e, classes);
             return e;
         }
 
         public static VisualElement Row(params string[] classes)
         {
             var e = Box("row");
-            foreach (var c in classes) e.AddToClassList(c);
+            AddClasses(e, classes);
             return e;
         }
 
         public static Label Text(string text, params string[] classes)
         {
             var l = new Label(text);
-            foreach (var c in classes) l.AddToClassList(c);
+            AddClasses(l, classes);
             return l;
         }
 
@@ -40,7 +47,7 @@ namespace PodcastTycoon.Game
             var b = new Button(onClick) { text = text };
             b.RemoveFromClassList("unity-button");
             b.AddToClassList("btn");
-            foreach (var c in classes) b.AddToClassList(c);
+            AddClasses(b, classes);
             return b;
         }
 

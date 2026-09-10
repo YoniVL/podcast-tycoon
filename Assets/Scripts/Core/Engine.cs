@@ -35,6 +35,8 @@ namespace PodcastTycoon.Core
         readonly MatchSimulator _match;
         readonly Resolution _resolution;
 
+        public Squad Roster { get; }
+
         public WeekContext CurrentWeek { get; private set; }
         public IReadOnlyList<Topic> Offer { get; private set; } = Array.Empty<Topic>();
         public bool HasRedrawnThisWeek { get; private set; }
@@ -66,6 +68,8 @@ namespace PodcastTycoon.Core
                 PeakListeners = Config.StartListeners
             };
 
+            Roster = Squad.Generate(State.TeamStrength, _rng);
+
             Calendar = new SeasonCalendar(Config);
             Calendar.BuildSeason(State.ClubName, State.TeamStrength, 1, _rng);
         }
@@ -86,10 +90,14 @@ namespace PodcastTycoon.Core
                 Fixture = fixture
             };
 
+            bool isBreak = fixture == null || fixture.IsMatchless;
+            ctx.SquadNews = Roster.AdvanceWeek(isBreak, fixtureCongestion: !isBreak, _rng);
+            ctx.KeyPlayersOut = Roster.KeyPlayersOut();
+
             if (fixture != null && !fixture.IsMatchless)
             {
                 Calendar.SimulateOtherFixtures(State.SeasonTurn, _rng, _match);
-                ctx.Match = _match.Simulate(State.TeamStrength, 0f, fixture, _rng);
+                ctx.Match = _match.Simulate(State.TeamStrength, Roster.KeyOut(), fixture, _rng);
                 Calendar.RecordPlayerResult(fixture, ctx.Match);
             }
 
@@ -157,6 +165,18 @@ namespace PodcastTycoon.Core
             State.EpisodesPublished++;
             State.PeakListeners = Math.Max(State.PeakListeners, State.Listeners);
             State.ListenerHistory.Add(State.Listeners);
+            State.Episodes.Add(new EpisodeRecord
+            {
+                GlobalWeek = State.GlobalWeek,
+                Season = State.Season,
+                TopicName = result.Topic.Name,
+                QualityLabel = result.QualityLabel,
+                Surprise = CurrentWeek.Surprise,
+                Matchless = CurrentWeek.IsMatchless,
+                ListenerDelta = result.ListenerDeltaActual,
+                ReputationDelta = result.ReputationDelta,
+                BuzzGained = result.BuzzGained
+            });
 
             CheckFailStates();
             CheckMilestones();
@@ -253,6 +273,7 @@ namespace PodcastTycoon.Core
             if (State.TeamStrength > 0.50f) State.TeamStrength -= drift;
             else if (State.TeamStrength < 0.50f) State.TeamStrength += drift;
 
+            Roster.Offseason(_rng);
             Calendar.BuildSeason(State.ClubName, State.TeamStrength, State.Season, _rng);
             SeasonRolledOver?.Invoke(State.Season);
         }

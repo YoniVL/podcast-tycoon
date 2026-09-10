@@ -3,6 +3,19 @@ using System.Collections.Generic;
 
 namespace PodcastTycoon.Core
 {
+    public sealed class EpisodeRecord
+    {
+        public int GlobalWeek;
+        public int Season;
+        public string TopicName;
+        public string QualityLabel;
+        public Surprise Surprise;
+        public bool Matchless;
+        public int ListenerDelta;
+        public float ReputationDelta;
+        public int BuzzGained;
+    }
+
     [Flags]
     public enum Gear
     {
@@ -50,6 +63,7 @@ namespace PodcastTycoon.Core
 
         // --- history ---
         public readonly List<int> ListenerHistory = new List<int>();
+        public readonly List<EpisodeRecord> Episodes = new List<EpisodeRecord>();
         public int PeakListeners = 40;
         public int EpisodesPublished = 0;
 

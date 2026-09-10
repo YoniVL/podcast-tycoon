@@ -237,6 +237,33 @@ namespace PodcastTycoon.Core
                 Clubs[fixture.OpponentIndex].Record(result.GoalsAgainst, result.GoalsFor);
         }
 
+        /// <summary>League table, best first.</summary>
+        public List<LeagueClub> Standings()
+        {
+            var list = new List<LeagueClub>(Clubs);
+            list.Sort((a, b) =>
+            {
+                int c = b.Points.CompareTo(a.Points);
+                if (c != 0) return c;
+                c = b.GoalDifference.CompareTo(a.GoalDifference);
+                if (c != 0) return c;
+                return b.GoalsFor.CompareTo(a.GoalsFor);
+            });
+            return list;
+        }
+
+        /// <summary>The player's next <paramref name="count"/> fixtures from (and including) a turn.</summary>
+        public List<Fixture> UpcomingFixtures(int fromTurn, int count)
+        {
+            var list = new List<Fixture>();
+            for (int t = fromTurn; t <= _turns.Count && list.Count < count; t++)
+            {
+                var fx = FixtureForTurn(t);
+                if (fx != null) list.Add(fx);
+            }
+            return list;
+        }
+
         public int PlayerPosition()
         {
             int pos = 1;
