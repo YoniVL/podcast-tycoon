@@ -89,6 +89,33 @@ namespace PodcastTycoon.Tests
         }
 
         [Test]
+        public void PushingAStanceMovesTheOutcomeThatWay()
+        {
+            // Argue "he stays" hard on every manager thread across a long run; compare to arguing "sack".
+            int Sackings(int seed, int stance)
+            {
+                var e = new Engine(new RunSetup { ClubName = "Testford", Difficulty = Difficulty.Hard },
+                    new GameConfig(), new SystemRng(seed));
+                int sacked = 0;
+                e.ThreadResolved += ev => { if (ev.Kind == ThreadKind.ManagerPressure && ev.Headline.Contains("sacked")) sacked++; };
+                for (int i = 0; i < 220 && !e.State.IsGameOver; i++)
+                {
+                    e.BeginWeek();
+                    var mgr = e.Offer.FirstOrDefault(t => t.SourceThread != null && t.SourceThread.Kind == ThreadKind.ManagerPressure);
+                    var plan = ProductionPlan.Cover(mgr ?? e.Offer[0], stance);
+                    plan.PrepTopic = 6; plan.PrepResearch = 2; plan.PrepAudio = 2;
+                    e.Publish(plan);
+                }
+                return sacked;
+            }
+
+            int backing = Sackings(303, +1);
+            int callingForSack = Sackings(303, -1);
+            Assert.That(callingForSack, Is.GreaterThanOrEqualTo(backing),
+                "consistently calling for the sack should produce at least as many sackings as backing him");
+        }
+
+        [Test]
         public void TeamStrengthStaysInBoundsThroughManyThreadResolutions()
         {
             var e = new Engine(new RunSetup { ClubName = "Testford", Difficulty = Difficulty.Nightmare },

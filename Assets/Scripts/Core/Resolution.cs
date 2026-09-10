@@ -10,6 +10,9 @@ namespace PodcastTycoon.Core
         /// <summary>Set instead of <see cref="Topic"/> when covering a story-thread topic.</summary>
         public Topic ThreadTopic;
 
+        /// <summary>The position taken on a thread topic: -1, 0 (none), or +1.</summary>
+        public int Stance;
+
         public int PrepTopic;
         public int PrepResearch;
         public int PrepAudio;
@@ -21,17 +24,17 @@ namespace PodcastTycoon.Core
         public Topic Resolved => ThreadTopic ?? TopicCatalog.Get(Topic);
 
         /// <summary>Build a plan that covers the given topic (catalog or thread).</summary>
-        public static ProductionPlan Cover(Topic topic)
+        public static ProductionPlan Cover(Topic topic, int stance = 1)
         {
             var p = new ProductionPlan();
-            if (topic.SourceThread != null) p.ThreadTopic = topic;
+            if (topic.SourceThread != null) { p.ThreadTopic = topic; p.Stance = stance; }
             else p.Topic = topic.Id;
             return p;
         }
 
         public ProductionPlan Clone() => new ProductionPlan
         {
-            Topic = Topic, ThreadTopic = ThreadTopic,
+            Topic = Topic, ThreadTopic = ThreadTopic, Stance = Stance,
             PrepTopic = PrepTopic, PrepResearch = PrepResearch,
             PrepAudio = PrepAudio, PrepPromo = PrepPromo
         };

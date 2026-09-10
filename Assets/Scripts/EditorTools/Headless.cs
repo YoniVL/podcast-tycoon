@@ -115,7 +115,9 @@ namespace PodcastTycoon.EditorTools
         static ProductionPlan Plan(Engine engine, Topic pick)
         {
             int cap = engine.State.PrepCapacity(engine.Config);
-            var plan = ProductionPlan.Cover(pick);
+            // On a story, back whichever way it's already trending.
+            int stance = pick.SourceThread != null ? (pick.SourceThread.Momentum >= 0f ? 1 : -1) : 0;
+            var plan = ProductionPlan.Cover(pick, stance);
             plan.PrepTopic = Mathf.Min(pick.Effort + 1, cap);
             int left = cap - plan.PrepTopic;
             plan.PrepResearch = Mathf.Clamp(left / 3, 0, 4);

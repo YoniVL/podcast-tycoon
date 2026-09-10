@@ -239,6 +239,11 @@ namespace PodcastTycoon.Game
                     row.Add(Ui.Wrapping(t.Note, "body", "dim"));
                 row.Add(Ui.Wrapping("Which way it's leaning: " + LeanLabel(t.Momentum), "body",
                     t.Momentum >= 0 ? "good" : "bad"));
+
+                int call = System.Math.Sign(t.StanceScore);
+                if (call != 0 && !string.IsNullOrEmpty(t.StancePlusLabel))
+                    row.Add(Ui.Wrapping("You've been calling it: “" +
+                        (call > 0 ? t.StancePlusLabel : t.StanceMinusLabel) + "”", "body", "dim"));
                 panel.Add(row);
             }
             return panel;
@@ -397,11 +402,12 @@ namespace PodcastTycoon.Game
             foreach (var topic in E.Offer)
             {
                 var card = Ui.Box("topiccard");
+                bool isThread = topic.SourceThread != null;
                 if (ReferenceEquals(_picked, topic)) card.AddToClassList("selected");
 
                 var titleRow = Ui.Row();
                 titleRow.Add(Ui.Text(topic.Name, "topiccard-title"));
-                if (topic.SourceThread != null)
+                if (isThread)
                 {
                     var tag = Ui.Text("STORY", "chip");
                     tag.AddToClassList("chip-story");
@@ -422,27 +428,61 @@ namespace PodcastTycoon.Game
                 if (topic.BuzzBonus >= 3) chips.Add(Ui.Chip("Good for buzz"));
                 card.Add(chips);
 
-                var picked = topic;
-                card.RegisterCallback<ClickEvent>(_ => Pick(picked));
+                if (isThread)
+                {
+                    var thread = topic.SourceThread;
+                    card.Add(Ui.Wrapping(thread.StanceQuestion, "body", "dim"));
+                    var btns = Ui.Box("row-wrap");
+                    var plus = Ui.Btn(thread.StancePlusLabel, () => PickThread(topic, +1), "btn-ghost");
+                    var minus = Ui.Btn(thread.StanceMinusLabel, () => PickThread(topic, -1), "btn-ghost");
+                    if (ReferenceEquals(_picked, topic) && _plan.Stance == +1) plus.AddToClassList("btn-primary");
+                    if (ReferenceEquals(_picked, topic) && _plan.Stance == -1) minus.AddToClassList("btn-primary");
+                    btns.Add(plus);
+                    btns.Add(minus);
+                    card.Add(btns);
+                }
+                else
+                {
+                    var picked = topic;
+                    card.RegisterCallback<ClickEvent>(_ => Pick(picked));
+                }
                 _topicList.Add(card);
             }
         }
 
+        void PickThread(Topic topic, int stance)
+        {
+            _plan.Stance = stance;
+            _plan.ThreadTopic = topic;
+            _plan.Topic = default;
+            SelectTopic(topic);
+        }
+
         void Pick(Topic topic)
         {
-            _picked = topic;
-            if (topic.SourceThread != null) { _plan.ThreadTopic = topic; }
-            else { _plan.Topic = topic.Id; _plan.ThreadTopic = null; }
+            _plan.Topic = topic.Id;
+            _plan.ThreadTopic = null;
+            _plan.Stance = 0;
+            SelectTopic(topic);
+        }
 
-            // Sensible default allocation: meet the effort, spread the rest.
-            int cap = E.State.PrepCapacity(E.Config);
-            _plan.PrepTopic = Mathf.Min(topic.Effort, cap);
-            int left = cap - _plan.PrepTopic;
-            _plan.PrepResearch = Mathf.Clamp(left / 3, 0, 6);
-            left -= _plan.PrepResearch;
-            _plan.PrepAudio = Mathf.Clamp(left / 2, 0, 6);
-            left -= _plan.PrepAudio;
-            _plan.PrepPromo = Mathf.Clamp(left, 0, 6);
+        void SelectTopic(Topic topic)
+        {
+            bool changed = !ReferenceEquals(_picked, topic);
+            _picked = topic;
+
+            if (changed)
+            {
+                // Sensible default allocation: meet the effort, spread the rest.
+                int cap = E.State.PrepCapacity(E.Config);
+                _plan.PrepTopic = Mathf.Min(topic.Effort, cap);
+                int left = cap - _plan.PrepTopic;
+                _plan.PrepResearch = Mathf.Clamp(left / 3, 0, 6);
+                left -= _plan.PrepResearch;
+                _plan.PrepAudio = Mathf.Clamp(left / 2, 0, 6);
+                left -= _plan.PrepAudio;
+                _plan.PrepPromo = Mathf.Clamp(left, 0, 6);
+            }
 
             RenderTopics();
             _prepBlock.style.display = DisplayStyle.Flex;

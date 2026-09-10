@@ -33,6 +33,14 @@ namespace PodcastTycoon.Core
         public string Note;             // one-line status shown in the match panel
         public Topic Topic;             // this week's topic (null between stages)
 
+        // The fork: the two positions you can take, and how you've been calling it.
+        public string StancePlusLabel = "";   // the +1 position
+        public string StanceMinusLabel = "";  // the -1 position
+        public string StanceQuestion = "";
+        public float StanceScore;             // running sum of your positions; sign = your overall call
+        public int LastStance;                // -1 / 0 / +1
+        public string CallResult;             // "right" / "wrong" / "hedged" / "absent" — set on resolution
+
         public string OutcomeText;      // set on resolution
 
         public string Label => Kind switch
@@ -131,15 +139,60 @@ namespace PodcastTycoon.Core
         }
 
         /// <summary>
-        /// Called from Engine.Publish when the player covered a thread topic.
-        /// The result of the story is driven by the football; your coverage is a small nudge, and
-        /// mostly it decides whether you're on the story when it pays off.
+        /// Called from Engine.Publish when the player covered a thread topic with a stance.
+        /// The football drives the outcome; your position nudges it, and — more importantly —
+        /// it's on record when the story pays off.
         /// </summary>
-        public void MarkCovered(StoryThread t, float quality)
+        public void MarkCovered(StoryThread t, float quality, int stance)
         {
             t.WeeksSinceCovered = 0;
             t.TimesCovered++;
-            t.Momentum = MathX.Clamp(t.Momentum + MathX.Clamp((quality - 1.0f) * 0.10f, -0.04f, 0.06f), -1f, 1f);
+            t.LastStance = stance;
+
+            float conviction = MathX.Clamp(quality, 0.4f, 1.6f);
+            float push = stance * (0.055f + MathX.Clamp((quality - 0.95f) * 0.14f, -0.03f, 0.09f));
+            t.Momentum = MathX.Clamp(t.Momentum + push, -1f, 1f);
+            t.StanceScore += stance * conviction;
+        }
+
+        /// <summary>Score the player's call once the story has resolved. outcomeSign: +1 or -1.</summary>
+        static void ApplyCall(StoryThread t, int outcomeSign, GameState st)
+        {
+            int call = Math.Sign(t.StanceScore);
+            if (call != 0)
+            {
+                if (call == outcomeSign)
+                {
+                    st.Reputation = MathX.Clamp(st.Reputation + 4f, 0f, 100f);
+                    st.Buzz += 5;
+                    t.CallResult = "right";
+                }
+                else
+                {
+                    st.Reputation = MathX.Clamp(st.Reputation - 4f, 0f, 100f);
+                    t.CallResult = "wrong";
+                }
+            }
+            else if (t.TimesCovered == 0)
+            {
+                st.Reputation = MathX.Clamp(st.Reputation - 1f, 0f, 100f);
+                t.CallResult = "absent";
+            }
+            else
+            {
+                t.CallResult = "hedged";
+            }
+        }
+
+        static string CallLine(StoryThread t)
+        {
+            switch (t.CallResult)
+            {
+                case "right": return "You'd been calling it that way. Good shout.";
+                case "wrong": return "You'd been arguing the opposite. Awkward.";
+                case "absent": return "You sat this one out entirely.";
+                default: return "";
+            }
         }
 
         int Losses(int lastN)
@@ -288,7 +341,7 @@ namespace PodcastTycoon.Core
             ThreadResolved?.Invoke(e);
         }
 
-        // ---- Manager under pressure ----
+        // ---- Manager under pressure ----   (+1 = he stays, -1 = he goes)
         void AdvanceManager(Engine engine, WeekContext ctx, StoryThread t)
         {
             var st = engine.State;
@@ -296,16 +349,16 @@ namespace PodcastTycoon.Core
 
             if (t.Momentum > 0.42f || (timeout && t.Momentum > -0.05f))
             {
-                st.Reputation = MathX.Clamp(st.Reputation + (t.TimesCovered > 0 ? 3f : -2f), 0f, 100f);
-                st.Buzz += t.TimesCovered > 0 ? 6 : 0;
+                ApplyCall(t, +1, st);
+                st.Buzz += 5;
                 Resolve(t, $"{t.Subject} keeps his job",
-                    $"The results turned and the board has backed {t.Subject}. " +
-                    (t.TimesCovered > 0 ? "You were across it all week." : "Your listeners lived through that one without you."));
+                    $"The results turned and the board has backed {t.Subject}. {CallLine(t)}");
                 return;
             }
 
             if (t.Momentum < -0.55f || timeout)
             {
+                ApplyCall(t, -1, st);
                 float swing = (float)(_rng.NextDouble() * 0.09 - 0.03); // -0.03 .. +0.06
                 engine.State.TeamStrength = MathX.Clamp(engine.State.TeamStrength + swing, 0.1f, 0.95f);
                 st.Buzz += 12;
@@ -318,26 +371,30 @@ namespace PodcastTycoon.Core
 
                 Resolve(t, $"{old} is sacked",
                     $"{engine.State.ClubName} have dismissed {old}. {_managerName} takes over — " +
-                    (swing > 0.02f ? "an upgrade, on paper." : swing < -0.01f ? "a gamble that could backfire." : "a steady pair of hands."));
+                    (swing > 0.02f ? "an upgrade, on paper. " : swing < -0.01f ? "a gamble that could backfire. " : "a steady pair of hands. ")
+                    + CallLine(t));
                 return;
             }
 
-            if (t.Stage == 0 && t.WeeksInStage >= 2)
-            {
-                t.Stage = 1;
-                t.WeeksInStage = 0;
-            }
+            if (t.Stage == 0 && t.WeeksInStage >= 2) { t.Stage = 1; t.WeeksInStage = 0; }
 
             t.Note = t.Stage == 0
                 ? $"{t.Subject} is one bad result from the sack."
                 : $"The board is deciding {t.Subject}'s future this week.";
-            t.Title = t.Stage == 0 ? "Should the manager go?" : "What next for the club?";
-            t.Topic = MakeTopic(t, t.Title,
-                "Weigh in on the manager's future.",
+            t.Title = "The manager's future";
+            SetFork(t, "Back the manager", "Time for a change", "How are you calling it?");
+            t.Topic = MakeTopic(t, t.Title, "Take a side on the manager.",
                 appeal: 1.55f, effort: 3, swing: 0.35f, rep: 1f, buzz: 3, response: TopicResponse.Crisis);
         }
 
-        // ---- Star wants out ----
+        static void SetFork(StoryThread t, string plus, string minus, string question)
+        {
+            t.StancePlusLabel = plus;
+            t.StanceMinusLabel = minus;
+            t.StanceQuestion = question;
+        }
+
+        // ---- Star wants out ----   (+1 = he stays, -1 = cash in)
         void AdvanceStar(Engine engine, WeekContext ctx, StoryThread t)
         {
             var st = engine.State;
@@ -346,36 +403,38 @@ namespace PodcastTycoon.Core
 
             if (t.Momentum > 0.4f || (timeout && t.Momentum > 0.05f))
             {
+                ApplyCall(t, +1, st);
                 if (star != null) { star.ContractYears = 4; star.Rating = MathX.Clamp(star.Rating + 0.01f, 0.4f, 0.95f); }
                 engine.State.TeamStrength = MathX.Clamp(engine.State.TeamStrength + 0.02f, 0.1f, 0.95f);
-                st.Reputation = MathX.Clamp(st.Reputation + 2f, 0f, 100f);
                 st.Buzz += 8;
                 Resolve(t, $"{t.Subject} signs a new deal",
-                    $"{t.Subject} has committed his future to {st.ClubName}. The mood is transformed.");
+                    $"{t.Subject} has committed his future to {st.ClubName}. The mood is transformed. {CallLine(t)}");
                 return;
             }
 
             if (t.Momentum < -0.45f || timeout)
             {
+                ApplyCall(t, -1, st);
                 if (star != null)
                 {
                     star.Rating = MathX.Clamp(star.Rating - 0.10f, 0.42f, 0.9f);
                     star.ContractYears = 4;
-                    star.Name = ThreadManager.RandomPlayerName(_rng);
+                    star.Name = RandomPlayerName(_rng);
                 }
                 engine.State.TeamStrength = MathX.Clamp(engine.State.TeamStrength - 0.05f, 0.1f, 0.95f);
                 st.Buzz += 14;
                 st.Listeners = (int)Math.Min(_cfg.MaxListeners, st.Listeners + (long)Math.Round(st.Listeners * 0.02));
                 Resolve(t, $"{t.Subject} is sold",
-                    $"{t.Subject} has left {st.ClubName}. A big cheque, a big hole in the team, and a lot for you to talk about.");
+                    $"{t.Subject} has left {st.ClubName}. A big cheque, a big hole in the team, and a lot for you to talk about. {CallLine(t)}");
                 return;
             }
 
             if (t.Stage == 0 && t.WeeksInStage >= 3) { t.Stage = 1; t.WeeksInStage = 0; }
 
             t.Note = $"{t.Subject}'s future is unresolved.";
-            t.Title = t.Stage == 0 ? $"{t.Subject}: should we be worried?" : $"{t.Subject}: would you sell?";
-            t.Topic = MakeTopic(t, t.Title, "Talk through the star's situation.",
+            t.Title = $"{t.Subject}'s future";
+            SetFork(t, "We can't lose him", "Cash in while we can", "What should the club do?");
+            t.Topic = MakeTopic(t, t.Title, "Take a side on the star.",
                 appeal: 1.5f, effort: 4, swing: 0.4f, rep: 0f, buzz: 4, response: TopicResponse.Reaction);
         }
 
@@ -388,6 +447,7 @@ namespace PodcastTycoon.Core
 
             if ((t.Momentum > 0.55f && t.WeeksInStage >= 3) || (timeout && t.Momentum > 0.2f))
             {
+                ApplyCall(t, +1, st);
                 if (kid != null)
                 {
                     kid.Rating = MathX.Clamp(kid.Rating + 0.08f, 0.42f, 0.82f);
@@ -395,31 +455,32 @@ namespace PodcastTycoon.Core
                 }
                 _wonderkidPeaked = true;
                 engine.State.TeamStrength = MathX.Clamp(engine.State.TeamStrength + 0.02f, 0.1f, 0.95f);
-                st.Reputation = MathX.Clamp(st.Reputation + 2f, 0f, 100f);
                 st.Buzz += 8;
                 st.Listeners = (int)Math.Min(_cfg.MaxListeners, st.Listeners + (long)Math.Round(st.Listeners * 0.02));
                 Resolve(t, $"{t.Subject} has arrived",
-                    $"{t.Subject} has kicked on and looks the real thing. You were on it early.");
+                    $"{t.Subject} has kicked on and looks the real thing. {CallLine(t)}");
                 return;
             }
 
             if (t.Momentum < -0.4f || timeout)
             {
+                ApplyCall(t, -1, st);
                 if (kid != null) kid.Form = PlayerForm.Poor;
                 st.Buzz = Math.Max(0, st.Buzz - 3);
                 Resolve(t, $"The {t.Subject} hype cools",
-                    $"{t.Subject}'s form has dipped and the excitement has faded. One for another day.");
+                    $"{t.Subject}'s form has dipped and the excitement has faded. {CallLine(t)}");
                 return;
             }
 
             t.Note = $"The fanbase is watching {t.Subject} closely.";
-            t.Title = t.Stage == 0 ? $"Is {t.Subject} the real deal?" : $"{t.Subject}: the big test";
+            t.Title = $"The {t.Subject} question";
+            SetFork(t, "He's the real deal", "Don't get carried away", "Where do you stand?");
             if (t.Stage == 0 && t.WeeksInStage >= 3) { t.Stage = 1; t.WeeksInStage = 0; }
-            t.Topic = MakeTopic(t, t.Title, "Make the case for the prospect — or pump the brakes.",
+            t.Topic = MakeTopic(t, t.Title, "Make the case, or pump the brakes.",
                 appeal: 1.25f, effort: 4, swing: 0.3f, rep: 1f, buzz: 3, response: TopicResponse.Positive);
         }
 
-        // ---- Are we actually good ----
+        // ---- Are we actually good ----   (+1 = it's real, -1 = flat-track bullies)
         void AdvanceGood(Engine engine, WeekContext ctx, StoryThread t)
         {
             var st = engine.State;
@@ -427,25 +488,27 @@ namespace PodcastTycoon.Core
 
             if ((t.Momentum > 0.5f && t.WeeksInStage >= 2) || (timeout && t.Momentum > 0.1f))
             {
+                ApplyCall(t, +1, st);
                 engine.State.TeamStrength = MathX.Clamp(engine.State.TeamStrength + 0.02f, 0.1f, 0.95f);
-                st.Reputation = MathX.Clamp(st.Reputation + 3f, 0f, 100f);
                 st.Buzz += 6;
                 st.Listeners = (int)Math.Min(_cfg.MaxListeners, st.Listeners + (long)Math.Round(st.Listeners * 0.03));
                 Resolve(t, $"{st.ClubName} are the real thing",
-                    "The results kept coming. This is a genuine season — and your show has grown with it.");
+                    $"The results kept coming. This is a genuine season. {CallLine(t)}");
                 return;
             }
 
             if (t.Momentum < -0.3f || timeout)
             {
+                ApplyCall(t, -1, st);
                 st.Listeners = Math.Max(0, (int)(st.Listeners - Math.Round(st.Listeners * 0.015)));
                 Resolve(t, "The bubble bursts",
-                    $"A couple of bad weeks and the doubts are back. {st.ClubName} were flattering to deceive after all.");
+                    $"A couple of bad weeks and the doubts are back. {st.ClubName} were flattering to deceive. {CallLine(t)}");
                 return;
             }
 
             t.Note = "The \"are we good?\" question is still open.";
-            t.Title = t.WeeksInStage < 3 ? "Flat-track bullies?" : "This is the proof";
+            t.Title = "Are we actually any good?";
+            SetFork(t, "This is real", "Flat-track bullies", "Which is it?");
             t.Topic = MakeTopic(t, t.Title, "Take a side on whether this is real.",
                 appeal: 1.2f, effort: 4, swing: 0.25f, rep: 1f, buzz: 2, response: TopicResponse.Reaction);
         }

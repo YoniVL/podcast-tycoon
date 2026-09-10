@@ -177,7 +177,7 @@ namespace PodcastTycoon.Core
             var result = _resolution.Resolve(State, CurrentWeek, plan, _rng);
 
             if (plan.ThreadTopic?.SourceThread != null)
-                Threads.MarkCovered(plan.ThreadTopic.SourceThread, result.Quality);
+                Threads.MarkCovered(plan.ThreadTopic.SourceThread, result.Quality, plan.Stance);
 
             long listeners = (long)State.Listeners + result.ListenerDeltaActual;
             listeners = Math.Max(0L, Math.Min(Config.MaxListeners, listeners));
