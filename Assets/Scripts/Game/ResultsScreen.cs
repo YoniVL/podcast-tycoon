@@ -84,6 +84,28 @@ namespace PodcastTycoon.Game
                 scroll.Add(toast);
             }
 
+            // --- how it landed ---
+            var landed = Ui.Box("panel");
+            landed.Add(Ui.Text("How it landed", "h2"));
+            int dCore = Mathf.RoundToInt(_result.CoreDelta);
+            int dCasual = Mathf.RoundToInt(_result.CasualDelta);
+            int dFoll = Mathf.RoundToInt(_result.FollowersDelta);
+            string landLine;
+            if (_result.ListenerDeltaActual > 30 && dCasual > dCore * 2)
+                landLine = $"{Ui.Signed(_result.ListenerDeltaActual)} listeners, but mostly casual — chasing the buzz, and they won't all stick around.";
+            else if (_result.ListenerDeltaActual > 30 && dCore >= dCasual)
+                landLine = $"{Ui.Signed(_result.ListenerDeltaActual)} listeners, and a good share of them converted to your core. That's the audience that stays.";
+            else if (_result.ListenerDeltaActual > 5)
+                landLine = $"{Ui.Signed(_result.ListenerDeltaActual)} listeners — steady growth.";
+            else if (_result.ListenerDeltaActual >= -5)
+                landLine = "Roughly flat this week — you held serve.";
+            else
+                landLine = $"{Ui.Signed(_result.ListenerDeltaActual)} listeners — the casual audience is drifting.";
+            landed.Add(Ui.Wrapping(landLine, "body"));
+            landed.Add(Ui.Wrapping($"Audience: {_result.LoyaltyAfter}." +
+                (dFoll >= 50 ? $"  {Ui.Signed(dFoll)} clip followers." : ""), "body", "dim"));
+            scroll.Add(landed);
+
             // --- what changed ---
             var deltas = Ui.Box("panel");
             deltas.Add(Ui.Text("What changed", "h2"));
@@ -118,6 +140,7 @@ namespace PodcastTycoon.Game
             var tgrid = Ui.Box("statstrip");
             tgrid.Add(Ui.Stat("Money", Ui.Money(st.Money), st.Money < 0 ? "bad" : null));
             tgrid.Add(Ui.Stat("Listeners", st.Listeners.ToString("N0")));
+            tgrid.Add(Ui.Stat("Loyalty", st.LoyaltyLabel));
             tgrid.Add(Ui.Stat("Reputation", Mathf.RoundToInt(st.Reputation).ToString()));
             tgrid.Add(Ui.Stat("Credibility", Mathf.RoundToInt(st.Credibility).ToString()));
             tgrid.Add(Ui.Stat("Social reach", Mathf.RoundToInt(st.SocialReach).ToString()));

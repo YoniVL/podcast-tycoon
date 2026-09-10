@@ -79,6 +79,7 @@ namespace PodcastTycoon.Core
                 Difficulty = setup.Difficulty,
                 Money = Config.StartMoney + (mods.NestEgg ? 300 : 0),
                 Listeners = Config.StartListeners,
+                Core = Config.StartListeners,
                 Reputation = Config.StartReputation,
                 Credibility = Config.StartCredibility,
                 SocialReach = Config.StartSocialReach,
@@ -264,6 +265,7 @@ namespace PodcastTycoon.Core
 
         public EpisodeResult Publish(ProductionPlan plan)
         {
+            int oldListeners = State.Listeners;
             var result = _resolution.Resolve(State, CurrentWeek, plan, _rng);
 
             // Any slot can carry a story-thread topic (spec §7).
@@ -273,26 +275,32 @@ namespace PodcastTycoon.Core
 
             Scoops.ConsumeBrokenTopic();
 
-            long listeners = (long)State.Listeners + result.ListenerDeltaActual;
+            // The episode resolved the three audience pools directly (spec §17).
+            float core = result.CoreNew, casual = result.CasualNew, followers = result.FollowersNew;
 
+            // Post-episode adjustments that scale the whole audience.
+            float scale = 1f;
             if (State.WeeklyListenerDriftWeeks > 0)
             {
-                listeners += (long)Math.Round(listeners * State.WeeklyListenerDrift);
+                scale *= 1f + State.WeeklyListenerDrift;
                 State.WeeklyListenerDriftWeeks--;
                 if (State.WeeklyListenerDriftWeeks == 0) State.WeeklyListenerDrift = 0f;
             }
-
-            // Overreach from last week: the extra reach a weak-but-heavily-promoted episode
-            // pulled in bounces straight back out (spec §12).
-            if (State.OverreachChurnNextWeek > 0f)
+            if (State.OverreachChurnNextWeek > 0f)   // last week's overreach bounces back (spec §12)
             {
-                listeners -= (long)Math.Round(listeners * State.OverreachChurnNextWeek);
+                scale *= 1f - State.OverreachChurnNextWeek;
                 State.OverreachChurnNextWeek = 0f;
             }
             State.OverreachChurnNextWeek = result.OverreachNextWeek;
+            core *= scale; casual *= scale; followers *= scale;
 
-            listeners = Math.Max(0L, Math.Min(Config.MaxListeners, listeners));
-            State.Listeners = (int)listeners;
+            float cap = Config.MaxListeners;
+            State.Core = MathX.Clamp(core, 0f, cap);
+            State.Casual = MathX.Clamp(casual, 0f, cap);
+            State.Followers = MathX.Clamp(followers, 0f, cap);
+            State.Listeners = (int)Math.Max(0L, Math.Min(Config.MaxListeners,
+                (long)Math.Round(State.Core + State.Casual)));
+            result.ListenerDeltaActual = State.Listeners - oldListeners;
             State.Reputation = MathX.Clamp(State.Reputation + result.ReputationDelta, 0f, 100f);
             State.Credibility = MathX.Clamp(State.Credibility + result.CredibilityDelta, 0f, 100f);
             State.SocialReach = MathX.Clamp(State.SocialReach + result.SocialGained, 0f, 100f);
@@ -494,8 +502,12 @@ namespace PodcastTycoon.Core
             State.Season++;
             State.SeasonTurn = 1;
 
-            float churn = Config.OffseasonChurn * (State.Modifiers.GentleChurn ? 0.8f : 1f);
-            State.Listeners = Math.Max(0, MathX.RoundToInt(State.Listeners * (1f - churn)));
+            float churnMod = State.Modifiers.GentleChurn ? 0.8f : 1f;
+            // The loyal core barely leaves over a summer; the casual and clip audience drop hard (spec §2).
+            State.Core = Math.Max(0f, State.Core * (1f - 0.08f * churnMod));
+            State.Casual = Math.Max(0f, State.Casual * (1f - 0.22f * churnMod));
+            State.Followers = Math.Max(0f, State.Followers * (1f - 0.30f * churnMod));
+            State.Listeners = Math.Max(0, MathX.RoundToInt(State.Core + State.Casual));
 
             float drift = Config.TeamStrengthSeasonDrift;
             if (State.TeamStrength > 0.50f) State.TeamStrength -= drift;

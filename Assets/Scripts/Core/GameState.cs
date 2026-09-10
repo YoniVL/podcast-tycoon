@@ -43,8 +43,24 @@ namespace PodcastTycoon.Core
 
         // --- resources ---
         public float Money = 500f;
-        public int Listeners = 40;
+        public int Listeners = 40;          // headline number = Core + Casual (spec §5)
         public float Reputation = 10f;
+
+        // --- audience pools, simulated behind the one Listeners number (spec §5, v0.4) ---
+        public float Core = 40f;            // loyal, low churn, pays best
+        public float Casual;                // chases the buzz, high churn
+        public float Followers;             // clip-only; barely monetises, amplifies virality
+
+        public string LoyaltyLabel
+        {
+            get
+            {
+                float aud = Core + Casual;
+                if (aud < 1f) return "New";
+                float share = Core / aud;
+                return share >= 0.70f ? "Devoted" : share >= 0.45f ? "Solid" : share >= 0.25f ? "Fickle" : "Fragile";
+            }
+        }
 
         // --- slow indices (spec §5, v0.4) ---
         public float Credibility = 50f;   // how much people trust what you say

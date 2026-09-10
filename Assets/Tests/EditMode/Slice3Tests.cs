@@ -23,6 +23,8 @@ namespace PodcastTycoon.Tests
             if (e.State.Money > 400 && e.CanBuy(Gear.XlrMic)) e.BuyGear(Gear.XlrMic);
             if (e.State.Money > 400 && e.CanBuy(Gear.EditingSoftware)) e.BuyGear(Gear.EditingSoftware);
             if (e.State.Money > 700 && e.CanHireCoHost()) e.HireCoHost();
+            if (e.State.Money > 900 && e.CanHireCrew(Crew.Producer)) e.HireCrew(Crew.Producer);
+            if (e.State.Money > 1100 && e.CanHireCrew(Crew.Researcher)) e.HireCrew(Crew.Researcher);
             if (e.Sponsors.Active == null && e.Sponsors.Inbox.Count > 0) e.SignSponsor(0);
 
             // A varied two/three-segment rundown — rotate angles so freshness doesn't crater.
@@ -132,6 +134,7 @@ namespace PodcastTycoon.Tests
             Assert.That(e.State.AccessTier, Is.EqualTo(0));
 
             e.State.Listeners = 20000;
+            e.State.Credibility = 60f;   // tier 2 also needs the club's trust (spec §18)
             for (int i = 0; i < 8; i++) e.State.ListenerHistory.Add(20000);
             e.BeginWeek();
             Assert.That(e.State.AccessTier, Is.GreaterThanOrEqualTo(2));
@@ -142,6 +145,7 @@ namespace PodcastTycoon.Tests
         {
             var e = NewEngine(11);
             e.State.Listeners = 30000;
+            e.State.Credibility = 65f;   // insider access needs the club's trust (spec §18)
             for (int i = 0; i < 8; i++) e.State.ListenerHistory.Add(30000);
 
             bool sawScoop = false;

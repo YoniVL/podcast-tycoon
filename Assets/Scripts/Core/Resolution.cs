@@ -138,6 +138,15 @@ namespace PodcastTycoon.Core
         public int SegmentCount;
         public float FreshnessMult = 1f;
 
+        // --- audience pools after this episode (spec §5, §17), at the actual roll ---
+        public float CoreNew;
+        public float CasualNew;
+        public float FollowersNew;
+        public float CoreDelta;
+        public float CasualDelta;
+        public float FollowersDelta;
+        public string LoyaltyAfter = "New";
+
         public string QualityLabel =>
             Quality >= 1.35f ? "Outstanding" :
             Quality >= 1.10f ? "Strong" :
@@ -154,6 +163,14 @@ namespace PodcastTycoon.Core
         /// <summary>Deterministic projection at roll = 1.0 (for the live UI preview).</summary>
         public EpisodeResult Project(GameState st, WeekContext ctx, ProductionPlan plan)
             => Resolve(st, ctx, plan, new FixedRng(0.5));
+
+        public static string LoyaltyOf(float core, float casual)
+        {
+            float aud = core + casual;
+            if (aud < 1f) return "New";
+            float share = core / aud;
+            return share >= 0.70f ? "Devoted" : share >= 0.45f ? "Solid" : share >= 0.25f ? "Fickle" : "Fragile";
+        }
 
         float SlotWeight(ProductionPlan plan, Segment s)
         {
@@ -189,7 +206,7 @@ namespace PodcastTycoon.Core
             bool sawCrisisEarlier = false;
             bool whiplash = false;
 
-            float reach = 0f, qualityW = 0f, spreadW = 0f, appealW = 0f;
+            float reach = 0f, qualityW = 0f, spreadW = 0f, appealW = 0f, angleAppealW = 0f;
             float repDelta = 0f, credDelta = 0f, socialFlat = 0f;
             bool anyCrisis = false;
             int hotTakes = 0, distinctAngles;
@@ -249,6 +266,7 @@ namespace PodcastTycoon.Core
                 qualityW += q * w;
                 spreadW += spread * w;
                 appealW += appeal * w;
+                angleAppealW += ang.AppealMult * w;
 
                 float analysisRep = topic.Response == TopicResponse.Evergreen && topic.RepEarn > 0f
                     ? CrewCatalog.AnalysisRepBonus(crew) : 0f;
@@ -314,22 +332,77 @@ namespace PodcastTycoon.Core
 
             float passiveGain = st.Listeners * ctx.PassiveGainRate * growthRoom;
             float clipsPassive = st.Listeners * CrewCatalog.PassiveReachPerWeek(crew) * growthRoom;
-            float churnRate = cfg.ChurnRate * (st.Modifiers.GentleChurn ? 0.8f : 1f);
-            if (st.SlumpWeeks > 0) churnRate *= cfg.SlumpChurnMult;
+            float poolChurnMult = (st.Modifiers.GentleChurn ? 0.8f : 1f) * (st.SlumpWeeks > 0 ? cfg.SlumpChurnMult : 1f);
             float moodChurnMult = whiplash ? 1.5f : 1f;
+            float appealShare = MathX.Clamp01(angleAppealW - 1f);      // how "spicy" the week was
+            float credFactor = MathX.Clamp(st.Credibility / 60f, 0.3f, 1.6f);
+            float viralK = 1f + (st.SocialReach / 100f) * cfg.ViralAmplifyK;
 
-            int Delta(float roll)
+            // Reconcile the pools to the current headline number — anything that moved Listeners
+            // since the last episode (events, threads, scoops) is treated as Casual.
+            float startCore = st.Core, startCasual = st.Casual, startFollowers = st.Followers;
+            float externalDelta = st.Listeners - (startCore + startCasual);
+            if (externalDelta >= 0f) { startCore += externalDelta * 0.35f; startCasual += externalDelta * 0.65f; }
+            else
+            {
+                startCasual += externalDelta;
+                if (startCasual < 0f) { startCore += startCasual; startCasual = 0f; }
+                if (startCore < 0f) startCore = 0f;
+            }
+            int startListeners = MathX.RoundToInt(startCore + startCasual);
+
+            (float core, float casual, float followers) Pools(float roll)
             {
                 float gross = reach * (quality - cfg.QualityBreakeven) * roll * cfg.DeltaScale * growthRoom;
-                float wom = quality > 1f ? st.Listeners * cfg.WordOfMouthRate * (quality - 1f) * growthRoom : 0f;
-                float churn = st.Listeners * churnRate * MathX.Clamp(1.40f - quality, 0f, 1.40f);
-                float moodChurn = st.Listeners * ctx.MoodChurnRate * Math.Max(0f, 1.15f - quality) * moodChurnMult;
-                return MathX.RoundToInt(gross + wom - churn + passiveGain + clipsPassive - moodChurn);
+                if (roll > 1.15f || roll < 0.9f) gross *= viralK;   // a breakout OR a dud travels further
+
+                float core = startCore, casual = startCasual, followers = startFollowers;
+
+                if (gross > 0f)
+                {
+                    casual += gross * (0.55f + 0.35f * appealShare);
+                    followers += gross * (0.10f + 0.30f * appealShare);
+                }
+                else
+                {
+                    casual += gross;   // a weak episode sheds the casual audience
+                }
+                followers += st.Listeners * (st.SocialReach / 100f) * 0.012f * growthRoom + clipsPassive;
+
+                if (quality > 1f) core += st.Listeners * cfg.WordOfMouthRate * (quality - 1f) * growthRoom * 1.3f;
+                core += passiveGain * 0.40f;
+                casual += passiveGain * 0.60f;
+                // A slice of every episode's new casual audience sticks straight away.
+                if (gross > 0f) core += gross * 0.12f;
+
+                core      -= core      * cfg.CoreChurn     * poolChurnMult * MathX.Clamp(1.30f - quality, 0f, 1f) * (2f - credFactor);
+                casual    -= casual    * cfg.CasualChurn   * poolChurnMult * MathX.Clamp(1.45f - quality, 0f, 1.45f);
+                followers -= followers * cfg.FollowerChurn * poolChurnMult;
+                casual    -= (core + casual) * ctx.MoodChurnRate * Math.Max(0f, 1.15f - quality) * moodChurnMult;
+
+                if (st.SlumpWeeks == 0)
+                {
+                    float toCore = casual * cfg.CasualToCoreRate * (st.Freshness / 100f) * MathX.Clamp(credFactor, 0f, 1.5f);
+                    core += toCore; casual -= toCore;
+                }
+                float listenable = 0.5f + 0.5f * MathX.Clamp01(1f - appealShare);
+                float toCasual = followers * cfg.FollowerToCasualRate * listenable;
+                casual += toCasual; followers -= toCasual;
+
+                return (Math.Max(0f, core), Math.Max(0f, casual), Math.Max(0f, followers));
+            }
+
+            int ListenerDelta(float roll)
+            {
+                var (c, ca, _) = Pools(roll);
+                return MathX.RoundToInt(c + ca) - startListeners;
             }
 
             float actualRoll = st.CardGuaranteeGoodRoll
                 ? 1f + spreadC
                 : (float)(1.0 + (rng.NextDouble() * 2.0 - 1.0) * spreadC);
+
+            var (coreA, casualA, followersA) = Pools(actualRoll);
 
             var result = new EpisodeResult
             {
@@ -343,10 +416,17 @@ namespace PodcastTycoon.Core
                 AnyClash = anyClash,
                 SegmentCount = filled.Count,
                 FreshnessMult = freshnessMult,
-                ListenerDeltaExpected = Delta(1f),
-                ListenerDeltaLow = Delta(1f - spreadC),
-                ListenerDeltaHigh = Delta(1f + spreadC),
-                ListenerDeltaActual = Delta(actualRoll)
+                CoreNew = coreA,
+                CasualNew = casualA,
+                FollowersNew = followersA,
+                CoreDelta = coreA - startCore,
+                CasualDelta = casualA - startCasual,
+                FollowersDelta = followersA - startFollowers,
+                LoyaltyAfter = LoyaltyOf(coreA, casualA),
+                ListenerDeltaExpected = ListenerDelta(1f),
+                ListenerDeltaLow = ListenerDelta(1f - spreadC),
+                ListenerDeltaHigh = ListenerDelta(1f + spreadC),
+                ListenerDeltaActual = MathX.RoundToInt(coreA + casualA) - startListeners
             };
             result.Notes.AddRange(notes);
 
@@ -376,10 +456,12 @@ namespace PodcastTycoon.Core
             social *= CrewCatalog.SocialMultiplier(crew);
             result.SocialGained = Math.Max(0f, social);
 
-            // --- economy ---
+            // --- economy (segmented: Core pays best, Followers barely at all — spec §17) ---
             float adRate = d.AdRate * (st.Modifiers.SponsorFree ? 1.7f : 1f);
-            result.AdRevenue = st.Listeners * adRate * (cfg.AdReputationFloor + cfg.AdReputationRange * st.Reputation / 100f);
-            float hosting = cfg.HostingBase + st.Listeners * cfg.HostingSlope;
+            float paidAudience = coreA + casualA * cfg.CasualAdFraction + followersA * cfg.FollowerAdFraction;
+            result.AdRevenue = paidAudience * adRate * (cfg.AdReputationFloor + cfg.AdReputationRange * st.Reputation / 100f);
+            float reachAudience = coreA + casualA + followersA;
+            float hosting = cfg.HostingBase + reachAudience * cfg.HostingSlope;
 
             float wages = 0f;
             bool payday = st.GlobalWeek % cfg.MonthlyIntervalWeeks == 0;

@@ -204,6 +204,61 @@ namespace PodcastTycoon.Tests
         }
 
         [Test]
+        public void LoyaltyReadsFromTheCoreShare()
+        {
+            Assert.That(Resolution.LoyaltyOf(900f, 100f), Is.EqualTo("Devoted"));
+            Assert.That(Resolution.LoyaltyOf(500f, 500f), Is.EqualTo("Solid"));
+            Assert.That(Resolution.LoyaltyOf(300f, 700f), Is.EqualTo("Fickle"));
+            Assert.That(Resolution.LoyaltyOf(100f, 900f), Is.EqualTo("Fragile"));
+        }
+
+        [Test]
+        public void LowCredibilityMakesTheCoreAudienceChurnFaster()
+        {
+            var cfg = new GameConfig();
+            var res = new Resolution(cfg);
+
+            GameState With(float cred) => new GameState
+            {
+                Listeners = 10000, Core = 6000f, Casual = 4000f, Reputation = 40f,
+                Credibility = cred, Difficulty = Difficulty.Regular, TeamStrength = 0.52f
+            };
+
+            var plan = new ProductionPlan();
+            plan.Main.Set(TopicCatalog.Get(TopicId.Mailbag));  // a middling episode
+            plan.Main.Angle = Angle.Analysis; plan.Main.Prep = 1;
+
+            var trusted = res.Project(With(85f), ParWeek(), plan);
+            var doubted = res.Project(With(20f), ParWeek(), plan);
+
+            Assert.That(doubted.CoreDelta, Is.LessThan(trusted.CoreDelta));
+        }
+
+        [Test]
+        public void FollowerHeavyAudienceEarnsLessThanCoreHeavy()
+        {
+            var cfg = new GameConfig();
+            var res = new Resolution(cfg);
+
+            var coreHeavy = new GameState
+            {
+                Listeners = 10000, Core = 9000f, Casual = 1000f, Followers = 1000f,
+                Reputation = 50f, Credibility = 50f, Difficulty = Difficulty.Regular, TeamStrength = 0.52f
+            };
+            var followerHeavy = new GameState
+            {
+                Listeners = 10000, Core = 1000f, Casual = 9000f, Followers = 40000f,
+                Reputation = 50f, Credibility = 50f, Difficulty = Difficulty.Regular, TeamStrength = 0.52f
+            };
+
+            var plan = ProductionPlan.Cover(TopicCatalog.Get(TopicId.Recap));
+            plan.PrepTopic = 3;
+
+            Assert.That(res.Project(coreHeavy, ParWeek(), plan).AdRevenue,
+                Is.GreaterThan(res.Project(followerHeavy, ParWeek(), plan).AdRevenue));
+        }
+
+        [Test]
         public void GuestLiftsAppealWhenBooked()
         {
             var (st, cfg) = Fresh();

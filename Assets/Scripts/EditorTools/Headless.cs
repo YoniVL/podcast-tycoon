@@ -129,7 +129,8 @@ namespace PodcastTycoon.EditorTools
 
             var st = engine.State;
             sb.AppendLine($"--> after {st.EpisodesPublished} episodes / {peakSeason} seasons: " +
-                          $"{st.Listeners:N0} listeners (peak {st.PeakListeners:N0}), €{st.Money:0}, rep {st.Reputation:0}, " +
+                          $"{st.Listeners:N0} listeners ({st.LoyaltyLabel}, {st.Followers:N0} followers, peak {st.PeakListeners:N0}), " +
+                          $"€{st.Money:0}, rep {st.Reputation:0}, cred {st.Credibility:0}, social {st.SocialReach:0}, " +
                           $"access T{st.AccessTier}, {st.CupsWon} cup(s), {st.EuropeanTrophies} euro, " +
                           $"{events} events, {st.ScoopsBroken} scoops broken, goal {(st.GoalReached ? "REACHED" : "not reached")}, gameOver={st.IsGameOver}");
 

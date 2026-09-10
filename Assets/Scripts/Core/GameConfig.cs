@@ -28,6 +28,16 @@ namespace PodcastTycoon.Core
         public float DeltaScale = 0.22f;   // v0.4: the safe episode only holds serve (spec §12, §17)
         public float WordOfMouthRate = 0.03f;
 
+        // --- audience pools (spec §5, §17) ---
+        public float CoreChurn = 0.015f;
+        public float CasualChurn = 0.070f;
+        public float FollowerChurn = 0.120f;
+        public float CasualToCoreRate = 0.030f;      // conversion when you're consistent + credible
+        public float FollowerToCasualRate = 0.010f;
+        public float FollowerAdFraction = 0.05f;     // of the Core ad rate — they barely pay
+        public float CasualAdFraction = 0.55f;
+        public float ViralAmplifyK = 1.4f;           // breakouts and duds scale with social reach
+
         // --- freshness / slumps / overreach (spec §12) ---
         public float FreshnessStart = 80f;
         public float FreshnessDriftTarget = 60f;
@@ -68,10 +78,8 @@ namespace PodcastTycoon.Core
         public float SocialDecayPerWeek = 1.5f;   // decays toward a size floor each week
         public float SocialHotThreshold = 1.15f;  // quality*roll above this "gets talked about"
         public float SocialHotScale = 12f;
-        // Soft for now (spec target is 55 / 70) — tightens in slice 4C once angles make
-        // credibility a lever you actively control.
-        public float CredFloorTier2 = 30f;
-        public float CredFloorTier3 = 45f;
+        public float CredFloorTier2 = 55f;   // access tier 2/3 need this much credibility (spec §18)
+        public float CredFloorTier3 = 70f;
 
         // --- economy ---
         public float HostingBase = 5f;

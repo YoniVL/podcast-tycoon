@@ -98,7 +98,13 @@ namespace PodcastTycoon.Game
             strip.Add(Ui.Stat("Money", Ui.Money(st.Money), st.Money < 0 ? "bad" : null,
                 "Cash. Overhead bleeds it every week."));
             strip.Add(Ui.Stat("Listeners", st.Listeners.ToString("N0"), null,
-                "Your audience — and your score."));
+                "Your audience and your score — the loyal core plus the casual listeners who come and go."));
+            strip.Add(Ui.Stat("Loyalty", st.LoyaltyLabel,
+                st.LoyaltyLabel == "Fragile" ? "bad" : st.LoyaltyLabel == "Devoted" ? "good" : null,
+                "How much of your audience is loyal core vs. casual. A fragile audience swings hard and can collapse; a devoted one shrugs off a bad week."));
+            if (Mathf.RoundToInt(st.Followers) >= 100)
+                strip.Add(Ui.Stat("Followers", Mathf.RoundToInt(st.Followers).ToString("N0"), null,
+                    "Clip-only followers. They never hear the show and barely pay, but they spread it and feed casual listeners."));
             strip.Add(Ui.Stat("Reputation", Mathf.RoundToInt(st.Reputation).ToString(), null,
                 "How respected the show is. Raises your growth ceiling."));
             strip.Add(Ui.Stat("Credibility", Mathf.RoundToInt(st.Credibility).ToString(), null,
@@ -595,8 +601,11 @@ namespace PodcastTycoon.Game
             var numbers = Ui.Box("panel");
             numbers.Add(Ui.Text("THE NUMBERS", "eyebrow"));
             numbers.Add(Ui.Wrapping(
-                "Listeners — your audience and your score. A bigger audience means every episode reaches further, " +
-                "so growth compounds — but it slows down as you approach the size the fanbase can realistically support.\n\n" +
+                "Listeners — your audience and your score. Some are loyal core who barely leave and pay the bills; " +
+                "the rest are casual, chasing whatever's loud that week, and they churn fast. The Loyalty read — " +
+                "Devoted / Solid / Fickle / Fragile — tells you the mix. A fragile audience is big but one bad week from a collapse; " +
+                "a devoted one shrugs things off. Consistency and credibility turn casual listeners into core.\n\n" +
+                "Followers — clip-only. They never hear the show and barely pay, but they spread it and slowly feed the casual audience.\n\n" +
                 "Reputation (0–100) — how seriously the show is taken. Thoughtful, well-made episodes and measured takes build it; " +
                 "lazy episodes and cheap drama burn it. It matters because a well-regarded show can grow much bigger — high reputation " +
                 "lifts the ceiling on your audience. Some topics also need a minimum reputation before you can cover them.\n\n" +
@@ -616,6 +625,10 @@ namespace PodcastTycoon.Game
                 gloss.Add(Ui.Wrapping(d, "body", "dim"));
                 gloss.Add(Ui.Divider());
             }
+            Term("Loyalty", "How much of your audience is loyal core vs. casual drop-ins. Devoted / Solid / Fickle / Fragile. Analysis, consistency and credibility build a devoted core; a hot-take show grows fast but stays fragile.");
+            Term("Credibility", "How much people trust what you say (0–100). Analysis and verified scoops build it; hot takes and missed scoops burn it. Low credibility loses you insider access and bleeds your core audience.");
+            Term("Freshness", "Falls when you repeat yourself — same angle, same recurring bit, same subject week after week. Drags down how far every segment reaches. Vary the show, or take a lighter week, to recover.");
+            Term("Slump", "Two weak episodes in a row, or a tonal-whiplash clash, and listeners start leaving faster than usual. Two strong episodes back to back pulls you out.");
             Term("Rundown", "The three segments that make up the episode — main story, second segment, recurring bit. The main carries most of the reach; the recurring bit is small but it builds the show's identity over time.");
             Term("Angle", "How a segment covers its topic. Analysis is safe and builds credibility. Hot take is loud — big reach, but it burns credibility. Emotional lands on a big result. Comedy drives clips. Investigation digs in (needs a Researcher or insider access).");
             Term("Draw", "How many listeners a topic pulls in this week, before quality. Shifts with the result, the fixture, the angle and story context.");
