@@ -103,8 +103,10 @@ namespace PodcastTycoon.Game
                 "Your audience — and your score."));
             strip.Add(Ui.Stat("Reputation", Mathf.RoundToInt(st.Reputation).ToString(), null,
                 "How respected the show is. Raises your growth ceiling."));
-            strip.Add(Ui.Stat("Buzz", st.Buzz.ToString(), null,
-                "Hype from breakout episodes. Spends on redraws."));
+            strip.Add(Ui.Stat("Credibility", Mathf.RoundToInt(st.Credibility).ToString(), null,
+                "How much people trust what you say. Built by analysis and verified scoops."));
+            strip.Add(Ui.Stat("Social reach", Mathf.RoundToInt(st.SocialReach).ToString(), null,
+                "How much the show is talked about online. Fades if you go quiet."));
             return strip;
         }
 
@@ -297,7 +299,7 @@ namespace PodcastTycoon.Game
             var offerHead = Ui.Row();
             offerHead.Add(Ui.Text("This week's episode", "h2"));
             _redraw = Ui.Btn(RedrawLabel(), Redraw, "btn-ghost");
-            _redraw.SetEnabled(!E.HasRedrawnThisWeek && (E.State.Money >= E.Config.RedrawCost || E.State.Buzz >= 1));
+            _redraw.SetEnabled(!E.HasRedrawnThisWeek && E.State.Money >= E.Config.RedrawCost);
             offerHead.Add(_redraw);
             offerPanel.Add(offerHead);
             offerPanel.Add(Ui.Wrapping(
@@ -475,7 +477,7 @@ namespace PodcastTycoon.Game
             head.Add(Ui.Text("Cards", "h2"));
             if (E.Cards.CanBuyPack(st))
             {
-                var buy = Ui.Btn($"Buy pack  ({E.Config.PackCostBuzz} Buzz)", () => { E.BuyPack(); _host.RerenderWeek(); }, "btn-ghost");
+                var buy = Ui.Btn($"Buy pack  ({Ui.Money(E.Config.PackCostMoney)})", () => { E.BuyPack(); _host.RerenderWeek(); }, "btn-ghost");
                 head.Add(buy);
             }
             panel.Add(head);
@@ -483,7 +485,7 @@ namespace PodcastTycoon.Game
             if (st.Hand.Count == 0)
             {
                 panel.Add(Ui.Wrapping(
-                    "No cards right now. You get one at every listener milestone, or buy a 3-card pack with Buzz.", "body", "dim"));
+                    "No cards right now. You get one at every listener milestone, or buy a 3-card pack for cash.", "body", "dim"));
                 return panel;
             }
 
@@ -516,14 +518,14 @@ namespace PodcastTycoon.Game
             var panel = Ui.Box("panel");
             var head = Ui.Row();
             head.Add(Ui.Text("Cards & packs", "h2"));
-            var buy = Ui.Btn($"Buy pack  ({E.Config.PackCostBuzz} Buzz)", () => { E.BuyPack(); _host.RerenderWeek(); }, "btn-ghost");
+            var buy = Ui.Btn($"Buy pack  ({Ui.Money(E.Config.PackCostMoney)})", () => { E.BuyPack(); _host.RerenderWeek(); }, "btn-ghost");
             buy.SetEnabled(E.Cards.CanBuyPack(st));
             head.Add(buy);
             panel.Add(head);
 
             panel.Add(Ui.Wrapping(
                 $"Hand: {st.Hand.Count}/{E.Config.CardHandLimit}. You play cards on This Week, up to {E.Config.CardPlaysPerWeek} a week. " +
-                "Cards come from milestones or a 3-card pack for Buzz.", "body", "dim"));
+                "Cards come from milestones or a 3-card pack for cash.", "body", "dim"));
 
             if (st.Hand.Count == 0)
             {
@@ -634,9 +636,11 @@ namespace PodcastTycoon.Game
                 "lazy episodes and cheap drama burn it. It matters because a well-regarded show can grow much bigger — high reputation " +
                 "lifts the ceiling on your audience. Some topics also need a minimum reputation before you can cover them.\n\n" +
                 "Money — ad income barely covers the weekly overhead on its own, so the budget is tight until the audience is large. " +
-                "Three straight weeks more than €200 in the red and the show folds.\n\n" +
-                "Buzz — earned when an episode punches above its weight. Right now it only pays to redraw the topic offer; " +
-                "it unlocks more later.", "body"));
+                "Three straight weeks more than €200 in the red and the show folds. It also buys card packs and a topic redraw.\n\n" +
+                "Credibility (0–100) — how much people trust what you say. Analysis and verified scoops build it; hot takes that miss burn it. " +
+                "Trust is what turns casual listeners into a loyal core, and the club won't grant real access without it.\n\n" +
+                "Social reach (0–100) — how loudly the show is talked about online. A breakout episode, a clip, a spicy take all raise it; " +
+                "go quiet and it fades. It brings new listeners in fast — and makes a bad week travel further too.", "body"));
             root.Add(numbers);
 
             var gloss = Ui.Box("panel");
@@ -652,13 +656,13 @@ namespace PodcastTycoon.Game
             Term("Risk", "How much the outcome can swing. Research prep narrows it — a gamble becomes a safer bet.");
             Term("Surprise", "How far the match result landed from what was expected. Drives the mood you're reacting to and which topics land.");
             Term("Topic prep / Research / Audio / Promo", "Topic prep = the homework. Research = less variance. Audio = a better episode and less churn. Promo = a one-week reach bump only.");
-            Term("Running stories", "Ongoing club storylines. Pick the STORY topic to take a side; match the eventual outcome and you gain reputation and buzz, call it wrong and it costs you.");
+            Term("Running stories", "Ongoing club storylines. Pick the STORY topic to take a side; match the eventual outcome and you gain reputation, call it wrong and it costs you.");
             Term("Sponsors", "A deal pays weekly but sets a growth target and a deadline. Hit it for a bonus and a better renewal; miss it and the deal ends badly.");
-            Term("Cup & Europe", "Extra midweek fixtures alongside the league. Win the cup or finish high enough and you play in Europe next season — bigger nights, more reach and buzz.");
+            Term("Cup & Europe", "Extra midweek fixtures alongside the league. Win the cup or finish high enough and you play in Europe next season — bigger nights, more reach.");
             Term("Access tier", "Set by your rolling-average listeners. Tier 2 unlocks scoops and the Big interview; tier 3 lets your takes move the club, and may bring a partnership offer.");
             Term("Scoops", "Advance word on a club decision. Break it now for a huge episode and a real risk it's wrong (which costs access); verify & hold to build trust; or trade it for cash.");
             Term("Crew", "Producer, Researcher, Clips manager, Booker — monthly wages, each changing how the week works. Hire them once ad and sponsor money can carry the bill.");
-            Term("Cards", "One-shot buffs on the current episode, or permanent lifts to the club/show. From milestones, or a 3-card pack for Buzz. Hand holds five.");
+            Term("Cards", "One-shot buffs on the current episode, or permanent lifts to the club/show. From milestones, or a 3-card pack for cash. Hand holds five.");
             Term("Custom run", "Modifiers set at the start (extra prep, gentler churn, sandbox, chaos…). Flags the run as Custom; the endless chase still works.");
             root.Add(gloss);
         }
@@ -1018,7 +1022,7 @@ namespace PodcastTycoon.Game
                 chips.Add(Ui.Chip(RiskLabel(topic.Swing)));
                 if (topic.RepEarn >= 2) chips.Add(Ui.Chip("Builds reputation"));
                 else if (topic.RepEarn <= -1) chips.Add(Ui.Chip("Costs reputation"));
-                if (topic.BuzzBonus >= 3) chips.Add(Ui.Chip("Good for buzz"));
+                if (topic.SocialHook >= 3) chips.Add(Ui.Chip("Gets shared"));
                 card.Add(chips);
 
                 if (isThread)
@@ -1177,8 +1181,7 @@ namespace PodcastTycoon.Game
             }
         }
 
-        string RedrawLabel()
-            => E.State.Money >= E.Config.RedrawCost ? $"Redraw  ({Ui.Money(E.Config.RedrawCost)})" : "Redraw  (1 Buzz)";
+        string RedrawLabel() => $"Redraw  ({Ui.Money(E.Config.RedrawCost)})";
 
         void Publish()
         {

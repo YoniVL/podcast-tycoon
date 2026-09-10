@@ -59,7 +59,7 @@ namespace PodcastTycoon.Core
         public float PassiveGainRate;       // fraction of listeners gained regardless of episode
         public float MoodChurnRate;         // fraction lost if the episode is weak
         public float ImportanceAppealMult = 1f;
-        public int BuzzMultiplier = 1;
+        public int SocialMultiplier = 1;
 
         /// <summary>A short line describing what kind of week this is, for the UI.</summary>
         public string Headline;
@@ -109,12 +109,12 @@ namespace PodcastTycoon.Core
             c.PassiveGainRate = 0f;
             c.MoodChurnRate = 0f;
             c.ImportanceAppealMult = 1f;
-            c.BuzzMultiplier = 1;
+            c.SocialMultiplier = 1;
 
             if (c.IsOffseason)
             {
                 c.ReachMult = 0.88f;
-                c.BuzzMultiplier = 2;
+                c.SocialMultiplier = 2;
                 c.TransferWindowOpen = true;
                 c.Headline = "Transfer window — no football, but the rumour mill is at full tilt.";
                 c.Advice = "Quiet for match content, loud for transfers. Speculation and squad-planning episodes do well; recaps fall flat.";
@@ -168,7 +168,7 @@ namespace PodcastTycoon.Core
             if (c.Importance != FixtureImportance.Normal)
             {
                 c.ImportanceAppealMult = c.Importance == FixtureImportance.Final ? 1.55f : 1.30f;
-                c.BuzzMultiplier = c.Importance == FixtureImportance.Final ? 3 : 2;
+                c.SocialMultiplier = c.Importance == FixtureImportance.Final ? 3 : 2;
                 string tag = c.Importance switch
                 {
                     FixtureImportance.Derby => "Derby week. ",
@@ -178,7 +178,7 @@ namespace PodcastTycoon.Core
                 if (c.IsCupTie && c.Importance != FixtureImportance.Final) tag = "Cup tie. ";
                 if (c.IsEuropeanNight) tag = "European night. ";
                 c.Headline = tag + c.Headline;
-                c.Advice = "Everything is bigger this week — more reach and more buzz on whatever you cover. " + c.Advice;
+                c.Advice = "Everything is bigger this week — more reach and more attention on whatever you cover. " + c.Advice;
             }
             else if (c.IsCupTie)
             {

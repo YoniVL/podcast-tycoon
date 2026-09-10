@@ -79,7 +79,7 @@ namespace PodcastTycoon.EditorTools
                     var card = CardManager.Get(id);
                     if (card != null && card.Kind == CardKind.Permanent) engine.PlayCard(id);
                 }
-                if (engine.Cards.CanBuyPack(engine.State) && engine.State.Buzz > 120) engine.BuyPack();
+                if (engine.Cards.CanBuyPack(engine.State) && engine.State.Money > 900) engine.BuyPack();
 
                 if (engine.Sponsors.Active == null && engine.Sponsors.Inbox.Count > 0)
                 {

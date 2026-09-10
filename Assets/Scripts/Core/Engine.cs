@@ -80,6 +80,8 @@ namespace PodcastTycoon.Core
                 Money = Config.StartMoney + (mods.NestEgg ? 300 : 0),
                 Listeners = Config.StartListeners,
                 Reputation = Config.StartReputation,
+                Credibility = Config.StartCredibility,
+                SocialReach = Config.StartSocialReach,
                 TeamStrength = profile.TeamStrength,
                 PeakListeners = Config.StartListeners,
                 Modifiers = mods,
@@ -123,8 +125,11 @@ namespace PodcastTycoon.Core
             State.CardReachMultThisWeek = 1f;
             State.CardPrepBonusThisWeek = 0;
             State.CardQualityBonusThisWeek = 0f;
-            State.CardBuzzBonusThisWeek = 0;
+            State.CardSocialBonusThisWeek = 0f;
             State.CardGuaranteeGoodRoll = false;
+
+            // Social reach fades if you're not being talked about (spec §5).
+            State.SocialReach = Math.Max(0f, State.SocialReach - Config.SocialDecayPerWeek);
 
             var fixture = Calendar.FixtureForTurn(State.SeasonTurn);
             Rivals.MarkFixture(fixture);
@@ -178,7 +183,7 @@ namespace PodcastTycoon.Core
                     ctx.CompetitionNote = $"Knocked out of the cup by {fx.Opponent}. That one stings.";
                 else if (Calendar.WonCup)
                 {
-                    State.Buzz += Config.CupWinBuzz;
+                    State.SocialReach = MathX.Clamp(State.SocialReach + Config.CupWinSocial, 0f, 100f);
                     State.Reputation = MathX.Clamp(State.Reputation + Config.CupWinReputation, 0f, 100f);
                     State.Listeners = (int)Math.Min(Config.MaxListeners, State.Listeners + (long)Math.Round(State.Listeners * 0.06));
                     State.CupsWon++;
@@ -195,7 +200,7 @@ namespace PodcastTycoon.Core
                                       $"({Calendar.EuropeWins}W-{Calendar.EuropeDraws}D-{Calendar.EuropeLosses}L in the phase).";
                 if (Calendar.EuropePhaseDone && Calendar.WonEurope)
                 {
-                    State.Buzz += Config.CupWinBuzz;
+                    State.SocialReach = MathX.Clamp(State.SocialReach + Config.CupWinSocial, 0f, 100f);
                     State.Reputation = MathX.Clamp(State.Reputation + Config.CupWinReputation, 0f, 100f);
                     ctx.CompetitionNote += " You topped the group — a serious European run.";
                 }
@@ -237,11 +242,9 @@ namespace PodcastTycoon.Core
         public bool TryRedraw()
         {
             if (HasRedrawnThisWeek) return false;
-            if (State.Money < Config.RedrawCost && State.Buzz < 1) return false;
+            if (State.Money < Config.RedrawCost) return false;
 
-            if (State.Money >= Config.RedrawCost) State.Money -= Config.RedrawCost;
-            else State.Buzz -= 1;
-
+            State.Money -= Config.RedrawCost;
             HasRedrawnThisWeek = true;
             Offer = BuildOffer(CurrentWeek);
             return true;
@@ -280,7 +283,8 @@ namespace PodcastTycoon.Core
             listeners = Math.Max(0L, Math.Min(Config.MaxListeners, listeners));
             State.Listeners = (int)listeners;
             State.Reputation = MathX.Clamp(State.Reputation + result.ReputationDelta, 0f, 100f);
-            State.Buzz += result.BuzzGained;
+            State.Credibility = MathX.Clamp(State.Credibility + result.CredibilityDelta, 0f, 100f);
+            State.SocialReach = MathX.Clamp(State.SocialReach + result.SocialGained, 0f, 100f);
             State.Money += result.MoneyDelta;
             State.EpisodesPublished++;
             State.PeakListeners = Math.Max(State.PeakListeners, State.Listeners);
@@ -295,7 +299,7 @@ namespace PodcastTycoon.Core
                 Matchless = CurrentWeek.IsMatchless,
                 ListenerDelta = result.ListenerDeltaActual,
                 ReputationDelta = result.ReputationDelta,
-                BuzzGained = result.BuzzGained
+                SocialGained = result.SocialGained
             });
 
             CheckFailStates();
@@ -394,7 +398,7 @@ namespace PodcastTycoon.Core
 
         public void DeclineBuyout()
         {
-            State.Buzz += 40;
+            State.SocialReach = MathX.Clamp(State.SocialReach + 15f, 0f, 100f);
             State.Reputation = MathX.Clamp(State.Reputation + 3f, 0f, 100f);
             State.BuyoutPending = false;
             State.BuyoutResolved = true;

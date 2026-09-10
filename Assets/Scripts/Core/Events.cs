@@ -77,7 +77,7 @@ namespace PodcastTycoon.Core
 
             void Money(Engine e, float d) => e.State.Money += d;
             void Rep(Engine e, float d) => e.State.Reputation = MathX.Clamp(e.State.Reputation + d, 0f, 100f);
-            void Buzz(Engine e, int d) => e.State.Buzz = Math.Max(0, e.State.Buzz + d);
+            void Social(Engine e, float d) => e.State.SocialReach = MathX.Clamp(e.State.SocialReach + d, 0f, 100f);
             void ListenersPct(Engine e, float pct) =>
                 e.State.Listeners = Math.Max(0, (int)Math.Round(e.State.Listeners * (1f + pct)));
             void Drift(Engine e, float perWeek, int weeks)
@@ -101,7 +101,7 @@ namespace PodcastTycoon.Core
                             Outcome = "You broke it first. The numbers spiked — and the reaction was mixed.",
                             Apply = e =>
                             {
-                                Buzz(e, 10); ListenersPct(e, 0.02f); Rep(e, -3f);
+                                Social(e, 4f); ListenersPct(e, 0.02f); Rep(e, -3f);
                                 if (r.NextDouble() < 0.3) { Rep(e, -5f); }
                             }
                         },
@@ -115,7 +115,7 @@ namespace PodcastTycoon.Core
                         {
                             Label = "Tip off a national outlet",
                             Outcome = "You passed it up the chain. They owe you one now.",
-                            Apply = e => { Rep(e, 1f); Buzz(e, 3); }
+                            Apply = e => { Rep(e, 1f); Social(e, 1.5f); }
                         }
                     }
                 },
@@ -160,13 +160,13 @@ namespace PodcastTycoon.Core
                         {
                             Label = "Address it properly and apologise",
                             Outcome = "You took the hit cleanly. The people who matter respected it.",
-                            Apply = e => { Buzz(e, -5); Rep(e, 4f); }
+                            Apply = e => { Social(e, -2f); Rep(e, 4f); }
                         },
                         new EventOption
                         {
                             Label = "Double down",
                             Outcome = "You leaned in. The clip did numbers. Some listeners didn't come back.",
-                            Apply = e => { Buzz(e, 12); Rep(e, -6f); ListenersPct(e, -0.03f); }
+                            Apply = e => { Social(e, 5f); Rep(e, -6f); ListenersPct(e, -0.03f); }
                         },
                         new EventOption
                         {
@@ -188,13 +188,13 @@ namespace PodcastTycoon.Core
                         {
                             Label = "Make an episode taking them apart",
                             Outcome = "Petty, fun, and it worked — for now.",
-                            Apply = e => { Buzz(e, 10); Rep(e, -4f); ListenersPct(e, 0.03f); }
+                            Apply = e => { Social(e, 4f); Rep(e, -4f); ListenersPct(e, 0.03f); }
                         },
                         new EventOption
                         {
                             Label = "Reach out about a crossover",
                             Outcome = "A collab episode. Both audiences had a look at the other.",
-                            Apply = e => { Buzz(e, 5); ListenersPct(e, 0.04f); }
+                            Apply = e => { Social(e, 2f); ListenersPct(e, 0.04f); }
                         },
                         new EventOption
                         {
@@ -221,7 +221,7 @@ namespace PodcastTycoon.Core
                                 float cost = Math.Max(50f, e.State.Listeners * 0.02f);
                                 Money(e, -cost);
                                 ListenersPct(e, 0.05f);
-                                Buzz(e, 12);
+                                Social(e, 5f);
                                 e.State.PrepPenaltyThisWeek += 2;
                             }
                         },

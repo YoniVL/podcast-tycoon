@@ -13,7 +13,7 @@ namespace PodcastTycoon.Core
         public bool Matchless;
         public int ListenerDelta;
         public float ReputationDelta;
-        public int BuzzGained;
+        public float SocialGained;
     }
 
     [Flags]
@@ -44,7 +44,10 @@ namespace PodcastTycoon.Core
         public float Money = 500f;
         public int Listeners = 40;
         public float Reputation = 10f;
-        public int Buzz = 0;
+
+        // --- slow indices (spec §5, v0.4) ---
+        public float Credibility = 50f;   // how much people trust what you say
+        public float SocialReach = 5f;    // how loud your megaphone is (absorbs old "Buzz")
 
         // --- club ---
         public float TeamStrength = 0.52f;
@@ -86,7 +89,7 @@ namespace PodcastTycoon.Core
         public int CardPrepBonusThisWeek;
         public int CardPermanentPrepBonus;
         public float CardQualityBonusThisWeek;
-        public int CardBuzzBonusThisWeek;
+        public float CardSocialBonusThisWeek;
         public bool CardGuaranteeGoodRoll;
 
         // --- temporary effects (from events) ---

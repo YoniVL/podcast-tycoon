@@ -91,8 +91,9 @@ namespace PodcastTycoon.Core
                     float disruption = _cfg.ScoopDisruptionBase
                                        + _cfg.ScoopDisruptionPerTier * st.AccessTier
                                        + MathX.Clamp01(st.Listeners / 500000f) * 0.30f
-                                       - 0.03f * st.TrustedStanding;
-                    st.Buzz += 22;
+                                       - 0.03f * st.TrustedStanding
+                                       - MathX.Clamp01((st.Credibility - 50f) / 100f) * 0.20f;
+                    st.SocialReach = MathX.Clamp(st.SocialReach + 12f, 0f, 100f);
                     st.Listeners = (int)Math.Min(_cfg.MaxListeners, st.Listeners + (long)Math.Round(st.Listeners * 0.03));
                     st.ScoopsBroken++;
                     BrokenTopic = MakeBrokenTopic(Pending);
@@ -100,6 +101,7 @@ namespace PodcastTycoon.Core
                     if (_rng.NextDouble() < MathX.Clamp01(disruption))
                     {
                         st.Reputation = MathX.Clamp(st.Reputation - 6f, 0f, 100f);
+                        st.Credibility = MathX.Clamp(st.Credibility - 8f, 0f, 100f);
                         st.AccessProtectedWeeks = 8;
                         LastOutcome = "You broke it — enormous numbers — but a detail was wrong and the club has cut you off for a while.";
                     }
@@ -111,8 +113,9 @@ namespace PodcastTycoon.Core
                 }
                 case ScoopChoice.VerifyHold:
                     st.Reputation = MathX.Clamp(st.Reputation + 3f, 0f, 100f);
+                    st.Credibility = MathX.Clamp(st.Credibility + 4f, 0f, 100f);
                     st.TrustedStanding++;
-                    st.Buzz += 4;
+                    st.SocialReach = MathX.Clamp(st.SocialReach + 2f, 0f, 100f);
                     LastOutcome = "You checked it and held it. The club noticed — and you'll have the definitive episode when it breaks.";
                     break;
 
@@ -143,7 +146,7 @@ namespace PodcastTycoon.Core
             Effort = 4,
             Swing = 0.30f,
             RepEarn = 0f,
-            BuzzBonus = 8,
+            SocialHook = 8,
             Response = TopicResponse.Reaction,
             IsAvailable = (c, st) => true
         };

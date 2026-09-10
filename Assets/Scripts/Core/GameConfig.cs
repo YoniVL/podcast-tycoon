@@ -11,6 +11,8 @@ namespace PodcastTycoon.Core
         public int StartMoney = 500;
         public int StartListeners = 40;
         public float StartReputation = 10f;
+        public float StartCredibility = 50f;
+        public float StartSocialReach = 5f;
         public int PrepBase = 10;
 
         // --- listener model ---
@@ -47,9 +49,14 @@ namespace PodcastTycoon.Core
         public float SloppyQualityThreshold = 0.55f;
         public float SloppyReputationPenalty = 4f;
 
-        // --- buzz ---
-        public float BuzzThreshold = 1.15f;
-        public float BuzzScale = 35f;
+        // --- social reach (absorbs old "Buzz"; spec §5, §17) ---
+        public float SocialDecayPerWeek = 1.5f;   // decays toward a size floor each week
+        public float SocialHotThreshold = 1.15f;  // quality*roll above this "gets talked about"
+        public float SocialHotScale = 12f;
+        // Soft for now (spec target is 55 / 70) — tightens in slice 4C once angles make
+        // credibility a lever you actively control.
+        public float CredFloorTier2 = 30f;
+        public float CredFloorTier3 = 45f;
 
         // --- economy ---
         public float HostingBase = 5f;
@@ -116,9 +123,8 @@ namespace PodcastTycoon.Core
         public float CupOpponentStep = 0.055f;                        // added per round
         public float EuropeOpponentBase = 0.60f;
         public float EuropeOpponentSpread = 0.22f;
-        public int CupWinBuzz = 30;
+        public float CupWinSocial = 14f;
         public float CupWinReputation = 6f;
-        public int EuropeQualifyBuzz = 14;
 
         // --- access tiers (slice 3, spec §14) ---
         public int[] AccessTierListeners = { 1000, 12000, 80000 };    // tier 1 / 2 / 3 thresholds on the rolling average
@@ -142,8 +148,8 @@ namespace PodcastTycoon.Core
         // --- endless milestones / buyout ---
         public int BuyoutListeners = 1_000_000;
 
-        // --- cards & packs (slice 3E) ---
-        public int PackCostBuzz = 60;
+        // --- cards & packs (slice 3E; bought with cash since v0.4) ---
+        public int PackCostMoney = 150;
         public int CardHandLimit = 5;
         public int CardPlaysPerWeek = 2;
     }

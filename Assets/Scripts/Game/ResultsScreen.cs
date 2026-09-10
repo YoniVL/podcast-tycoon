@@ -73,7 +73,8 @@ namespace PodcastTycoon.Game
             grid.Add(Ui.Stat("Listeners", Ui.Signed(_result.ListenerDeltaActual),
                 _result.ListenerDeltaActual >= 0 ? "good" : "bad"));
             grid.Add(Ui.Stat("Reputation", Ui.Signed(_result.ReputationDelta, "0.0")));
-            grid.Add(Ui.Stat("Buzz", _result.BuzzGained > 0 ? "+" + _result.BuzzGained : "0"));
+            grid.Add(Ui.Stat("Credibility", Ui.Signed(_result.CredibilityDelta, "0.0")));
+            grid.Add(Ui.Stat("Social reach", _result.SocialGained >= 0.1f ? "+" + _result.SocialGained.ToString("0.0") : "0"));
             grid.Add(Ui.Stat("Ad revenue", Ui.Money(_result.AdRevenue), "good"));
             if (_result.SponsorRevenue > 0)
                 grid.Add(Ui.Stat("Sponsor", Ui.Money(_result.SponsorRevenue), "good"));
@@ -100,7 +101,8 @@ namespace PodcastTycoon.Game
             tgrid.Add(Ui.Stat("Money", Ui.Money(st.Money), st.Money < 0 ? "bad" : null));
             tgrid.Add(Ui.Stat("Listeners", st.Listeners.ToString("N0")));
             tgrid.Add(Ui.Stat("Reputation", Mathf.RoundToInt(st.Reputation).ToString()));
-            tgrid.Add(Ui.Stat("Buzz", st.Buzz.ToString()));
+            tgrid.Add(Ui.Stat("Credibility", Mathf.RoundToInt(st.Credibility).ToString()));
+            tgrid.Add(Ui.Stat("Social reach", Mathf.RoundToInt(st.SocialReach).ToString()));
             totals.Add(tgrid);
 
             var next = _host.Engine.Calendar.FixtureForTurn(st.SeasonTurn);

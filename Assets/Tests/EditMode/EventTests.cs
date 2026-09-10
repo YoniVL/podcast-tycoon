@@ -45,7 +45,7 @@ namespace PodcastTycoon.Tests
                 {
                     float moneyBefore = e.State.Money;
                     float repBefore = e.State.Reputation;
-                    int buzzBefore = e.State.Buzz;
+                    float socialBefore = e.State.SocialReach;
                     int listenersBefore = e.State.Listeners;
 
                     e.ResolveEvent(0);
@@ -54,7 +54,7 @@ namespace PodcastTycoon.Tests
                     Assert.That(e.Events.LastOutcome, Is.Not.Null.And.Not.Empty);
                     bool somethingChanged =
                         e.State.Money != moneyBefore || e.State.Reputation != repBefore ||
-                        e.State.Buzz != buzzBefore || e.State.Listeners != listenersBefore ||
+                        e.State.SocialReach != socialBefore || e.State.Listeners != listenersBefore ||
                         e.State.WeeklyListenerDriftWeeks > 0 || e.State.PrepPenaltyThisWeek > 0 ||
                         e.State.CoHostWageBump > 0 || !e.State.HasCoHost;
                     Assert.That(somethingChanged, Is.True, "an event choice should do something");

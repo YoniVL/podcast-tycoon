@@ -166,7 +166,7 @@ namespace PodcastTycoon.Core
             var o = a.Offer;
             engine.State.Money += o.HitBonus;
             engine.State.Reputation = MathX.Clamp(engine.State.Reputation + 2f, 0f, 100f);
-            engine.State.Buzz += 5;
+            engine.State.SocialReach = MathX.Clamp(engine.State.SocialReach + 2f, 0f, 100f);
 
             var renewal = Renewal(o, engine);
             ActiveDeals.Remove(a);

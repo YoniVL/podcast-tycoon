@@ -35,6 +35,11 @@ namespace PodcastTycoon.Core
             int raw = avg >= th[2] ? 3 : avg >= th[1] ? 2 : avg >= th[0] ? 1 : 0;
             if (st.AccessProtectedWeeks > 0) raw = Math.Max(0, raw - 1);
 
+            // Tiers 2 and 3 also need the club to trust you (spec §18). The floor is soft
+            // for now — it only bites once your credibility has fallen well below the start.
+            if (raw >= 3 && st.Credibility < _cfg.CredFloorTier3) raw = 2;
+            if (raw >= 2 && st.Credibility < _cfg.CredFloorTier2) raw = 1;
+
             if (raw != st.AccessTier)
             {
                 bool up = raw > st.AccessTier;

@@ -166,7 +166,7 @@ namespace PodcastTycoon.Core
                 if (call == outcomeSign)
                 {
                     st.Reputation = MathX.Clamp(st.Reputation + 4f, 0f, 100f);
-                    st.Buzz += 5;
+                    st.SocialReach = MathX.Clamp(st.SocialReach + 2f, 0f, 100f);
                     t.CallResult = "right";
                 }
                 else
@@ -342,7 +342,7 @@ namespace PodcastTycoon.Core
                 {
                     ApplyCall(t, +1, st);
                     engine.State.TeamStrength = MathX.Clamp(engine.State.TeamStrength + 0.03f, 0.1f, 0.95f);
-                    st.Buzz += 12;
+                    st.SocialReach = MathX.Clamp(st.SocialReach + 5f, 0f, 100f);
                     st.Listeners = (int)Math.Min(_cfg.MaxListeners, st.Listeners + (long)Math.Round(st.Listeners * 0.02));
                     Resolve(t, $"{t.Subject} signs",
                         $"It's done — {t.Subject} is a {st.ClubName} player. A statement of intent, and a lot to talk about. {CallLine(t)}");
@@ -350,14 +350,14 @@ namespace PodcastTycoon.Core
                 else if (_rng.NextDouble() < 0.5)
                 {
                     ApplyCall(t, -1, st);
-                    st.Buzz += 4;
+                    st.SocialReach = MathX.Clamp(st.SocialReach + 2f, 0f, 100f);
                     Resolve(t, $"The {t.Subject} deal collapses",
                         $"Talks have broken down. {t.Subject} is staying put and the fanbase is deflated. {CallLine(t)}");
                 }
                 else
                 {
                     ApplyCall(t, -1, st);
-                    st.Buzz += 8;
+                    st.SocialReach = MathX.Clamp(st.SocialReach + 3f, 0f, 100f);
                     Resolve(t, $"{t.Subject} snatched by a rival",
                         $"A rival has hijacked it at the last minute. Painful. {CallLine(t)}");
                 }
@@ -368,11 +368,11 @@ namespace PodcastTycoon.Core
             t.Title = $"The {t.Subject} saga";
             SetFork(t, "This is the one", "Don't get your hopes up", "Is it happening?");
             t.Topic = MakeTopic(t, t.Title, "Call it — signing of the summer, or hot air?",
-                appeal: 1.5f, effort: 3, swing: 0.45f, rep: 0f, buzz: 4, response: TopicResponse.Evergreen);
+                appeal: 1.5f, effort: 3, swing: 0.45f, rep: 0f, social: 4, response: TopicResponse.Evergreen);
         }
 
         Topic MakeTopic(StoryThread t, string name, string blurb, float appeal, int effort, float swing,
-            float rep, int buzz, TopicResponse response)
+            float rep, int social, TopicResponse response)
         {
             return new Topic
             {
@@ -383,7 +383,7 @@ namespace PodcastTycoon.Core
                 Effort = effort,
                 Swing = swing,
                 RepEarn = rep,
-                BuzzBonus = buzz,
+                SocialHook = social,
                 Response = response,
                 IsAvailable = (c, s) => true,
                 SourceThread = t
@@ -411,7 +411,7 @@ namespace PodcastTycoon.Core
             if (t.Momentum > 0.42f || (timeout && t.Momentum > -0.05f))
             {
                 ApplyCall(t, +1, st);
-                st.Buzz += 5;
+                st.SocialReach = MathX.Clamp(st.SocialReach + 2f, 0f, 100f);
                 Resolve(t, $"{t.Subject} keeps his job",
                     $"The results turned and the board has backed {t.Subject}. {CallLine(t)}");
                 return;
@@ -422,7 +422,7 @@ namespace PodcastTycoon.Core
                 ApplyCall(t, -1, st);
                 float swing = (float)(_rng.NextDouble() * 0.09 - 0.03); // -0.03 .. +0.06
                 engine.State.TeamStrength = MathX.Clamp(engine.State.TeamStrength + swing, 0.1f, 0.95f);
-                st.Buzz += 12;
+                st.SocialReach = MathX.Clamp(st.SocialReach + 5f, 0f, 100f);
                 st.Listeners = (int)Math.Min(_cfg.MaxListeners, st.Listeners + (long)Math.Round(st.Listeners * 0.03));
 
                 string old = _managerName;
@@ -445,7 +445,7 @@ namespace PodcastTycoon.Core
             t.Title = "The manager's future";
             SetFork(t, "Back the manager", "Time for a change", "How are you calling it?");
             t.Topic = MakeTopic(t, t.Title, "Take a side on the manager.",
-                appeal: 1.55f, effort: 3, swing: 0.35f, rep: 1f, buzz: 3, response: TopicResponse.Crisis);
+                appeal: 1.55f, effort: 3, swing: 0.35f, rep: 1f, social: 3, response: TopicResponse.Crisis);
         }
 
         static void SetFork(StoryThread t, string plus, string minus, string question)
@@ -467,7 +467,7 @@ namespace PodcastTycoon.Core
                 ApplyCall(t, +1, st);
                 if (star != null) { star.ContractYears = 4; star.Rating = MathX.Clamp(star.Rating + 0.01f, 0.4f, 0.95f); }
                 engine.State.TeamStrength = MathX.Clamp(engine.State.TeamStrength + 0.02f, 0.1f, 0.95f);
-                st.Buzz += 8;
+                st.SocialReach = MathX.Clamp(st.SocialReach + 3f, 0f, 100f);
                 Resolve(t, $"{t.Subject} signs a new deal",
                     $"{t.Subject} has committed his future to {st.ClubName}. The mood is transformed. {CallLine(t)}");
                 return;
@@ -483,7 +483,7 @@ namespace PodcastTycoon.Core
                     star.Name = RandomPlayerName(_rng);
                 }
                 engine.State.TeamStrength = MathX.Clamp(engine.State.TeamStrength - 0.05f, 0.1f, 0.95f);
-                st.Buzz += 14;
+                st.SocialReach = MathX.Clamp(st.SocialReach + 6f, 0f, 100f);
                 st.Listeners = (int)Math.Min(_cfg.MaxListeners, st.Listeners + (long)Math.Round(st.Listeners * 0.02));
                 Resolve(t, $"{t.Subject} is sold",
                     $"{t.Subject} has left {st.ClubName}. A big cheque, a big hole in the team, and a lot for you to talk about. {CallLine(t)}");
@@ -496,7 +496,7 @@ namespace PodcastTycoon.Core
             t.Title = $"{t.Subject}'s future";
             SetFork(t, "We can't lose him", "Cash in while we can", "What should the club do?");
             t.Topic = MakeTopic(t, t.Title, "Take a side on the star.",
-                appeal: 1.5f, effort: 4, swing: 0.4f, rep: 0f, buzz: 4, response: TopicResponse.Reaction);
+                appeal: 1.5f, effort: 4, swing: 0.4f, rep: 0f, social: 4, response: TopicResponse.Reaction);
         }
 
         // ---- Wonderkid watch ----
@@ -516,7 +516,7 @@ namespace PodcastTycoon.Core
                 }
                 _wonderkidPeaked = true;
                 engine.State.TeamStrength = MathX.Clamp(engine.State.TeamStrength + 0.02f, 0.1f, 0.95f);
-                st.Buzz += 8;
+                st.SocialReach = MathX.Clamp(st.SocialReach + 3f, 0f, 100f);
                 st.Listeners = (int)Math.Min(_cfg.MaxListeners, st.Listeners + (long)Math.Round(st.Listeners * 0.02));
                 Resolve(t, $"{t.Subject} has arrived",
                     $"{t.Subject} has kicked on and looks the real thing. {CallLine(t)}");
@@ -527,7 +527,7 @@ namespace PodcastTycoon.Core
             {
                 ApplyCall(t, -1, st);
                 if (kid != null) kid.Form = PlayerForm.Poor;
-                st.Buzz = Math.Max(0, st.Buzz - 3);
+                st.SocialReach = MathX.Clamp(st.SocialReach - 2f, 0f, 100f);
                 Resolve(t, $"The {t.Subject} hype cools",
                     $"{t.Subject}'s form has dipped and the excitement has faded. {CallLine(t)}");
                 return;
@@ -538,7 +538,7 @@ namespace PodcastTycoon.Core
             SetFork(t, "He's the real deal", "Don't get carried away", "Where do you stand?");
             if (t.Stage == 0 && t.WeeksInStage >= 3) { t.Stage = 1; t.WeeksInStage = 0; }
             t.Topic = MakeTopic(t, t.Title, "Make the case, or pump the brakes.",
-                appeal: 1.25f, effort: 4, swing: 0.3f, rep: 1f, buzz: 3, response: TopicResponse.Positive);
+                appeal: 1.25f, effort: 4, swing: 0.3f, rep: 1f, social: 3, response: TopicResponse.Positive);
         }
 
         // ---- Are we actually good ----   (+1 = it's real, -1 = flat-track bullies)
@@ -551,7 +551,7 @@ namespace PodcastTycoon.Core
             {
                 ApplyCall(t, +1, st);
                 engine.State.TeamStrength = MathX.Clamp(engine.State.TeamStrength + 0.02f, 0.1f, 0.95f);
-                st.Buzz += 6;
+                st.SocialReach = MathX.Clamp(st.SocialReach + 2f, 0f, 100f);
                 st.Listeners = (int)Math.Min(_cfg.MaxListeners, st.Listeners + (long)Math.Round(st.Listeners * 0.03));
                 Resolve(t, $"{st.ClubName} are the real thing",
                     $"The results kept coming. This is a genuine season. {CallLine(t)}");
@@ -571,7 +571,7 @@ namespace PodcastTycoon.Core
             t.Title = "Are we actually any good?";
             SetFork(t, "This is real", "Flat-track bullies", "Which is it?");
             t.Topic = MakeTopic(t, t.Title, "Take a side on whether this is real.",
-                appeal: 1.2f, effort: 4, swing: 0.25f, rep: 1f, buzz: 2, response: TopicResponse.Reaction);
+                appeal: 1.2f, effort: 4, swing: 0.25f, rep: 1f, social: 2, response: TopicResponse.Reaction);
         }
 
         static readonly string[] Names =

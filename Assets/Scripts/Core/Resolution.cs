@@ -57,7 +57,8 @@ namespace PodcastTycoon.Core
         public int ListenerDeltaActual;
 
         public float ReputationDelta;
-        public int BuzzGained;
+        public float CredibilityDelta;
+        public float SocialGained;
 
         public float AdRevenue;
         public float SponsorRevenue;
@@ -169,15 +170,17 @@ namespace PodcastTycoon.Core
                                      - (quality < cfg.SloppyQualityThreshold ? cfg.SloppyReputationPenalty : 0f)
                                      - (st.HasPartnership && topic.Response == TopicResponse.Crisis ? 1.5f : 0f);
 
-            // --- buzz ---
+            // --- credibility (spec §17) ---
+            result.CredibilityDelta = topic.CredHook * MathX.Clamp(quality, 0.4f, 1.5f);
+
+            // --- social reach (absorbs old "Buzz"; a hot episode gets talked about) ---
             float perf = quality * actualRoll;
-            int buzz = perf > cfg.BuzzThreshold
-                ? MathX.RoundToInt((perf - cfg.BuzzThreshold) * cfg.BuzzScale * (float)Math.Sqrt(Math.Max(0.1f, appeal)))
-                : 0;
-            buzz += topic.BuzzBonus * ctx.BuzzMultiplier;
-            buzz = MathX.RoundToInt(buzz * CrewCatalog.BuzzMultiplier(crew));
-            buzz += st.CardBuzzBonusThisWeek;
-            result.BuzzGained = Math.Max(0, buzz);
+            float hotEpisode = perf > cfg.SocialHotThreshold
+                ? (perf - cfg.SocialHotThreshold) * cfg.SocialHotScale * (float)Math.Sqrt(Math.Max(0.1f, appeal))
+                : 0f;
+            float social = topic.SocialHook * ctx.SocialMultiplier + hotEpisode + st.CardSocialBonusThisWeek;
+            social *= CrewCatalog.SocialMultiplier(crew);
+            result.SocialGained = Math.Max(0f, social);
 
             // --- economy ---
             float adRate = d.AdRate * (st.Modifiers.SponsorFree ? 1.7f : 1f);

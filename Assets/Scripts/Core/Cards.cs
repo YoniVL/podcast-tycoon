@@ -17,7 +17,7 @@ namespace PodcastTycoon.Core
     }
 
     /// <summary>
-    /// Cards & packs (spec §17). A hand of up to five; milestone rewards and 60-Buzz packs.
+    /// Cards & packs (spec §17). A hand of up to five; milestone rewards and cash-bought packs.
     /// Most are one-shot buffs on the current episode or an immediate resource bump; a few
     /// permanently move the club or the show.
     /// </summary>
@@ -33,6 +33,7 @@ namespace PodcastTycoon.Core
         static Dictionary<string, Card> BuildCatalog()
         {
             void Rep(Engine e, float d) => e.State.Reputation = MathX.Clamp(e.State.Reputation + d, 0f, 100f);
+            void Soc(Engine e, float d) => e.State.SocialReach = MathX.Clamp(e.State.SocialReach + d, 0f, 100f);
             void Str(Engine e, float d) => e.State.TeamStrength = MathX.Clamp(e.State.TeamStrength + d, 0.1f, 0.95f);
             void Lst(Engine e, float pct) => e.State.Listeners = (int)Math.Min(e.Config.MaxListeners,
                 e.State.Listeners + (long)Math.Round(e.State.Listeners * pct));
@@ -40,8 +41,8 @@ namespace PodcastTycoon.Core
             var list = new List<Card>
             {
                 new Card { Id = "exclusive_scoop", Name = "Exclusive scoop", Rarity = 2, Kind = CardKind.OneShot,
-                    Text = "Break a story nobody else has. +25 Buzz and a jump in listeners right now.",
-                    Apply = e => { e.State.Buzz += 25; Lst(e, 0.03f); } },
+                    Text = "Break a story nobody else has. Everyone's talking about you, and a jump in listeners right now.",
+                    Apply = e => { Soc(e, 15f); Lst(e, 0.03f); } },
 
                 new Card { Id = "viral_moment", Name = "Viral moment", Rarity = 1, Kind = CardKind.OneShot,
                     Text = "A clip takes off. This week's episode reaches far further than normal.",
@@ -60,8 +61,8 @@ namespace PodcastTycoon.Core
                     Apply = e => Rep(e, 6f) },
 
                 new Card { Id = "clip_farm", Name = "Clip farm", Rarity = 0, Kind = CardKind.OneShot,
-                    Text = "Chop the back catalogue into shorts. +30 Buzz now.",
-                    Apply = e => e.State.Buzz += 30 },
+                    Text = "Chop the back catalogue into shorts. A big spike in how much you're talked about online.",
+                    Apply = e => Soc(e, 18f) },
 
                 new Card { Id = "sure_thing", Name = "Sure thing", Rarity = 1, Kind = CardKind.OneShot,
                     Text = "You know this one lands. This week's episode gets the best possible reception.",
@@ -102,8 +103,8 @@ namespace PodcastTycoon.Core
         {
             if (engine.State.Hand.Count >= _cfg.CardHandLimit)
             {
-                // hand full: convert to a little Buzz instead
-                engine.State.Buzz += 10;
+                // hand full: a small cash consolation instead
+                engine.State.Money += 15f;
                 return;
             }
             engine.State.Hand.Add(id);
@@ -116,12 +117,12 @@ namespace PodcastTycoon.Core
             for (int i = 0; i < n; i++) AddCard(engine, ctx, Draw(engine.State.Reputation));
         }
 
-        public bool CanBuyPack(GameState st) => st.Buzz >= _cfg.PackCostBuzz && st.Hand.Count < _cfg.CardHandLimit;
+        public bool CanBuyPack(GameState st) => st.Money >= _cfg.PackCostMoney && st.Hand.Count < _cfg.CardHandLimit;
 
         public bool BuyPack(Engine engine)
         {
             if (!CanBuyPack(engine.State)) return false;
-            engine.State.Buzz -= _cfg.PackCostBuzz;
+            engine.State.Money -= _cfg.PackCostMoney;
             for (int i = 0; i < 3; i++) AddCard(engine, engine.CurrentWeek, Draw(engine.State.Reputation));
             return true;
         }
