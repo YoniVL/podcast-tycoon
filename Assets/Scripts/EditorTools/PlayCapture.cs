@@ -44,8 +44,20 @@ namespace PodcastTycoon.EditorTools
             Directory.CreateDirectory(OutDir);
             SessionState.SetBool(ActiveKey, true);
             SessionState.SetBool(FinishedKey, false);
+            EditorApplication.update += KeepAlive; // stop batchmode quitting when Begin() returns
             EditorSceneManager.OpenScene("Assets/Scenes/Game.unity");
             EditorApplication.EnterPlaymode();
+        }
+
+        static double _deadline;
+        static void KeepAlive()
+        {
+            if (_deadline == 0) _deadline = EditorApplication.timeSinceStartup + 90;
+            if (EditorApplication.timeSinceStartup > _deadline)
+            {
+                EditorApplication.update -= KeepAlive;
+                if (Application.isBatchMode) EditorApplication.Exit(0);
+            }
         }
 
         public static void Done()
