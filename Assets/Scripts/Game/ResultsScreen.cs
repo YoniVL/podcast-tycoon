@@ -46,6 +46,25 @@ namespace PodcastTycoon.Game
                 toast.Add(Ui.Wrapping("Primary goal reached — 50,000 listeners. You can keep going as long as you like.", "body", "good"));
                 scroll.Add(toast);
             }
+            if (st.BuyoutPending)
+            {
+                var toast = Ui.Box("toast");
+                toast.Add(Ui.Wrapping("A media group wants to buy the podcast — the offer is waiting on This Week.", "body", "good"));
+                scroll.Add(toast);
+            }
+            var gained = _host.Engine.CurrentWeek?.CardsGained;
+            if (gained != null && gained.Count > 0)
+            {
+                var toast = Ui.Box("toast");
+                toast.Add(Ui.Wrapping("New cards: " + string.Join(", ", gained) + ".", "body"));
+                scroll.Add(toast);
+            }
+            if (st.SeasonTurn == 1 && st.LastSeason != null)
+            {
+                var toast = Ui.Box("toast", "toast-story");
+                toast.Add(Ui.Wrapping($"Season {st.LastSeason.Season} wrapped up — finished {st.LastSeason.LeaguePositionLabel}. Full review in the Logbook.", "body"));
+                scroll.Add(toast);
+            }
 
             // --- what changed ---
             var deltas = Ui.Box("panel");

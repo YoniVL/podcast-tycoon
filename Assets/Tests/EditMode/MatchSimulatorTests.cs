@@ -88,7 +88,9 @@ namespace PodcastTycoon.Tests
             var sim = new MatchSimulator(cfg);
 
             Assert.That(cal.Clubs.Count, Is.EqualTo(20));
-            Assert.That(cal.TurnsPerSeason, Is.EqualTo(38 + cfg.InternationalBreakTurns.Length));
+            // 38 league matchdays + international breaks + 5 cup weekends + a short offseason.
+            Assert.That(cal.TurnsPerSeason,
+                Is.EqualTo(38 + cfg.InternationalBreakTurns.Length + cfg.CupAfterMatchday.Length + cfg.OffseasonTurns));
 
             for (int turn = 1; turn <= cal.TurnsPerSeason; turn++)
             {
@@ -100,7 +102,7 @@ namespace PodcastTycoon.Tests
             }
 
             foreach (var c in cal.Clubs)
-                Assert.That(c.Played, Is.EqualTo(38), $"{c.Name} should have played every matchday");
+                Assert.That(c.Played, Is.EqualTo(38), $"{c.Name} should have played every league matchday");
 
             int pos = cal.PlayerPosition();
             Assert.That(pos, Is.InRange(1, 20));

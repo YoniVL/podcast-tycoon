@@ -335,3 +335,16 @@
 }
 .tab:hover { background-color: rgba(0, 0, 0, 0); color: rgb(219, 215, 229); }
 .tab.active { color: rgb(244, 242, 250); }
+
+/* ---- toggles (setup screen modifiers) ---- */
+.unity-toggle .unity-text-element { color: rgb(206, 202, 216); white-space: normal; }
+.unity-toggle > .unity-toggle__input { margin-right: 8px; }
+.unity-toggle__checkmark {
+    background-color: rgb(24, 23, 31);
+    border-color: rgb(90, 86, 104);
+    border-width: 1px;
+    border-radius: 4px;
+}
+.unity-toggle:checked .unity-toggle__checkmark {
+    background-color: rgb(231, 165, 68);
+}

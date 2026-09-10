@@ -63,7 +63,11 @@ namespace PodcastTycoon.Core
 
         // --- goal ---
         public int GoalListeners = 50000;
-        public int[] Milestones = { 100, 500, 1000, 2500, 10000, 25000, 50000 };
+        public int[] Milestones =
+        {
+            100, 500, 1000, 2500, 10000, 25000, 50000,
+            100_000, 250_000, 500_000, 1_000_000, 2_500_000, 5_000_000, 10_000_000
+        };
         public int AvgListenerWindow = 6;   // episodes averaged for access / sponsor targets
 
         // --- match sim ---
@@ -101,5 +105,45 @@ namespace PodcastTycoon.Core
         // --- calendar ---
         public int LeagueMatchdays = 38;
         public int[] InternationalBreakTurns = { 6, 15, 24, 33 };
+
+        // --- competitions (slice 3) ---
+        // Cup / European rounds are spliced in after these league matchdays.
+        public int[] CupAfterMatchday = { 6, 12, 18, 24, 29 };        // 5 knockout rounds
+        public int[] EuropeAfterMatchday = { 3, 9, 14, 20, 26, 32 };  // 6-game league phase, only if qualified
+        public int OffseasonTurns = 3;                                // playable quiet weeks before rollover
+        public int EuropeQualifyPosition = 5;                         // finish here or better → Europe next season
+        public float CupOpponentBase = 0.44f;                         // round-1 opponent strength
+        public float CupOpponentStep = 0.055f;                        // added per round
+        public float EuropeOpponentBase = 0.60f;
+        public float EuropeOpponentSpread = 0.22f;
+        public int CupWinBuzz = 30;
+        public float CupWinReputation = 6f;
+        public int EuropeQualifyBuzz = 14;
+
+        // --- access tiers (slice 3, spec §14) ---
+        public int[] AccessTierListeners = { 1000, 12000, 80000 };    // tier 1 / 2 / 3 thresholds on the rolling average
+
+        // --- scoops (slice 3) ---
+        public float ScoopBaseChance = 0.14f;                         // per eligible week at tier 2+
+        public float ScoopDisruptionBase = 0.15f;
+        public float ScoopDisruptionPerTier = 0.10f;
+
+        // --- crew (slice 3, monthly) ---
+        public int ProducerWage = 220;
+        public int ResearcherWage = 200;
+        public int ClipsWage = 240;
+        public int BookerWage = 260;
+
+        // --- extra gear (slice 3) ---
+        public int SecondSponsorSlotCost = 600;
+        public int StudioSpaceCost = 900;
+        public int StudioSpaceMonthly = 30;
+
+        // --- endless milestones / buyout ---
+        public int BuyoutListeners = 1_000_000;
+
+        // --- cards & packs (slice 3E) ---
+        public int PackCostBuzz = 60;
+        public int CardHandLimit = 5;
     }
 }

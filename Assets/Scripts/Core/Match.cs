@@ -12,7 +12,9 @@ namespace PodcastTycoon.Core
         Heroic = 2
     }
 
-    public enum FixtureImportance { Normal, BigMatch, Derby }
+    public enum FixtureImportance { Normal, BigMatch, Derby, Final }
+
+    public enum Competition { League, Cup, European }
 
     public sealed class Fixture
     {
@@ -25,7 +27,15 @@ namespace PodcastTycoon.Core
         public float OpponentStrength;
         public FixtureImportance Importance = FixtureImportance.Normal;
 
-        public bool IsMatchless => IsInternationalBreak || IsOffseason;
+        // --- competition (slice 3) ---
+        public Competition Competition = Competition.League;
+        public int LeagueRound = -1;     // 0-based index into the round-robin, -1 when not league
+        public int CupRound;             // 1-based; 0 when not a cup tie
+        public int EuropeGame;           // 1-based; 0 when not a European night
+        public bool IsCupByeWeek;        // a cup weekend you're watching from home (knocked out)
+
+        public bool IsMatchless => IsInternationalBreak || IsOffseason || IsCupByeWeek;
+        public bool IsRivalFixture;      // set by RivalTracker — always derby-importance
     }
 
     public sealed class MatchResult

@@ -57,6 +57,30 @@ namespace PodcastTycoon.EditorTools
                     engine.ResolveEvent(greedy ? Math.Min(1, n - 1) : n - 1);
                 }
 
+                if (engine.Scoops.Pending != null)
+                    engine.ResolveScoop(greedy ? ScoopChoice.BreakNow : ScoopChoice.VerifyHold);
+
+                if (engine.State.BuyoutPending)
+                {
+                    if (greedy) engine.AcceptBuyout(); else engine.DeclineBuyout();
+                }
+
+                // Hire crew and buy the big upgrades once the money is comfortable.
+                if (engine.State.Money > 900 && engine.CanHireCrew(Crew.Producer)) engine.HireCrew(Crew.Producer);
+                if (engine.State.Money > 900 && engine.CanHireCrew(Crew.Researcher)) engine.HireCrew(Crew.Researcher);
+                if (engine.State.Money > 1200 && engine.CanHireCrew(Crew.Clips)) engine.HireCrew(Crew.Clips);
+                if (engine.State.Money > 1500 && engine.CanHireCrew(Crew.Booker)) engine.HireCrew(Crew.Booker);
+                if (engine.State.Money > 2000 && engine.CanBuyStudioSpace()) engine.BuyStudioSpace();
+                if (engine.State.Money > 2000 && engine.CanBuySecondSponsorSlot()) engine.BuySecondSponsorSlot();
+
+                // Play any one-shot cards that clearly help; keep permanents.
+                foreach (var id in engine.State.Hand.ToArray())
+                {
+                    var card = CardManager.Get(id);
+                    if (card != null && card.Kind == CardKind.Permanent) engine.PlayCard(id);
+                }
+                if (engine.Cards.CanBuyPack(engine.State) && engine.State.Buzz > 120) engine.BuyPack();
+
                 if (engine.Sponsors.Active == null && engine.Sponsors.Inbox.Count > 0)
                 {
                     // greedy grabs the biggest weekly; balanced takes the safest (index 0).
@@ -106,7 +130,8 @@ namespace PodcastTycoon.EditorTools
             var st = engine.State;
             sb.AppendLine($"--> after {st.EpisodesPublished} episodes / {peakSeason} seasons: " +
                           $"{st.Listeners:N0} listeners (peak {st.PeakListeners:N0}), €{st.Money:0}, rep {st.Reputation:0}, " +
-                          $"{events} events, goal {(st.GoalReached ? "REACHED" : "not reached")}, gameOver={st.IsGameOver}");
+                          $"access T{st.AccessTier}, {st.CupsWon} cup(s), {st.EuropeanTrophies} euro, " +
+                          $"{events} events, {st.ScoopsBroken} scoops broken, goal {(st.GoalReached ? "REACHED" : "not reached")}, gameOver={st.IsGameOver}");
 
             Debug.Log("[Headless]\n" + sb);
         }

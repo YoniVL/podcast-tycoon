@@ -93,25 +93,35 @@ namespace PodcastTycoon.Core
             float qualityFloorBonus = st.HasGear(Gear.AcousticPanels) ? cfg.PanelsQualityFloorBonus : 0f;
             float crewAppeal = st.HasCoHost ? cfg.CoHostAppealBonus : 0f;
 
+            var crew = st.Crew;
+            int effectiveEffort = Math.Max(1, topic.Effort - CrewCatalog.EffortRelief(crew));
+            float researchMult = CrewCatalog.ResearchMultiplier(crew);
+
             // --- quality ---
-            float prepRatio = MathX.Clamp01((float)plan.PrepTopic / Math.Max(1, topic.Effort));
-            float overshoot = Math.Max(0, plan.PrepTopic - topic.Effort) * cfg.QualityOvershootPerPoint;
+            float prepRatio = MathX.Clamp01((float)plan.PrepTopic / effectiveEffort);
+            float overshoot = Math.Max(0, plan.PrepTopic - effectiveEffort) * cfg.QualityOvershootPerPoint;
             float gear = cfg.QualityGearWeight * micQ + cfg.QualityGearWeight * editSkill;
             float quality = cfg.QualityFloor
                             + cfg.QualityPrepWeight * prepRatio
                             + overshoot
                             + gear
                             + cfg.QualityAudioPerPoint * plan.PrepAudio
-                            + qualityFloorBonus;
+                            + qualityFloorBonus
+                            + st.CardQualityBonusThisWeek;
             quality = MathX.Clamp(quality, cfg.QualityMin, cfg.QualityMax);
 
             // --- volatility ---
-            float spread = Math.Max(0f, topic.Swing * (1f - cfg.ResearchSpreadReductionPerPoint * plan.PrepResearch));
+            float spread = Math.Max(0f, topic.Swing * (1f - cfg.ResearchSpreadReductionPerPoint * plan.PrepResearch * researchMult));
+            if (st.Modifiers.ChaosCycle) spread *= 1.5f;
 
             // --- appeal & reach ---
             float contextMult = ContextResolver.AppealMultiplier(topic.Response, ctx) * ctx.ImportanceAppealMult;
-            float appeal = Math.Max(0.05f, topic.BaseAppeal * contextMult + crewAppeal + st.SponsorAppealPenalty);
-            float reach = st.Listeners * appeal * (1f + cfg.PromoReachPerPoint * plan.PrepPromo) * ctx.ReachMult;
+            float momentBonus = ctx.HasDramaticMoment
+                && (topic.Response == TopicResponse.Reaction || topic.Response == TopicResponse.Crisis) ? 0.12f : 0f;
+            float appeal = Math.Max(0.05f, topic.BaseAppeal * contextMult + crewAppeal + st.SponsorAppealPenalty + momentBonus);
+            float studioReach = st.HasStudioSpace ? 1.08f : 1f;
+            float reach = st.Listeners * appeal * (1f + cfg.PromoReachPerPoint * plan.PrepPromo)
+                          * ctx.ReachMult * st.CardReachMultThisWeek * studioReach;
 
             // Market saturation: growth tails off as the audience nears the addressable
             // market, which grows with reputation and across seasons.
@@ -122,16 +132,21 @@ namespace PodcastTycoon.Core
 
             float passiveGain = st.Listeners * ctx.PassiveGainRate * growthRoom;
 
+            float clipsPassive = st.Listeners * CrewCatalog.PassiveReachPerWeek(crew) * growthRoom;
+            float churnRate = cfg.ChurnRate * (st.Modifiers.GentleChurn ? 0.8f : 1f);
+
             int Delta(float roll)
             {
                 float gross = reach * (quality - cfg.QualityBreakeven) * roll * cfg.DeltaScale * growthRoom;
                 float wom = quality > 1f ? st.Listeners * cfg.WordOfMouthRate * (quality - 1f) * growthRoom : 0f;
-                float churn = st.Listeners * cfg.ChurnRate * MathX.Clamp(1.40f - quality, 0f, 1.40f);
+                float churn = st.Listeners * churnRate * MathX.Clamp(1.40f - quality, 0f, 1.40f);
                 float moodChurn = st.Listeners * ctx.MoodChurnRate * Math.Max(0f, 1.15f - quality);
-                return MathX.RoundToInt(gross + wom - churn + passiveGain - moodChurn);
+                return MathX.RoundToInt(gross + wom - churn + passiveGain + clipsPassive - moodChurn);
             }
 
-            float actualRoll = (float)(1.0 + (rng.NextDouble() * 2.0 - 1.0) * spread);
+            float actualRoll = st.CardGuaranteeGoodRoll
+                ? 1f + spread
+                : (float)(1.0 + (rng.NextDouble() * 2.0 - 1.0) * spread);
 
             var result = new EpisodeResult
             {
@@ -148,8 +163,11 @@ namespace PodcastTycoon.Core
             };
 
             // --- reputation ---
-            result.ReputationDelta = topic.RepEarn * quality
-                                     - (quality < cfg.SloppyQualityThreshold ? cfg.SloppyReputationPenalty : 0f);
+            float analysisRep = topic.Response == TopicResponse.Evergreen && topic.RepEarn > 0f
+                ? CrewCatalog.AnalysisRepBonus(crew) : 0f;
+            result.ReputationDelta = topic.RepEarn * quality + analysisRep
+                                     - (quality < cfg.SloppyQualityThreshold ? cfg.SloppyReputationPenalty : 0f)
+                                     - (st.HasPartnership && topic.Response == TopicResponse.Crisis ? 1.5f : 0f);
 
             // --- buzz ---
             float perf = quality * actualRoll;
@@ -157,20 +175,29 @@ namespace PodcastTycoon.Core
                 ? MathX.RoundToInt((perf - cfg.BuzzThreshold) * cfg.BuzzScale * (float)Math.Sqrt(Math.Max(0.1f, appeal)))
                 : 0;
             buzz += topic.BuzzBonus * ctx.BuzzMultiplier;
+            buzz = MathX.RoundToInt(buzz * CrewCatalog.BuzzMultiplier(crew));
+            buzz += st.CardBuzzBonusThisWeek;
             result.BuzzGained = Math.Max(0, buzz);
 
             // --- economy ---
-            result.AdRevenue = st.Listeners * d.AdRate * (cfg.AdReputationFloor + cfg.AdReputationRange * st.Reputation / 100f);
+            float adRate = d.AdRate * (st.Modifiers.SponsorFree ? 1.7f : 1f);
+            result.AdRevenue = st.Listeners * adRate * (cfg.AdReputationFloor + cfg.AdReputationRange * st.Reputation / 100f);
             float hosting = cfg.HostingBase + st.Listeners * cfg.HostingSlope;
 
             float wages = 0f;
-            if (st.HasCoHost && st.GlobalWeek % cfg.MonthlyIntervalWeeks == 0)
-                wages += cfg.CoHostMonthlyWage + st.CoHostWageBump;
+            bool payday = st.GlobalWeek % cfg.MonthlyIntervalWeeks == 0;
+            if (payday)
+            {
+                if (st.HasCoHost) wages += cfg.CoHostMonthlyWage + st.CoHostWageBump;
+                wages += CrewCatalog.MonthlyWageBill(st.Crew, cfg);
+                if (st.HasStudioSpace) wages += cfg.StudioSpaceMonthly;
+            }
             result.MonthlyWagesCharged = wages;
 
             result.WeeklyCosts = d.FixedOverhead + hosting + wages;
-            result.SponsorRevenue = st.SponsorWeekly;
-            result.MoneyDelta = result.AdRevenue + result.SponsorRevenue - result.WeeklyCosts;
+            result.SponsorRevenue = st.Modifiers.SponsorFree ? 0f : st.SponsorWeekly;
+            float partnershipRevenue = st.HasPartnership ? result.AdRevenue * 0.35f : 0f;
+            result.MoneyDelta = result.AdRevenue + result.SponsorRevenue + partnershipRevenue - result.WeeklyCosts;
 
             return result;
         }

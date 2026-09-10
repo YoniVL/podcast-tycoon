@@ -17,10 +17,42 @@ namespace PodcastTycoon.Core
 
         public bool IsInternationalBreak => Fixture != null && Fixture.IsInternationalBreak;
         public bool IsOffseason => Fixture != null && Fixture.IsOffseason;
+        public bool IsCupByeWeek => Fixture != null && Fixture.IsCupByeWeek;
         public bool IsMatchless => Fixture == null || Fixture.IsMatchless;
+
+        public Competition Competition => Fixture?.Competition ?? Competition.League;
+        public bool IsCupTie => Fixture != null && Fixture.Competition == Competition.Cup && !Fixture.IsCupByeWeek;
+        public bool IsEuropeanNight => Fixture != null && Fixture.Competition == Competition.European;
 
         public Surprise Surprise => Match?.Surprise ?? Surprise.Par;
         public FixtureImportance Importance => Fixture?.Importance ?? FixtureImportance.Normal;
+
+        /// <summary>A line about a cup result / European night / trophy, if any.</summary>
+        public string CompetitionNote;
+
+        /// <summary>Set on the last few weeks of the season — the transfer window is open.</summary>
+        public bool TransferWindowOpen;
+
+        // --- rivals (slice 3) ---
+        public System.Collections.Generic.List<string> RivalNews = new System.Collections.Generic.List<string>();
+        public bool AnyRivalStumbled;
+        public bool AnyRivalSurged;
+        public bool IsRivalMatch => Fixture != null && Fixture.IsRivalFixture;
+
+        // --- match moments (slice 3) ---
+        public System.Collections.Generic.List<string> Moments = new System.Collections.Generic.List<string>();
+        public bool HasDramaticMoment;
+
+        // --- a scoop awaiting your decision (slice 3, spec §14) ---
+        public Scoop PendingScoop;
+        public string ScoopOutcome;
+
+        // --- access tier changes this week ---
+        public int AccessTier;
+        public string AccessNote;
+
+        // --- a card offered this week (slice 3E) ---
+        public System.Collections.Generic.List<string> CardsGained = new System.Collections.Generic.List<string>();
 
         // --- resolved context modifiers (filled by ContextResolver) ---
         public float ReachMult = 1f;
@@ -81,9 +113,11 @@ namespace PodcastTycoon.Core
 
             if (c.IsOffseason)
             {
-                c.ReachMult = 0.85f;
-                c.Headline = "Offseason — no football, but the fans are still listening.";
-                c.Advice = "Quieter week. Evergreen content holds up; anything tied to a result falls flat.";
+                c.ReachMult = 0.88f;
+                c.BuzzMultiplier = 2;
+                c.TransferWindowOpen = true;
+                c.Headline = "Transfer window — no football, but the rumour mill is at full tilt.";
+                c.Advice = "Quiet for match content, loud for transfers. Speculation and squad-planning episodes do well; recaps fall flat.";
                 return;
             }
 
@@ -92,6 +126,14 @@ namespace PodcastTycoon.Core
                 c.ReachMult = 0.80f;
                 c.Headline = "International break — no club game this week.";
                 c.Advice = "Fewer people tuning in with no club game. A good week for the mailbag or a tier list.";
+                return;
+            }
+
+            if (c.IsCupByeWeek)
+            {
+                c.ReachMult = 0.9f;
+                c.Headline = "Cup weekend — you're watching this one from the sofa.";
+                c.Advice = "No game of your own. Evergreen content, or a look at who's still in the cup.";
                 return;
             }
 
@@ -125,11 +167,23 @@ namespace PodcastTycoon.Core
 
             if (c.Importance != FixtureImportance.Normal)
             {
-                c.ImportanceAppealMult = 1.30f;
-                c.BuzzMultiplier = 2;
-                string tag = c.Importance == FixtureImportance.Derby ? "Derby week. " : "Big match. ";
+                c.ImportanceAppealMult = c.Importance == FixtureImportance.Final ? 1.55f : 1.30f;
+                c.BuzzMultiplier = c.Importance == FixtureImportance.Final ? 3 : 2;
+                string tag = c.Importance switch
+                {
+                    FixtureImportance.Derby => "Derby week. ",
+                    FixtureImportance.Final => "CUP FINAL. ",
+                    _ => "Big match. "
+                };
+                if (c.IsCupTie && c.Importance != FixtureImportance.Final) tag = "Cup tie. ";
+                if (c.IsEuropeanNight) tag = "European night. ";
                 c.Headline = tag + c.Headline;
                 c.Advice = "Everything is bigger this week — more reach and more buzz on whatever you cover. " + c.Advice;
+            }
+            else if (c.IsCupTie)
+            {
+                c.ImportanceAppealMult = 1.15f;
+                c.Headline = "Cup tie. " + c.Headline;
             }
         }
 

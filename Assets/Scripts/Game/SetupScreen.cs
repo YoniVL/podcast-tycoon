@@ -13,6 +13,7 @@ namespace PodcastTycoon.Game
         string _primary = "#2F6DB5";
         string _secondary = "#F2C14E";
         Difficulty _difficulty = Difficulty.Regular;
+        readonly RunModifiers _mods = new RunModifiers();
 
         static readonly (string name, string hex)[] Palette =
         {
@@ -57,6 +58,21 @@ namespace PodcastTycoon.Game
             foreach (Difficulty d in System.Enum.GetValues(typeof(Difficulty)))
                 scroll.Add(DifficultyCard(d));
 
+            scroll.Add(Ui.Text("CUSTOM MODIFIERS", "eyebrow"));
+            scroll.Add(Ui.Wrapping(
+                "Optional tweaks to the run. Turning any on flags the run as Custom — the endless chase still works, it just sits on its own board.",
+                "body", "dim"));
+            var mods = Ui.Box("panel");
+            mods.Add(ModToggle("+1 prep point every week", () => _mods.ExtraPrep, v => _mods.ExtraPrep = v));
+            mods.Add(ModToggle("Churn −20% (listeners leave more slowly)", () => _mods.GentleChurn, v => _mods.GentleChurn = v));
+            mods.Add(ModToggle("Start with +€300", () => _mods.NestEgg, v => _mods.NestEgg = v));
+            mods.Add(ModToggle("Longer runway (5 weeks in the red before folding)", () => _mods.LongRunway, v => _mods.LongRunway = v));
+            mods.Add(ModToggle("No international breaks", () => _mods.NoInternationalBreaks, v => _mods.NoInternationalBreaks = v));
+            mods.Add(ModToggle("Sponsor-free (no deals, higher ad rate)", () => _mods.SponsorFree, v => _mods.SponsorFree = v));
+            mods.Add(ModToggle("Chaos cycle (more events, wilder results)", () => _mods.ChaosCycle, v => _mods.ChaosCycle = v));
+            mods.Add(ModToggle("Sandbox (no bankruptcy)", () => _mods.Sandbox, v => _mods.Sandbox = v));
+            scroll.Add(mods);
+
             var start = Ui.Btn("Start the podcast", () =>
             {
                 _host.StartRun(new RunSetup
@@ -65,7 +81,8 @@ namespace PodcastTycoon.Game
                     ClubName = string.IsNullOrWhiteSpace(_club) ? "Rovers" : _club.Trim(),
                     ColourPrimary = _primary,
                     ColourSecondary = _secondary,
-                    Difficulty = _difficulty
+                    Difficulty = _difficulty,
+                    Modifiers = _mods.Clone()
                 });
             }, "btn-primary");
             _host.Theme.Set(_primary, _secondary);
@@ -74,6 +91,14 @@ namespace PodcastTycoon.Game
             scroll.Add(start);
 
             return screen;
+        }
+
+        VisualElement ModToggle(string label, System.Func<bool> get, System.Action<bool> set)
+        {
+            var t = new Toggle(label) { value = get() };
+            t.RegisterValueChangedCallback(e => set(e.newValue));
+            t.style.marginBottom = 4;
+            return t;
         }
 
         VisualElement Field(string label, string value, System.Action<string> onChange)

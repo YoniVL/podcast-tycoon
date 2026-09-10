@@ -9,7 +9,8 @@ namespace PodcastTycoon.Core
         ManagerPressure,
         StarWantsOut,
         WonderkidWatch,
-        AreWeGood
+        AreWeGood,
+        TransferSaga
     }
 
     /// <summary>
@@ -49,6 +50,7 @@ namespace PodcastTycoon.Core
             ThreadKind.StarWantsOut => $"{Subject}'s future",
             ThreadKind.WonderkidWatch => $"The {Subject} question",
             ThreadKind.AreWeGood => "Are we actually any good?",
+            ThreadKind.TransferSaga => $"The {Subject} saga",
             _ => "Story"
         };
     }
@@ -127,7 +129,7 @@ namespace PodcastTycoon.Core
                 if (_kindCooldown[k] > 0) _kindCooldown[k]--;
 
             if (_cooldown > 0) _cooldown--;
-            else if (Active.Count < 2 && !ctx.IsMatchless)
+            else if (Active.Count < 2)
                 TrySpawn(engine, ctx);
 
             foreach (var t in Active)
@@ -217,6 +219,20 @@ namespace PodcastTycoon.Core
         void TrySpawn(Engine engine, WeekContext ctx)
         {
             var st = engine.State;
+
+            // Transfer saga — only while the window is open (offseason / breaks).
+            if (ctx.TransferWindowOpen && !HasThread(ThreadKind.TransferSaga)
+                && CooldownFor(ThreadKind.TransferSaga) == 0 && _rng.NextDouble() < 0.5)
+            {
+                string target = RandomPlayerName(_rng).Split(' ')[^1];
+                Open(new StoryThread { Kind = ThreadKind.TransferSaga, Subject = target, Momentum = 0f },
+                    $"Linked: {st.ClubName} in for {target}",
+                    $"The {target} rumour won't go away. Could be nothing, could be the signing of the summer.");
+                return;
+            }
+
+            if (ctx.IsMatchless) return;
+
             int position = ctx.LeaguePosition;
             int bump = Math.Min(_managerChanges, 2); // gets a bit harder to trigger after each change
             int lossGate = 3 + bump;
@@ -291,6 +307,7 @@ namespace PodcastTycoon.Core
                 case ThreadKind.StarWantsOut: AdvanceStar(engine, ctx, t); break;
                 case ThreadKind.WonderkidWatch: AdvanceKid(engine, ctx, t); break;
                 case ThreadKind.AreWeGood: AdvanceGood(engine, ctx, t); break;
+                case ThreadKind.TransferSaga: AdvanceTransfer(engine, ctx, t); break;
             }
         }
 
@@ -309,6 +326,49 @@ namespace PodcastTycoon.Core
                 default:
                     return 0f;
             }
+        }
+
+        // ---- Transfer saga ----   (+1 = it happens, -1 = it falls through / hijacked)
+        void AdvanceTransfer(Engine engine, WeekContext ctx, StoryThread t)
+        {
+            var st = engine.State;
+            bool decided = t.TotalWeeks >= 2 || !ctx.TransferWindowOpen;
+
+            if (decided)
+            {
+                // Mostly RNG, with a small nudge from how you've been calling it.
+                float pSign = 0.42f + 0.12f * Math.Sign(t.StanceScore) + (float)(_rng.NextDouble() * 0.2 - 0.1);
+                if (_rng.NextDouble() < MathX.Clamp01(pSign))
+                {
+                    ApplyCall(t, +1, st);
+                    engine.State.TeamStrength = MathX.Clamp(engine.State.TeamStrength + 0.03f, 0.1f, 0.95f);
+                    st.Buzz += 12;
+                    st.Listeners = (int)Math.Min(_cfg.MaxListeners, st.Listeners + (long)Math.Round(st.Listeners * 0.02));
+                    Resolve(t, $"{t.Subject} signs",
+                        $"It's done — {t.Subject} is a {st.ClubName} player. A statement of intent, and a lot to talk about. {CallLine(t)}");
+                }
+                else if (_rng.NextDouble() < 0.5)
+                {
+                    ApplyCall(t, -1, st);
+                    st.Buzz += 4;
+                    Resolve(t, $"The {t.Subject} deal collapses",
+                        $"Talks have broken down. {t.Subject} is staying put and the fanbase is deflated. {CallLine(t)}");
+                }
+                else
+                {
+                    ApplyCall(t, -1, st);
+                    st.Buzz += 8;
+                    Resolve(t, $"{t.Subject} snatched by a rival",
+                        $"A rival has hijacked it at the last minute. Painful. {CallLine(t)}");
+                }
+                return;
+            }
+
+            t.Note = $"The {t.Subject} rumour is still doing the rounds.";
+            t.Title = $"The {t.Subject} saga";
+            SetFork(t, "This is the one", "Don't get your hopes up", "Is it happening?");
+            t.Topic = MakeTopic(t, t.Title, "Call it — signing of the summer, or hot air?",
+                appeal: 1.5f, effort: 3, swing: 0.45f, rep: 0f, buzz: 4, response: TopicResponse.Evergreen);
         }
 
         Topic MakeTopic(StoryThread t, string name, string blurb, float appeal, int effort, float swing,

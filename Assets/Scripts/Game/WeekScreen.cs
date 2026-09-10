@@ -45,7 +45,7 @@ namespace PodcastTycoon.Game
             var st = E.State;
 
             // An unresolved interrupt has to be dealt with on This Week before anything else.
-            if (E.Events.Pending != null) _activeTab = 0;
+            if (E.Events.Pending != null || E.Scoops.Pending != null || E.State.BuyoutPending) _activeTab = 0;
 
             var screen = Ui.Box("screen");
             var col = Ui.Box("column");
@@ -55,11 +55,11 @@ namespace PodcastTycoon.Game
             col.Add(BuildHeaderBar(ctx, st));
             col.Add(BuildResourceStrip(st));
 
-            if (E.Events.Pending != null)
+            if (E.Events.Pending != null || E.Scoops.Pending != null || E.State.BuyoutPending)
             {
                 var banner = Ui.Box("toast", "toast-bad");
                 banner.Add(Ui.Wrapping(
-                    "Something's come up this week. Deal with it on This Week before you can release.", "body"));
+                    "There's a decision waiting on This Week — sort it before you can release.", "body"));
                 col.Add(banner);
             }
 
@@ -176,6 +176,76 @@ namespace PodcastTycoon.Game
                 root.Add(toast);
             }
 
+            if (!string.IsNullOrEmpty(ctx.CompetitionNote))
+            {
+                var toast = Ui.Box("toast");
+                toast.Add(Ui.Text("CUP & EUROPE", "eyebrow"));
+                toast.Add(Ui.Wrapping(ctx.CompetitionNote, "body"));
+                root.Add(toast);
+            }
+            foreach (var rn in ctx.RivalNews)
+            {
+                var toast = Ui.Box("toast", "toast-story");
+                toast.Add(Ui.Text("RIVAL WATCH", "eyebrow"));
+                toast.Add(Ui.Wrapping(rn, "body"));
+                root.Add(toast);
+            }
+            if (!string.IsNullOrEmpty(ctx.AccessNote))
+            {
+                var toast = Ui.Box("toast");
+                toast.Add(Ui.Text("CLUB ACCESS", "eyebrow"));
+                toast.Add(Ui.Wrapping(ctx.AccessNote, "body"));
+                root.Add(toast);
+            }
+            if (ctx.CardsGained.Count > 0)
+            {
+                var toast = Ui.Box("toast", "toast-story");
+                toast.Add(Ui.Text("NEW CARDS", "eyebrow"));
+                toast.Add(Ui.Wrapping("Added to your hand: " + string.Join(", ", ctx.CardsGained) + ". Play them from Business.", "body"));
+                root.Add(toast);
+            }
+
+            // a scoop awaiting a decision — blocks the week like an event
+            if (E.Scoops.Pending != null)
+            {
+                var sc = E.Scoops.Pending;
+                var card = Ui.Box("panel", "event-card");
+                card.Add(Ui.Text("YOU'VE GOT A SCOOP", "eyebrow"));
+                card.Add(Ui.Text(sc.Headline, "h2"));
+                card.Add(Ui.Wrapping(sc.Detail, "body"));
+                card.Add(Ui.Wrapping("Break it now for big numbers and a real risk it's wrong; verify and hold to build trust; or trade it to a national outlet for cash.", "body", "dim"));
+                void Choice(string label, ScoopChoice c)
+                {
+                    var b = Ui.Btn(label, () => { E.ResolveScoop(c); _host.RerenderWeek(); }, "btn-ghost");
+                    b.style.marginTop = 4;
+                    card.Add(b);
+                }
+                Choice("Break it now", ScoopChoice.BreakNow);
+                Choice("Verify & hold", ScoopChoice.VerifyHold);
+                Choice("Trade it", ScoopChoice.Trade);
+                root.Add(card);
+            }
+            else if (!string.IsNullOrEmpty(E.Scoops.LastOutcome))
+            {
+                var toast = Ui.Box("toast");
+                toast.Add(Ui.Wrapping(E.Scoops.LastOutcome, "body"));
+                root.Add(toast);
+            }
+
+            // the 1M buyout decision
+            if (st.BuyoutPending)
+            {
+                var card = Ui.Box("panel", "event-card");
+                card.Add(Ui.Text("SOMEONE WANTS TO BUY THE SHOW", "eyebrow"));
+                card.Add(Ui.Text("A media group has made an offer for the whole podcast.", "h2"));
+                card.Add(Ui.Wrapping("Take the money and keep making it under their banner, or stay independent. Either way the show goes on.", "body", "dim"));
+                var yes = Ui.Btn("Sell — take the €250,000", () => { E.AcceptBuyout(); _host.RerenderWeek(); }, "btn-ghost");
+                var no = Ui.Btn("Stay independent", () => { E.DeclineBuyout(); _host.RerenderWeek(); }, "btn-ghost");
+                yes.style.marginTop = 4; no.style.marginTop = 4;
+                card.Add(yes); card.Add(no);
+                root.Add(card);
+            }
+
             // an interrupt event, if one fired
             if (E.Events.Pending != null)
             {
@@ -220,6 +290,25 @@ namespace PodcastTycoon.Game
                     note.Add(Ui.Wrapping("• " + t.Label + " — " + LeanLabel(t.Momentum), "body"));
                 note.Add(Ui.Wrapping("Pick the STORY topic below to weigh in. Full detail on The Club.", "body", "dim"));
                 root.Add(note);
+            }
+
+            // cards in hand — quick-play to buff this episode
+            if (st.Hand.Count > 0)
+            {
+                var handPanel = Ui.Box("panel");
+                handPanel.Add(Ui.Text("Cards in hand", "h2"));
+                handPanel.Add(Ui.Wrapping("Play a card before you record to shape this week's episode. Full descriptions on Business.", "body", "dim"));
+                var wrap = Ui.Box("row-wrap");
+                foreach (var id in st.Hand.ToArray())
+                {
+                    var card = CardManager.Get(id);
+                    if (card == null) continue;
+                    string cid = id;
+                    var b = Ui.Btn(card.Name, () => { E.PlayCard(cid); _host.RerenderWeek(); }, "btn-ghost");
+                    wrap.Add(b);
+                }
+                handPanel.Add(wrap);
+                root.Add(handPanel);
             }
 
             // topic offer
@@ -280,6 +369,9 @@ namespace PodcastTycoon.Game
         // ================================================================
         void BuildClubTab(VisualElement root, WeekContext ctx)
         {
+            root.Add(BuildCompetitionsPanel());
+            root.Add(BuildRivalsPanel());
+
             var threads = BuildThreadsPanel(ctx);
             if (threads != null) root.Add(threads);
             else
@@ -293,13 +385,132 @@ namespace PodcastTycoon.Game
             root.Add(BuildTablePanel());
         }
 
+        VisualElement BuildCompetitionsPanel()
+        {
+            var cal = E.Calendar;
+            var panel = Ui.Box("panel");
+            panel.Add(Ui.Text("Cup & Europe", "h2"));
+
+            string cup = cal.WonCup ? "Cup: WON. 🏆"
+                : !cal.CupAlive && cal.CupRoundReached > 0 ? $"Cup: knocked out after {cal.CupRoundReached} round(s)."
+                : !cal.CupAlive ? "Cup: out."
+                : cal.CupRoundReached == 0 ? "Cup: first round to come."
+                : $"Cup: through {cal.CupRoundReached} round(s) and counting.";
+            panel.Add(Ui.Wrapping(cup, "body", cal.WonCup ? "good" : "dim"));
+
+            string eur = !cal.InEurope ? "Europe: not qualified this season."
+                : cal.EuropePhaseDone ? $"Europe: phase done — {cal.EuropeWins}W {cal.EuropeDraws}D {cal.EuropeLosses}L." + (cal.WonEurope ? " Topped the group." : "")
+                : $"Europe: {cal.EuropeWins}W {cal.EuropeDraws}D {cal.EuropeLosses}L so far.";
+            panel.Add(Ui.Wrapping(eur, "body", cal.WonEurope ? "good" : "dim"));
+
+            if (E.State.CupsWon > 0 || E.State.EuropeanTrophies > 0)
+                panel.Add(Ui.Wrapping($"Trophy cabinet: {E.State.CupsWon} cup(s), {E.State.EuropeanTrophies} European.", "body", "dim"));
+            return panel;
+        }
+
+        VisualElement BuildRivalsPanel()
+        {
+            var panel = Ui.Box("panel");
+            panel.Add(Ui.Text("Rivals", "h2"));
+            if (E.Rivals.Rivals.Count == 0)
+            {
+                panel.Add(Ui.Wrapping("No standout rival this season.", "body", "dim"));
+                return panel;
+            }
+            foreach (var r in E.Rivals.Rivals)
+            {
+                int pos = E.Calendar.PositionOf(r.ClubIndex);
+                int mine = E.Calendar.PlayerPosition();
+                string where = pos < mine ? "above you" : pos > mine ? "below you" : "level with you";
+                var row = Ui.Box();
+                row.style.marginBottom = 4;
+                row.Add(Ui.Text(r.Name, "topiccard-title"));
+                row.Add(Ui.Wrapping($"Your rival for {r.Arc}. Currently {SeasonCalendar.Ordinal(pos)} — {where}.", "body", "dim"));
+                panel.Add(row);
+            }
+            panel.Add(Ui.Wrapping("Matches against a rival are always a derby. When they slip up or surge, you'll get a topic for it.", "body", "dim"));
+            return panel;
+        }
+
         // ================================================================
         // TAB 2 — Business
         // ================================================================
         void BuildBusinessTab(VisualElement root, WeekContext ctx)
         {
+            if (E.Access.PartnershipOffered)
+            {
+                var card = Ui.Box("panel", "event-card");
+                card.Add(Ui.Text("PARTNERSHIP OFFER", "eyebrow"));
+                card.Add(Ui.Text("The club wants to make it official", "h2"));
+                card.Add(Ui.Wrapping("Official access and a 35% cut of your ad revenue — but you can't go heavily negative on the club without risking it.", "body", "dim"));
+                var yes = Ui.Btn("Accept the partnership", () => { E.AcceptPartnership(); _host.RerenderWeek(); }, "btn-ghost");
+                var no = Ui.Btn("Stay independent", () => { E.DeclinePartnership(); _host.RerenderWeek(); }, "btn-ghost");
+                yes.style.marginTop = 4; no.style.marginTop = 4;
+                card.Add(yes); card.Add(no);
+                root.Add(card);
+            }
+
+            root.Add(BuildAccessPanel());
             root.Add(BuildSponsorPanel(ctx));
+            root.Add(BuildCardsPanel());
             root.Add(BuildStudioPanel());
+        }
+
+        VisualElement BuildAccessPanel()
+        {
+            var st = E.State;
+            var panel = Ui.Box("panel");
+            panel.Add(Ui.Text("Club access", "h2"));
+            panel.Add(Ui.Wrapping($"Tier {st.AccessTier} — {AccessManager.TierLabel(st.AccessTier)}.", "body",
+                st.AccessTier >= 2 ? "good" : null));
+            string perk = st.AccessTier switch
+            {
+                0 => "You react to public news like everyone else. Grow the rolling audience to get closer to the club.",
+                1 => "Post-match quotes and pressers. Small \"we asked the club\" angles.",
+                2 => "Scoops reach you before the news breaks. The Big interview is open to you. The club is watching your tone.",
+                _ => "Your takes move fan sentiment and board pressure. A partnership may be offered."
+            };
+            panel.Add(Ui.Wrapping(perk, "body", "dim"));
+            if (st.AccessProtectedWeeks > 0)
+                panel.Add(Ui.Wrapping($"Access suspended for {st.AccessProtectedWeeks} more week(s) after a burned scoop.", "body", "bad"));
+            if (st.HasPartnership)
+                panel.Add(Ui.Wrapping("Partnered with the club — a cut of ad revenue, and crisis takes cost you a little extra reputation.", "body", "dim"));
+            if (st.TrustedStanding > 0)
+                panel.Add(Ui.Wrapping($"Trusted standing: {st.TrustedStanding} — better scoops, lower chance of getting one wrong.", "body", "dim"));
+            return panel;
+        }
+
+        VisualElement BuildCardsPanel()
+        {
+            var st = E.State;
+            var panel = Ui.Box("panel");
+            var head = Ui.Row();
+            head.Add(Ui.Text("Cards", "h2"));
+            var buy = Ui.Btn($"Buy pack  ({E.Config.PackCostBuzz} Buzz)", () => { E.BuyPack(); _host.RerenderWeek(); }, "btn-ghost");
+            buy.SetEnabled(E.Cards.CanBuyPack(st));
+            head.Add(buy);
+            panel.Add(head);
+
+            if (st.Hand.Count == 0)
+            {
+                panel.Add(Ui.Wrapping("No cards in hand. You get them from milestones, or buy a 3-card pack with Buzz.", "body", "dim"));
+                return panel;
+            }
+            panel.Add(Ui.Wrapping($"Hand: {st.Hand.Count}/{E.Config.CardHandLimit}. One-shot cards buff the current episode; permanent cards change the club or the show for good.", "body", "dim"));
+            foreach (var id in st.Hand.ToArray())
+            {
+                var card = CardManager.Get(id);
+                if (card == null) continue;
+                string cid = id;
+                var box = Ui.Box("topiccard");
+                box.Add(Ui.Text(card.Name + (card.Kind == CardKind.Permanent ? "  · permanent" : ""), "topiccard-title"));
+                box.Add(Ui.Wrapping(card.Text, "body", "dim"));
+                var play = Ui.Btn("Play", () => { E.PlayCard(cid); _host.RerenderWeek(); }, "btn-ghost");
+                play.style.marginTop = 4;
+                box.Add(play);
+                panel.Add(box);
+            }
+            return panel;
         }
 
         // ================================================================
@@ -308,6 +519,8 @@ namespace PodcastTycoon.Game
         void BuildLogbookTab(VisualElement root)
         {
             var st = E.State;
+            if (st.LastSeason != null) root.Add(BuildSeasonReviewPanel(st.LastSeason));
+
             var prog = Ui.Box("panel");
             prog.Add(Ui.Text("Progress", "h2"));
             int avg = st.AverageListeners(E.Config.AvgListenerWindow);
@@ -329,9 +542,36 @@ namespace PodcastTycoon.Game
                 prog.Add(Ui.Divider());
                 prog.Add(Ui.Wrapping("Goal reached — you're chasing milestones now, for as long as you like.", "body", "good"));
             }
-            root.Add(prog);
+            if (st.CupsWon > 0 || st.EuropeanTrophies > 0 || st.BestLeagueFinish < 20)
+            {
+                var trophies = Ui.Box("panel");
+                trophies.Add(Ui.Text("Honours", "h2"));
+                trophies.Add(Ui.Wrapping($"Best league finish: {SeasonCalendar.Ordinal(st.BestLeagueFinish)}.", "body", "dim"));
+                if (st.CupsWon > 0) trophies.Add(Ui.Wrapping($"Cups won: {st.CupsWon}.", "body", "good"));
+                if (st.EuropeanTrophies > 0) trophies.Add(Ui.Wrapping($"European trophies: {st.EuropeanTrophies}.", "body", "good"));
+                root.Add(trophies);
+            }
 
+            root.Add(prog);
             root.Add(BuildEpisodeLog());
+        }
+
+        VisualElement BuildSeasonReviewPanel(SeasonSummary s)
+        {
+            var panel = Ui.Box("panel");
+            panel.Add(Ui.Text($"Season {s.Season} review", "h2"));
+            panel.Add(Ui.Wrapping($"Finished {s.LeaguePositionLabel}" +
+                (s.WonCup ? ", won the cup" : "") + (s.WonEurope ? ", topped the European group" : "") + ".", "body"));
+            var grid = Ui.Box("statstrip");
+            grid.Add(Ui.Stat("Listeners", $"{s.ListenersStart:N0} → {s.ListenersEnd:N0}"));
+            grid.Add(Ui.Stat("Reputation", $"{Mathf.RoundToInt(s.ReputationStart)} → {Mathf.RoundToInt(s.ReputationEnd)}"));
+            grid.Add(Ui.Stat("Episodes", s.EpisodesThisSeason.ToString()));
+            panel.Add(grid);
+            if (!string.IsNullOrEmpty(s.BestEpisodeTopic))
+                panel.Add(Ui.Wrapping($"Best episode: \"{s.BestEpisodeTopic}\" ({Ui.Signed(s.BestEpisodeListenerGain)} listeners).", "body", "dim"));
+            foreach (var h in s.Headlines)
+                panel.Add(Ui.Wrapping("• " + h, "body", "dim"));
+            return panel;
         }
 
         // ================================================================
@@ -378,6 +618,12 @@ namespace PodcastTycoon.Game
             Term("Topic prep / Research / Audio / Promo", "Topic prep = the homework. Research = less variance. Audio = a better episode and less churn. Promo = a one-week reach bump only.");
             Term("Running stories", "Ongoing club storylines. Pick the STORY topic to take a side; match the eventual outcome and you gain reputation and buzz, call it wrong and it costs you.");
             Term("Sponsors", "A deal pays weekly but sets a growth target and a deadline. Hit it for a bonus and a better renewal; miss it and the deal ends badly.");
+            Term("Cup & Europe", "Extra midweek fixtures alongside the league. Win the cup or finish high enough and you play in Europe next season — bigger nights, more reach and buzz.");
+            Term("Access tier", "Set by your rolling-average listeners. Tier 2 unlocks scoops and the Big interview; tier 3 lets your takes move the club, and may bring a partnership offer.");
+            Term("Scoops", "Advance word on a club decision. Break it now for a huge episode and a real risk it's wrong (which costs access); verify & hold to build trust; or trade it for cash.");
+            Term("Crew", "Producer, Researcher, Clips manager, Booker — monthly wages, each changing how the week works. Hire them once ad and sponsor money can carry the bill.");
+            Term("Cards", "One-shot buffs on the current episode, or permanent lifts to the club/show. From milestones, or a 3-card pack for Buzz. Hand holds five.");
+            Term("Custom run", "Modifiers set at the start (extra prep, gentler churn, sandbox, chaos…). Flags the run as Custom; the endless chase still works.");
             root.Add(gloss);
         }
 
@@ -412,13 +658,25 @@ namespace PodcastTycoon.Game
             PaintBadge(badge, m.Surprise);
             meta.Add(badge);
             meta.Add(Ui.Text(fx.Home ? "Home" : "Away", "chip"));
-            if (fx.Importance != FixtureImportance.Normal)
-                meta.Add(Ui.Text(fx.Importance == FixtureImportance.Derby ? "Derby" : "Big match", "chip"));
+            string compChip = fx.Competition == Competition.Cup ? E.Calendar.RoundName(fx)
+                : fx.Competition == Competition.European ? E.Calendar.RoundName(fx)
+                : fx.Importance == FixtureImportance.Derby ? (fx.IsRivalFixture ? "Rival" : "Derby")
+                : fx.Importance == FixtureImportance.BigMatch ? "Big match"
+                : fx.Importance == FixtureImportance.Final ? "Final" : null;
+            if (!string.IsNullOrEmpty(compChip)) meta.Add(Ui.Text(compChip, "chip"));
             panel.Add(meta);
 
             panel.Add(Ui.Wrapping(ctx.Headline, "body"));
             if (!string.IsNullOrEmpty(ctx.Advice))
                 panel.Add(Ui.Wrapping(ctx.Advice, "body", "dim"));
+
+            if (ctx.Moments != null && ctx.Moments.Count > 0)
+            {
+                panel.Add(Ui.Divider());
+                panel.Add(Ui.Text("MOMENTS", "eyebrow"));
+                foreach (var mo in ctx.Moments)
+                    panel.Add(Ui.Wrapping("• " + mo, "body"));
+            }
 
             if (ctx.KeyPlayersOut > 0)
                 panel.Add(Ui.Wrapping(
@@ -518,12 +776,15 @@ namespace PodcastTycoon.Game
 
             panel.Add(Ui.Divider());
             panel.Add(Ui.Text("NEXT UP", "eyebrow"));
-            foreach (var fx in E.Calendar.UpcomingFixtures(E.State.SeasonTurn + 1, 4))
+            foreach (var fx in E.Calendar.UpcomingFixtures(E.State.SeasonTurn + 1, 5))
             {
                 string line = fx.IsInternationalBreak ? "International break"
-                    : fx.IsOffseason ? "Offseason"
+                    : fx.IsOffseason ? "Transfer window"
+                    : fx.IsCupByeWeek ? "Cup weekend (not involved)"
+                    : fx.Competition == Competition.Cup ? $"CUP  {fx.Opponent}"
+                    : fx.Competition == Competition.European ? $"EUROPE  {(fx.Home ? "H" : "A")} {fx.Opponent}"
                     : $"{(fx.Home ? "H" : "A")}  {fx.Opponent}"
-                      + (fx.Importance == FixtureImportance.Derby ? "  · derby"
+                      + (fx.IsRivalFixture ? "  · rival" : fx.Importance == FixtureImportance.Derby ? "  · derby"
                          : fx.Importance == FixtureImportance.BigMatch ? "  · big match" : "");
                 panel.Add(Ui.Text(line, "body", "dim"));
             }
@@ -564,26 +825,31 @@ namespace PodcastTycoon.Game
             var panel = Ui.Box("panel");
             panel.Add(Ui.Text("Sponsors", "h2"));
 
-            var active = ctx.ActiveSponsor;
-            if (active != null)
+            foreach (var active in E.Sponsors.ActiveDeals)
             {
                 var o = active.Offer;
-                panel.Add(Ui.Text(o.Name, "topiccard-title"));
-                panel.Add(Ui.Wrapping($"€{o.Weekly:N0} a week. Target: {o.Target.Describe()}.", "body"));
-                int have = active.Offer.Target.Metric == "reputation"
+                var deal = Ui.Box();
+                deal.style.marginBottom = 6;
+                deal.Add(Ui.Text(o.Name, "topiccard-title"));
+                deal.Add(Ui.Wrapping($"€{o.Weekly:N0} a week. Target: {o.Target.Describe()}.", "body"));
+                int have = o.Target.Metric == "reputation"
                     ? Mathf.RoundToInt(E.State.Reputation)
                     : E.State.AverageListeners(E.Config.AvgListenerWindow);
-                panel.Add(Ui.Wrapping(
+                deal.Add(Ui.Wrapping(
                     active.TargetMet
                         ? $"Target hit — the bonus lands when the term ends in {active.WeeksLeft} week(s)."
                         : $"Currently at {have:N0}. {active.WeeksLeft} week(s) left to reach {o.Target.Value:N0}.",
                     "body", active.TargetMet ? "good" : "dim"));
-                return panel;
+                panel.Add(deal);
             }
 
-            if (ctx.SponsorInbox != null && ctx.SponsorInbox.Count > 0)
+            bool slotFree = E.Sponsors.ActiveDeals.Count < E.Sponsors.MaxSlots;
+            if (slotFree && ctx.SponsorInbox != null && ctx.SponsorInbox.Count > 0)
             {
-                panel.Add(Ui.Wrapping("Offers on the table. You can hold one deal at a time.", "body", "dim"));
+                panel.Add(Ui.Wrapping(
+                    E.Sponsors.MaxSlots > 1
+                        ? $"Offers on the table. You can hold {E.Sponsors.MaxSlots} deals at once."
+                        : "Offers on the table. You can hold one deal at a time.", "body", "dim"));
                 for (int i = 0; i < ctx.SponsorInbox.Count; i++)
                 {
                     var o = ctx.SponsorInbox[i];
@@ -607,17 +873,20 @@ namespace PodcastTycoon.Game
                 return panel;
             }
 
-            panel.Add(Ui.Wrapping(
-                E.State.AverageListeners(E.Config.AvgListenerWindow) < 300
-                    ? "No offers yet — the show's too small for a sponsor to be interested. Keep growing."
-                    : "No offers right now. Check back in a few weeks.", "body", "dim"));
+            if (E.Sponsors.ActiveDeals.Count == 0)
+                panel.Add(Ui.Wrapping(
+                    E.State.AverageListeners(E.Config.AvgListenerWindow) < 300
+                        ? "No offers yet — the show's too small for a sponsor to be interested. Keep growing."
+                        : "No offers right now. Check back in a few weeks.", "body", "dim"));
+            else if (!slotFree)
+                panel.Add(Ui.Wrapping("All your sponsor slots are full.", "body", "dim"));
             return panel;
         }
 
         VisualElement BuildStudioPanel()
         {
             var panel = Ui.Box("panel");
-            panel.Add(Ui.Text("Studio — gear & co-host", "h2"));
+            panel.Add(Ui.Text("Studio — gear, crew & upgrades", "h2"));
             var st = E.State;
 
             void GearRow(string name, Gear g, string effect)
@@ -642,19 +911,43 @@ namespace PodcastTycoon.Game
             GearRow("Acoustic panels", Gear.AcousticPanels, "Lifts the quality floor a little.");
             GearRow("Editing software", Gear.EditingSoftware, "Better edit, every episode.");
 
-            var coRow = Ui.Row();
-            var coLeft = Ui.Box();
-            coLeft.style.flexGrow = 1;
-            coLeft.Add(Ui.Text("Co-host" + (st.HasCoHost ? "  ✓" : ""), "topiccard-title"));
-            coLeft.Add(Ui.Wrapping($"+{E.Config.CoHostPrepBonus} prep points a week and a little appeal. €{E.Config.CoHostMonthlyWage}/month.", "body", "dim"));
-            coRow.Add(coLeft);
-            if (!st.HasCoHost)
+            void HireRow(string name, bool have, string effect, string cost, bool canAfford, System.Action doHire)
             {
-                var hire = Ui.Btn("Hire", () => { E.HireCoHost(); _host.RerenderWeek(); }, "btn-ghost");
-                hire.SetEnabled(E.CanHireCoHost());
-                coRow.Add(hire);
+                var row = Ui.Row();
+                var left = Ui.Box();
+                left.style.flexGrow = 1;
+                left.Add(Ui.Text(name + (have ? "  ✓" : ""), "topiccard-title"));
+                left.Add(Ui.Wrapping(effect + (have ? "" : $"  ({cost})"), "body", "dim"));
+                row.Add(left);
+                if (!have)
+                {
+                    var b = Ui.Btn("Hire", () => { doHire(); _host.RerenderWeek(); }, "btn-ghost");
+                    b.SetEnabled(canAfford);
+                    row.Add(b);
+                }
+                panel.Add(row);
+                panel.Add(Ui.Divider());
             }
-            panel.Add(coRow);
+
+            HireRow("Co-host", st.HasCoHost,
+                $"+{E.Config.CoHostPrepBonus} prep a week and a little appeal.",
+                $"€{E.Config.CoHostMonthlyWage}/mo", E.CanHireCoHost(), () => E.HireCoHost());
+
+            foreach (var role in CrewCatalog.All)
+            {
+                var r = role;
+                HireRow(r.Name, st.HasCrew(r.Id), r.Effect, $"€{E.CrewWage(r.Id)}/mo",
+                    E.CanHireCrew(r.Id), () => E.HireCrew(r.Id));
+            }
+
+            panel.Add(Ui.Text("UPGRADES", "eyebrow"));
+            HireRow("Faster PC / studio space", st.HasStudioSpace,
+                "+2 prep points a week and a little more reach.",
+                $"{Ui.Money(E.Config.StudioSpaceCost)} + €{E.Config.StudioSpaceMonthly}/mo",
+                E.CanBuyStudioSpace(), () => E.BuyStudioSpace());
+            HireRow("Second sponsor slot", st.HasSecondSponsorSlot,
+                "Hold two sponsor deals at once.", Ui.Money(E.Config.SecondSponsorSlotCost),
+                E.CanBuySecondSponsorSlot(), () => E.BuySecondSponsorSlot());
 
             return panel;
         }
@@ -796,7 +1089,8 @@ namespace PodcastTycoon.Game
             _prepMeter.EnableInClassList("over", used > cap);
 
             _previewBlock.Clear();
-            bool ok = _picked != null && used <= cap && used > 0 && E.Events.Pending == null;
+            bool ok = _picked != null && used <= cap && used > 0
+                      && E.Events.Pending == null && E.Scoops.Pending == null && !E.State.BuyoutPending;
             _publish.SetEnabled(ok);
 
             if (_picked == null) return;
