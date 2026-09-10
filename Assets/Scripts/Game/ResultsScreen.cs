@@ -56,6 +56,8 @@ namespace PodcastTycoon.Game
             grid.Add(Ui.Stat("Reputation", Ui.Signed(_result.ReputationDelta, "0.0")));
             grid.Add(Ui.Stat("Buzz", _result.BuzzGained > 0 ? "+" + _result.BuzzGained : "0"));
             grid.Add(Ui.Stat("Ad revenue", Ui.Money(_result.AdRevenue), "good"));
+            if (_result.SponsorRevenue > 0)
+                grid.Add(Ui.Stat("Sponsor", Ui.Money(_result.SponsorRevenue), "good"));
             grid.Add(Ui.Stat("Costs", Ui.Money(-_result.WeeklyCosts), "bad"));
             grid.Add(Ui.Stat("Net cash", Ui.Money(_result.MoneyDelta), _result.MoneyDelta >= 0 ? "good" : "bad"));
             deltas.Add(grid);

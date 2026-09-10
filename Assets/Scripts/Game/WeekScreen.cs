@@ -104,6 +104,15 @@ namespace PodcastTycoon.Game
                 scroll.Add(toast);
             }
 
+            if (ctx.SponsorNews != null)
+            {
+                var toast = Ui.Box("toast");
+                if (!ctx.SponsorNews.Good) toast.AddToClassList("toast-bad");
+                toast.Add(Ui.Text(ctx.SponsorNews.Headline.ToUpperInvariant(), "eyebrow"));
+                toast.Add(Ui.Wrapping(ctx.SponsorNews.Body, "body"));
+                scroll.Add(toast);
+            }
+
             // --- how it works (open on the very first week) ---
             var help = new Foldout { text = "How it works", value = st.GlobalWeek == 1 };
             help.AddToClassList("help-foldout");
@@ -171,6 +180,9 @@ namespace PodcastTycoon.Game
             _previewBlock = Ui.Box();
             _prepBlock.Add(_previewBlock);
             scroll.Add(_prepBlock);
+
+            // --- sponsors ---
+            scroll.Add(BuildSponsorPanel(ctx));
 
             // --- studio ---
             scroll.Add(BuildStudioPanel());
@@ -372,6 +384,61 @@ namespace PodcastTycoon.Game
                 fold.Add(row);
             }
             return fold;
+        }
+
+        VisualElement BuildSponsorPanel(WeekContext ctx)
+        {
+            var panel = Ui.Box("panel");
+            panel.Add(Ui.Text("Sponsors", "h2"));
+
+            var active = ctx.ActiveSponsor;
+            if (active != null)
+            {
+                var o = active.Offer;
+                panel.Add(Ui.Text(o.Name, "topiccard-title"));
+                panel.Add(Ui.Wrapping($"€{o.Weekly:N0} a week. Target: {o.Target.Describe()}.", "body"));
+                int have = active.Offer.Target.Metric == "reputation"
+                    ? Mathf.RoundToInt(E.State.Reputation)
+                    : E.State.AverageListeners(E.Config.AvgListenerWindow);
+                panel.Add(Ui.Wrapping(
+                    active.TargetMet
+                        ? $"Target hit — the bonus lands when the term ends in {active.WeeksLeft} week(s)."
+                        : $"Currently at {have:N0}. {active.WeeksLeft} week(s) left to reach {o.Target.Value:N0}.",
+                    "body", active.TargetMet ? "good" : "dim"));
+                return panel;
+            }
+
+            if (ctx.SponsorInbox != null && ctx.SponsorInbox.Count > 0)
+            {
+                panel.Add(Ui.Wrapping("Offers on the table. You can hold one deal at a time.", "body", "dim"));
+                for (int i = 0; i < ctx.SponsorInbox.Count; i++)
+                {
+                    var o = ctx.SponsorInbox[i];
+                    var card = Ui.Box("topiccard");
+                    card.Add(Ui.Text(o.Name, "topiccard-title"));
+                    card.Add(Ui.Wrapping(o.Blurb, "body", "dim"));
+                    var chips = Ui.Box("row-wrap");
+                    chips.Add(Ui.Chip($"€{o.Weekly:N0}/wk"));
+                    if (o.SigningBonus > 0) chips.Add(Ui.Chip($"€{o.SigningBonus:N0} to sign"));
+                    chips.Add(Ui.Chip($"Bonus €{o.HitBonus:N0} if hit"));
+                    card.Add(chips);
+                    card.Add(Ui.Wrapping($"Target: {o.Target.Describe()}.", "body"));
+                    if (!string.IsNullOrEmpty(o.Demand))
+                        card.Add(Ui.Wrapping("Catch: " + o.Demand, "body", "bad"));
+                    int idx = i;
+                    var sign = Ui.Btn("Sign", () => { E.SignSponsor(idx); _host.RerenderWeek(); }, "btn-ghost");
+                    sign.style.marginTop = 4;
+                    card.Add(sign);
+                    panel.Add(card);
+                }
+                return panel;
+            }
+
+            panel.Add(Ui.Wrapping(
+                E.State.AverageListeners(E.Config.AvgListenerWindow) < 300
+                    ? "No offers yet — the show's too small for a sponsor to be interested. Keep growing."
+                    : "No offers right now. Check back in a few weeks.", "body", "dim"));
+            return panel;
         }
 
         VisualElement BuildStudioPanel()

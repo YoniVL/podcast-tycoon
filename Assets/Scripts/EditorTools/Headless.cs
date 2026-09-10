@@ -36,6 +36,7 @@ namespace PodcastTycoon.EditorTools
             engine.GameOver += r => Debug.Log($"  [{tag}] ✗ GAME OVER: {r}");
             engine.ThreadOpened += ev => Debug.Log($"  [{tag}] 📰 opened: {ev.Headline}");
             engine.ThreadResolved += ev => Debug.Log($"  [{tag}] 📰 resolved: {ev.Headline} — {ev.Body}");
+            engine.SponsorResolved += n => Debug.Log($"  [{tag}] 💷 {n.Headline} — {n.Body}");
 
             var sb = new StringBuilder();
             sb.AppendLine($"=== {label} ===");
@@ -54,6 +55,16 @@ namespace PodcastTycoon.EditorTools
                     int n = engine.Events.Pending.Options.Count;
                     // greedy leans toward the middle option, balanced toward the last (usually the safe one)
                     engine.ResolveEvent(greedy ? Math.Min(1, n - 1) : n - 1);
+                }
+
+                if (engine.Sponsors.Active == null && engine.Sponsors.Inbox.Count > 0)
+                {
+                    // greedy grabs the biggest weekly; balanced takes the safest (index 0).
+                    int best = 0;
+                    if (greedy)
+                        for (int k = 1; k < engine.Sponsors.Inbox.Count; k++)
+                            if (engine.Sponsors.Inbox[k].Weekly > engine.Sponsors.Inbox[best].Weekly) best = k;
+                    engine.SignSponsor(best);
                 }
 
                 // Buy gear when comfortably in the black.

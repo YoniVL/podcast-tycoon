@@ -272,6 +272,10 @@
     background-color: rgb(30, 30, 40);
     border-left-color: rgb(120, 170, 255);
 }
+.toast-bad {
+    background-color: rgb(38, 27, 27);
+    border-left-color: rgb(232, 106, 102);
+}
 .chip-story {
     color: rgb(120, 170, 255);
     border-color: rgb(70, 100, 150);

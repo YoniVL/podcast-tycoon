@@ -64,6 +64,7 @@ namespace PodcastTycoon.Core
         // --- goal ---
         public int GoalListeners = 50000;
         public int[] Milestones = { 100, 500, 1000, 2500, 10000, 25000, 50000 };
+        public int AvgListenerWindow = 6;   // episodes averaged for access / sponsor targets
 
         // --- match sim ---
         public float HomeAdvantage = 0.06f;

@@ -59,6 +59,10 @@ namespace PodcastTycoon.Core
         public float WeeklyListenerDrift;        // fractional listener change applied each week
         public int WeeklyListenerDriftWeeks;
 
+        // --- sponsor (reflected here each week for the resolution maths) ---
+        public int SponsorWeekly;
+        public float SponsorAppealPenalty;       // <= 0, applied while a demanding sponsor is active
+
         // --- progress / fail ---
         public int ConsecutiveWeeksInDebt = 0;
         public int ConsecutiveWeeksNoAudience = 0;

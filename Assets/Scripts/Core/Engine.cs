@@ -38,6 +38,7 @@ namespace PodcastTycoon.Core
         public Squad Roster { get; }
         public ThreadManager Threads { get; }
         public EventManager Events { get; }
+        public SponsorManager Sponsors { get; }
 
         public WeekContext CurrentWeek { get; private set; }
         public IReadOnlyList<Topic> Offer { get; private set; } = Array.Empty<Topic>();
@@ -49,6 +50,7 @@ namespace PodcastTycoon.Core
         public event Action<int> SeasonRolledOver; // new season number
         public event Action<ThreadEvent> ThreadOpened;
         public event Action<ThreadEvent> ThreadResolved;
+        public event Action<SponsorNews> SponsorResolved;
 
         public Engine(RunSetup setup, GameConfig config, IRng rng)
         {
@@ -78,6 +80,8 @@ namespace PodcastTycoon.Core
             Threads.ThreadOpened += e => ThreadOpened?.Invoke(e);
             Threads.ThreadResolved += e => ThreadResolved?.Invoke(e);
             Events = new EventManager(_rng);
+            Sponsors = new SponsorManager(Config, _rng);
+            Sponsors.Resolved += n => SponsorResolved?.Invoke(n);
 
             Calendar = new SeasonCalendar(Config);
             Calendar.BuildSeason(State.ClubName, State.TeamStrength, 1, _rng);
@@ -119,6 +123,7 @@ namespace PodcastTycoon.Core
 
             CurrentWeek = ctx;
             Events.MaybeFire(this, ctx);
+            Sponsors.Tick(this, ctx);
             Offer = BuildOffer(ctx);
             return ctx;
         }
@@ -168,6 +173,7 @@ namespace PodcastTycoon.Core
         }
 
         public void ResolveEvent(int optionIndex) => Events.Resolve(this, optionIndex);
+        public void SignSponsor(int inboxIndex) => Sponsors.Sign(this, inboxIndex);
 
         // ------------------------------------------------------------------
         // Preview (no state change)
@@ -313,6 +319,7 @@ namespace PodcastTycoon.Core
 
             Roster.Offseason(_rng);
             Threads.OnSeasonRollover();
+            Sponsors.OnSeasonRollover();
             Calendar.BuildSeason(State.ClubName, State.TeamStrength, State.Season, _rng);
             SeasonRolledOver?.Invoke(State.Season);
         }

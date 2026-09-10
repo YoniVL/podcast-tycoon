@@ -60,6 +60,7 @@ namespace PodcastTycoon.Core
         public int BuzzGained;
 
         public float AdRevenue;
+        public float SponsorRevenue;
         public float WeeklyCosts;
         public float MonthlyWagesCharged;
         public float MoneyDelta;
@@ -109,7 +110,7 @@ namespace PodcastTycoon.Core
 
             // --- appeal & reach ---
             float contextMult = ContextResolver.AppealMultiplier(topic.Response, ctx) * ctx.ImportanceAppealMult;
-            float appeal = topic.BaseAppeal * contextMult + crewAppeal;
+            float appeal = Math.Max(0.05f, topic.BaseAppeal * contextMult + crewAppeal + st.SponsorAppealPenalty);
             float reach = st.Listeners * appeal * (1f + cfg.PromoReachPerPoint * plan.PrepPromo) * ctx.ReachMult;
 
             // Market saturation: growth tails off as the audience nears the addressable
@@ -168,7 +169,8 @@ namespace PodcastTycoon.Core
             result.MonthlyWagesCharged = wages;
 
             result.WeeklyCosts = d.FixedOverhead + hosting + wages;
-            result.MoneyDelta = result.AdRevenue - result.WeeklyCosts; // sponsorWeekly = 0 in slice 1
+            result.SponsorRevenue = st.SponsorWeekly;
+            result.MoneyDelta = result.AdRevenue + result.SponsorRevenue - result.WeeklyCosts;
 
             return result;
         }

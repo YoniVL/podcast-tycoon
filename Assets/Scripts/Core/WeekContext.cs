@@ -58,6 +58,15 @@ namespace PodcastTycoon.Core
 
         /// <summary>Text describing the choice the player made on this week's event.</summary>
         public string EventOutcome;
+
+        /// <summary>Sponsor offers currently on the table (spec §16).</summary>
+        public System.Collections.Generic.List<SponsorOffer> SponsorInbox;
+
+        /// <summary>The signed sponsor deal, if any.</summary>
+        public ActiveSponsor ActiveSponsor;
+
+        /// <summary>A sponsor deal that succeeded or failed at the start of this week.</summary>
+        public SponsorNews SponsorNews;
     }
 
     public static class ContextResolver
