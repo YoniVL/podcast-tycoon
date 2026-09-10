@@ -89,8 +89,9 @@ namespace PodcastTycoon.Tests
             // Cycle through option indices across a long run so each branch of each event runs.
             var e = NewEngine(202);
             int resolved = 0;
-            for (int i = 0; i < 300 && !e.State.IsGameOver; i++)
+            for (int i = 0; i < 300; i++)
             {
+                e.State.Money = System.Math.Max(e.State.Money, 300f); // testing events, not the economy
                 e.BeginWeek();
                 if (e.Events.Pending != null)
                 {
@@ -102,7 +103,7 @@ namespace PodcastTycoon.Tests
                 e.Publish(plan);
             }
             Assert.That(resolved, Is.GreaterThan(5));
-            Assert.That(e.State.EpisodesPublished, Is.GreaterThan(0));
+            Assert.That(e.State.EpisodesPublished, Is.GreaterThan(250));
         }
     }
 }

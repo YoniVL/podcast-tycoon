@@ -43,8 +43,10 @@ namespace PodcastTycoon.Core
 
         public void MaybeFire(Engine engine, WeekContext ctx)
         {
+            // An event from last week that was never resolved carries over.
+            if (Pending != null) { ctx.PendingEvent = Pending; return; }
+
             LastOutcome = null;
-            Pending = null;
 
             if (ctx.IsMatchless) return;
             if (_cooldown > 0) { _cooldown--; return; }

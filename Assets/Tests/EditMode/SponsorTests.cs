@@ -32,7 +32,12 @@ namespace PodcastTycoon.Tests
         public void NoOffersWhileTheShowIsTiny()
         {
             var e = Grown(1, 40);
-            for (int i = 0; i < 20; i++) Week(e);
+            for (int i = 0; i < 20; i++)
+            {
+                Week(e);
+                e.State.Listeners = 40; // keep it tiny
+                e.State.ListenerHistory.Add(40);
+            }
             Assert.That(e.Sponsors.Inbox, Is.Empty);
         }
 
