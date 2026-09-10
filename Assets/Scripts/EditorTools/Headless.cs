@@ -67,13 +67,17 @@ namespace PodcastTycoon.EditorTools
                     surprise = ctx.Surprise.ToString();
                 }
 
+                foreach (var n in ctx.SquadNews)
+                    sb.AppendLine($"      · {n}");
+
                 var result = engine.Publish(plan);
 
-                if (engine.State.GlobalWeek % 3 == 0 || Math.Abs(result.ListenerDeltaActual) > 1500)
+                if (engine.State.GlobalWeek % 3 == 0 || Math.Abs(result.ListenerDeltaActual) > 1500 || ctx.KeyPlayersOut > 0)
                     sb.AppendLine(
                         $"{ctx.GlobalWeek,3} | {fixtureText,-27} | {surprise,-8} | {pick.Name,-14} | " +
                         $"{result.Quality,4:0.00} | {result.ListenerDeltaActual,6} | {engine.State.Listeners,9:N0} | " +
-                        $"{engine.State.Money,6:0} | {engine.State.Reputation,3:0}");
+                        $"{engine.State.Money,6:0} | {engine.State.Reputation,3:0}" +
+                        (ctx.KeyPlayersOut > 0 ? $"  [{ctx.KeyPlayersOut} key out]" : ""));
             }
 
             var st = engine.State;

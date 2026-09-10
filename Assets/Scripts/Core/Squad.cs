@@ -61,15 +61,16 @@ namespace PodcastTycoon.Core
     {
         public readonly List<Player> Players = new List<Player>();
 
+        // Deliberately invented — not meant to resemble real players.
         static readonly string[] First =
         {
-            "Marco", "Dele", "Iheanacho", "Sory", "Aaron", "Tomas", "Kylian", "Rúben", "Emile",
-            "Wilf", "Bukayo", "Jarrod", "Ollie", "Declan", "Reiss", "Morgan", "Cole", "Levi"
+            "Casper", "Milo", "Dane", "Ferran", "Otis", "Vince", "Rory", "Nias", "Elian",
+            "Brant", "Kofi", "Teo", "Lars", "Shay", "Marek", "Devon", "Amari", "Jools"
         };
         static readonly string[] Last =
         {
-            "Traoré", "Okafor", "Bennett", "Halvorsen", "Da Silva", "Kovač", "Nkemba", "Ødegård",
-            "Rowe", "Mepham", "Sarr", "Thiele", "Watkiss", "Broja", "Hjulmand", "Palhares"
+            "Vance", "Okoro", "Priddy", "Halden", "Marsh", "Kallio", "Bomani", "Restrup",
+            "Crowe", "Fenn", "Sekou", "Thorn", "Wray", "Bakke", "Mercer", "Voss"
         };
         static readonly string[] Positions = { "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST" };
 
