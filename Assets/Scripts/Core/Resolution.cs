@@ -164,7 +164,7 @@ namespace PodcastTycoon.Core
 
             float wages = 0f;
             if (st.HasCoHost && st.GlobalWeek % cfg.MonthlyIntervalWeeks == 0)
-                wages += cfg.CoHostMonthlyWage;
+                wages += cfg.CoHostMonthlyWage + st.CoHostWageBump;
             result.MonthlyWagesCharged = wages;
 
             result.WeeklyCosts = d.FixedOverhead + hosting + wages;

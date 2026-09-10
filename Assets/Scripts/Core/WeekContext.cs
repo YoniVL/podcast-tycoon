@@ -52,6 +52,12 @@ namespace PodcastTycoon.Core
 
         /// <summary>Threads that opened or resolved at the start of this week.</summary>
         public System.Collections.Generic.List<ThreadEvent> ThreadEvents = new System.Collections.Generic.List<ThreadEvent>();
+
+        /// <summary>An interrupt event awaiting the player's choice this week (spec §10).</summary>
+        public GameEvent PendingEvent;
+
+        /// <summary>Text describing the choice the player made on this week's event.</summary>
+        public string EventOutcome;
     }
 
     public static class ContextResolver

@@ -52,6 +52,12 @@ namespace PodcastTycoon.Core
         // --- assets ---
         public Gear Gear = Gear.None;
         public bool HasCoHost = false;
+        public int CoHostWageBump;               // added to the co-host's monthly wage (from events)
+
+        // --- temporary effects (from events) ---
+        public int PrepPenaltyThisWeek;          // subtracted from prep capacity, this week only
+        public float WeeklyListenerDrift;        // fractional listener change applied each week
+        public int WeeklyListenerDriftWeeks;
 
         // --- progress / fail ---
         public int ConsecutiveWeeksInDebt = 0;
@@ -70,7 +76,7 @@ namespace PodcastTycoon.Core
         public bool HasGear(Gear g) => (Gear & g) == g;
 
         public int PrepCapacity(GameConfig cfg)
-            => cfg.PrepBase + (HasCoHost ? cfg.CoHostPrepBonus : 0);
+            => Math.Max(4, cfg.PrepBase + (HasCoHost ? cfg.CoHostPrepBonus : 0) - PrepPenaltyThisWeek);
 
         /// <summary>Rolling average of recent episodes (used for milestones / later, access tiers).</summary>
         public int AverageListeners(int window)

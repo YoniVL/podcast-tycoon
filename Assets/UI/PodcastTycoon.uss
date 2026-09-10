@@ -276,6 +276,11 @@
     color: rgb(120, 170, 255);
     border-color: rgb(70, 100, 150);
 }
+.event-card {
+    border-color: rgb(231, 165, 68);
+    border-width: 2px;
+    background-color: rgb(33, 30, 26);
+}
 
 /* ---- foldout ---- */
 .help-foldout {

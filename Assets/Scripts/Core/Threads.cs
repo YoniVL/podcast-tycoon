@@ -332,6 +332,7 @@ namespace PodcastTycoon.Core
 
         void Resolve(StoryThread t, string headline, string body)
         {
+            body = body.Replace("  ", " ").Trim();
             t.Resolved = true;
             t.OutcomeText = body;
             _cooldown = 3;

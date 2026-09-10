@@ -80,6 +80,30 @@ namespace PodcastTycoon.Game
                 scroll.Add(toast);
             }
 
+            // --- an interrupt event, if one fired ---
+            if (E.Events.Pending != null)
+            {
+                var ev = E.Events.Pending;
+                var card = Ui.Box("panel", "event-card");
+                card.Add(Ui.Text("SOMETHING'S COME UP", "eyebrow"));
+                card.Add(Ui.Text(ev.Prompt, "h2"));
+                card.Add(Ui.Wrapping(ev.Detail, "body"));
+                for (int i = 0; i < ev.Options.Count; i++)
+                {
+                    int idx = i;
+                    var b = Ui.Btn(ev.Options[i].Label, () => { E.ResolveEvent(idx); _host.RerenderWeek(); }, "btn-ghost");
+                    b.style.marginTop = 4;
+                    card.Add(b);
+                }
+                scroll.Add(card);
+            }
+            else if (!string.IsNullOrEmpty(E.Events.LastOutcome))
+            {
+                var toast = Ui.Box("toast");
+                toast.Add(Ui.Wrapping(E.Events.LastOutcome, "body"));
+                scroll.Add(toast);
+            }
+
             // --- how it works (open on the very first week) ---
             var help = new Foldout { text = "How it works", value = st.GlobalWeek == 1 };
             help.AddToClassList("help-foldout");
@@ -532,7 +556,7 @@ namespace PodcastTycoon.Game
             _prepMeter.EnableInClassList("over", used > cap);
 
             _previewBlock.Clear();
-            bool ok = _picked != null && used <= cap && used > 0;
+            bool ok = _picked != null && used <= cap && used > 0 && E.Events.Pending == null;
             _publish.SetEnabled(ok);
 
             if (_picked == null) return;

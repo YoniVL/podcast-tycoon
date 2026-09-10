@@ -37,6 +37,7 @@ namespace PodcastTycoon.Core
 
         public Squad Roster { get; }
         public ThreadManager Threads { get; }
+        public EventManager Events { get; }
 
         public WeekContext CurrentWeek { get; private set; }
         public IReadOnlyList<Topic> Offer { get; private set; } = Array.Empty<Topic>();
@@ -76,6 +77,7 @@ namespace PodcastTycoon.Core
             Threads = new ThreadManager(Config, _rng);
             Threads.ThreadOpened += e => ThreadOpened?.Invoke(e);
             Threads.ThreadResolved += e => ThreadResolved?.Invoke(e);
+            Events = new EventManager(_rng);
 
             Calendar = new SeasonCalendar(Config);
             Calendar.BuildSeason(State.ClubName, State.TeamStrength, 1, _rng);
@@ -116,6 +118,7 @@ namespace PodcastTycoon.Core
             Threads.Tick(this, ctx);
 
             CurrentWeek = ctx;
+            Events.MaybeFire(this, ctx);
             Offer = BuildOffer(ctx);
             return ctx;
         }
@@ -164,6 +167,8 @@ namespace PodcastTycoon.Core
             return true;
         }
 
+        public void ResolveEvent(int optionIndex) => Events.Resolve(this, optionIndex);
+
         // ------------------------------------------------------------------
         // Preview (no state change)
         // ------------------------------------------------------------------
@@ -180,6 +185,15 @@ namespace PodcastTycoon.Core
                 Threads.MarkCovered(plan.ThreadTopic.SourceThread, result.Quality, plan.Stance);
 
             long listeners = (long)State.Listeners + result.ListenerDeltaActual;
+
+            // Weekly drift from an unresolved event (e.g. ignoring a rival).
+            if (State.WeeklyListenerDriftWeeks > 0)
+            {
+                listeners += (long)Math.Round(listeners * State.WeeklyListenerDrift);
+                State.WeeklyListenerDriftWeeks--;
+                if (State.WeeklyListenerDriftWeeks == 0) State.WeeklyListenerDrift = 0f;
+            }
+
             listeners = Math.Max(0L, Math.Min(Config.MaxListeners, listeners));
             State.Listeners = (int)listeners;
             State.Reputation = MathX.Clamp(State.Reputation + result.ReputationDelta, 0f, 100f);
@@ -274,6 +288,7 @@ namespace PodcastTycoon.Core
 
         void AdvanceWeek()
         {
+            State.PrepPenaltyThisWeek = 0;
             State.GlobalWeek++;
             State.SeasonTurn++;
 

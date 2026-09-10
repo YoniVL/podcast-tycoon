@@ -32,6 +32,7 @@ namespace PodcastTycoon.EditorTools
 
             string tag = greedy ? "greedy" : "balanced";
             engine.MilestoneReached += m => Debug.Log($"  [{tag}] ★ {m.Message}");
+            int events = 0;
             engine.GameOver += r => Debug.Log($"  [{tag}] ✗ GAME OVER: {r}");
             engine.ThreadOpened += ev => Debug.Log($"  [{tag}] 📰 opened: {ev.Headline}");
             engine.ThreadResolved += ev => Debug.Log($"  [{tag}] 📰 resolved: {ev.Headline} — {ev.Body}");
@@ -46,6 +47,13 @@ namespace PodcastTycoon.EditorTools
             {
                 var ctx = engine.BeginWeek();
                 peakSeason = engine.State.Season;
+
+                if (engine.Events.Pending != null)
+                {
+                    events++;
+                    int n = engine.Events.Pending.Options.Count;
+                    engine.ResolveEvent(greedy ? 0 : n - 1); // greedy: the bold option; balanced: the safe one
+                }
 
                 // Buy gear when comfortably in the black.
                 if (engine.State.Money > 450 && engine.CanBuy(Gear.XlrMic)) engine.BuyGear(Gear.XlrMic);
@@ -86,7 +94,7 @@ namespace PodcastTycoon.EditorTools
             var st = engine.State;
             sb.AppendLine($"--> after {st.EpisodesPublished} episodes / {peakSeason} seasons: " +
                           $"{st.Listeners:N0} listeners (peak {st.PeakListeners:N0}), €{st.Money:0}, rep {st.Reputation:0}, " +
-                          $"goal {(st.GoalReached ? "REACHED" : "not reached")}, gameOver={st.IsGameOver}");
+                          $"{events} events, goal {(st.GoalReached ? "REACHED" : "not reached")}, gameOver={st.IsGameOver}");
 
             Debug.Log("[Headless]\n" + sb);
         }
