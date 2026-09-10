@@ -424,8 +424,8 @@ sometimes a permanent shift.
 **Events** — interrupts with a choice, ~1 every 2–3 weeks: the leak, poaching of
 a crew member (§19), going viral for the wrong reason, a rival podcast launch, a
 live-show offer, a sponsor overstepping, a **discourse pile-on** (Social-Reach
-driven), a candidate walking in the door (§19), an **obligation** card handed to
-you (§21). Each trades something for something.
+driven), a candidate walking in the door (§19), a sponsor adding a mid-deal
+**ASK** (§18). Each trades something for something.
 
 ## 14. Squad & player news
 
@@ -570,33 +570,54 @@ the player sees *what kind* of audience they just gained.
 
 ## 18. Economy — sponsors, access, scoops, bankruptcy
 
-### Sponsors — you pick the deal *and* the target
+### Sponsors — a deal is a bundle of terms
 
 Offers arrive every few weeks, 1–3 at a time, scaled to your size. Hold **one**
-deal (two with the §20 upgrade). Every deal is a **contract with a milestone**.
+deal (two with the §20 upgrade). A deal pays a **weekly fee** (+ sometimes a
+signing bonus) for **1–3 terms**. More terms → more money and a worse miss.
+Picking a sponsor is reading *"can I make my show this way for ~12 weeks,"* not
+just *"is the target reachable."*
 
 ```
-SponsorOffer {
-  weekly, signingBonus,
-  target:  { metric: listeners | avgListeners | reach | reputation | credibility, value, byWeek },
-  onHit:   { bonus, renewAt, repDelta },
-  onMiss:  { endDeal, repDelta (neg), clawback? },
-  demands: [ "-rep to sign", "-0.05 appeal while active", "morality clause: end on a backfire", ... ]
+SponsorDeal {
+  weekly, signingBonus, lengthWeeks (~11)
+  terms: 1-3 of —
+    GROWTH   { metric: listeners | avgListeners | reach | reputation | credibility,
+               value, byWeek }                       # the v0.3 milestone
+    STANDING { "no negativity about <player/club>", "-0.05 appeal while active",
+               "read the ad hard weekly (-appeal, or the sponsor sours)",
+               "keep credibility >= 40", "no gambling-adjacent content" }
+    ASK      { "dedicated episode on <topic> by week N",
+               "have <guest> on by week N",
+               "hit <reach> for one week during our campaign (weeks X-Y)" }
+    CONDUCT  { "ends on a backfire", "ends if you praise <rival sponsor>",
+               "morality clause: ends if credibility < 25" }
+  onAllMet: { bonus, renewAt (higher weekly), repDelta+, sometimes a card }
+  onMiss:   per unmet term — { partial clawback, repDelta-, maybe endDeal }
 }
 ```
 
-| Example | Weekly | Target | Hit | Miss | Cares about |
-|---------|--------|--------|-----|------|-------------|
-| Local café | €30 | 400 listeners in 8wk | +€150, renew €45 | ends | listeners |
-| Kit retailer | €55 | reputation 25 in 10wk | renew €80 | −2 rep | rep |
-| Betting site | €90 +€100 | 600 listeners in 6wk | +€250, renew €140 | −4 rep, repay bonus | listeners; no morality clause |
-| Energy drink | €140 | 40,000 **reach** in 12wk | +€500 | ends | reach — loves Followers |
-| Broadsheet partner | €260 | **credibility** 65 in 16wk | partnership track | −3 cred, −6 rep | credibility; morality clause |
-| National brand | €600 | 20,000 listeners in 14wk | +€2,000, category-partner offer | −8 rep, 6wk cooldown | listeners + credibility floor |
+- **GROWTH** — a target by a deadline (the current model).
+- **STANDING** — constrains how you make the show *every week* you hold the deal.
+- **ASK** — a dated one-off. This is where v0.3's "obligation" pressure lives now:
+  do the thing by week N or that term misses.
+- **CONDUCT** — a pass/fail trigger; usually free money unless you slip.
 
-Tension: aggressive listener/reach deals fix cash flow now but bet on growth you
-might miss — and chasing them pushes you toward appeal over credibility, which
-then locks you out of the rep/cred-gated deals and access.
+| Example | Weekly | Terms | All met | A miss |
+|---------|--------|-------|---------|--------|
+| Local café | €30 | GROWTH 400 listeners in 8wk | +€150, renew €45 | ends |
+| Kit retailer | €60 | GROWTH rep 25 in 10wk · STANDING −0.05 appeal | renew €90 | −2 rep |
+| Betting site | €110 +€100 | GROWTH 600 listeners in 6wk · STANDING no gambling-critical content | +€250, renew €160 | −4 rep, repay bonus |
+| Energy drink | €150 | GROWTH 40k reach in 12wk · ASK a live show by week 8 | +€500, a card | term-by-term clawback |
+| Boot brand | €200 | STANDING no negativity about &lt;star player&gt; · ASK interview him by week 10 · CONDUCT ends on a backfire | renew €300, a card | deal ends, −3 rep |
+| Broadsheet | €280 | GROWTH cred 65 in 16wk · STANDING keep cred ≥ 50 · CONDUCT morality clause | partnership track | −3 cred, −6 rep |
+| National brand | €600 | GROWTH 20k listeners in 14wk · STANDING read the ad hard · CONDUCT morality clause | +€2,000, category-partner | −8 rep, 6wk cooldown |
+
+Tension: the big deals fix cash flow but tie your hands — a "no negativity about
+X" term while X is having a shocker means passing on your hottest topic; a
+CONDUCT morality clause makes every high-push week a gamble with your income too.
+Thread-driven owed favours (an apology, a promised appearance) stay in the
+threads themselves (§13) — they don't need to be cards or sponsor terms.
 
 ### Access tiers — audience is leverage
 
@@ -717,81 +738,71 @@ sometimes listeners / rep). Upkeep is monthly.
 
 Second sponsor slot (§18) becomes a standalone €600 unlock, unchanged.
 
-## 21. Cards — episode ingredients & story payoffs
+## 21. Cards — contacts & plays
 
-**FIRST-PASS PROPOSAL — this section is the least settled. Open questions at the
-end and in §26.**
+Still first-pass on the specific cards, but the **shape is settled**:
 
-Cards are special things you put in an episode or moves you make. **Most are
-earned from the fiction** — threads, events, milestones, rivals, cup runs — so
-the deck is a record of your run's story, not a slot machine. A few are bought.
+- **Every card has an upside *and* a downside.** Slotting one is a trade, not a
+  free buff. The old "+4 prep" stat-buff model is retired.
+- **Contacts** (passive) — **3 slots**, work every week while slotted. Always a
+  clear plus and a clear minus, and the balance shifts over a run: a contact
+  that carries you at 2,000 listeners can be a liability at 200,000, which is
+  when you drop it for a better fit. This is the reason to keep re-evaluating
+  the three.
+- **Plays** (active) — **hand of 5, up to 2 a week** in the rundown step (§3.3).
+  A spread: some are a *small clean advantage*, some a *big swing that brings its
+  own downside*.
 
-You hold up to **5** action cards + **3** contact slots. Play up to **2** action
-cards a week, in the rundown step (§3.3). Contacts are passive once slotted.
+### Contacts (pick 3)
 
-### Categories
+| Contact | Upside | Downside |
+|---------|--------|----------|
+| Club insider | +1 scoop chance/wk; scoops arrive a tier early | the club watches you — cred caps at 95, and a burned scoop also burns *them* (extra access hit) |
+| Viral editor | one guaranteed viral clip/season on demand; +1%/wk Followers | everything chases the clip — Analysis appeal −0.03, Core conversion −20% |
+| Veteran pundit | free recurring guest slot; +0.5 cred/wk; enables Crossover | −€40/wk retainer; won't do Hot take on the Main (angle locked there) |
+| Tabloid contact | Trade-a-scoop pays ~2×; +money at media events | periodic "someone briefed against you" beat; −0.3 cred/wk |
+| Rival host | Crossover on demand; a recurring friendly-beef bit (+social) | ~1%/wk of Casual drifts to their show; escalating the beat starts a real Beef (§13) |
+| Stats account | +social on tierlist/ratings; freshness decays 30% slower | Emotional angle appeal −0.05 (too clinical) |
+| Fan-group liaison | +Core retention; +2 morale/wk | while slotted, a backfire or club-critical take costs *double* cred |
 
-**1. Ingredients** — slot into the rundown, changing what a segment *is*:
+### Plays — small & clean
 
-| Card | Effect |
+| Play | Effect |
 |------|--------|
-| Two-parter | Commit your Main to a 2-week arc. Week 2 gets +40% reach and a free thread-stage advance, but you can't pivot off it. |
-| Live show | Location stunt on the Main: +appeal, +social, +€ if it lands — but an extra chaotic recording beat and a morale cost. |
-| Listener takeover | Recurring bit becomes pure Follower fuel (+social, +Followers) at −1 cred. |
-| Deep-dive doc | Turn any segment into Investigation for a week without the crew/access requirement. |
-| Crossover | Bring in another host (needs the "Rival host" or "Veteran pundit" contact) — big reach, shared audience, a beef risk. |
-| Mailbag special | Recurring bit answers real listener drama — +Core conversion this week. |
+| Mailbag special | Recurring bit drives +Core conversion this week |
+| Trailer | a small one-week promo bump, no overreach risk |
+| Rest the team | a light week that gives *double* morale + freshness |
+| Victory lap | bank a past win as an on-demand optimism/schadenfreude topic |
 
-**2. Moves** — played outside a segment:
+### Plays — big, with a downside
 
-| Card | Effect |
-|------|--------|
-| All in | This episode's Listener delta ×2 — both directions. |
-| Damage control | Cancel the next backfire, or halve an active slump. One use. |
-| Victory lap | Bank a past win (a big result, a milestone, a rival's collapse) as an on-demand optimism/schadenfreude topic with no context requirement. |
-| Call in a favour | Skip one sponsor target check, or a one-tier access bump for 4 weeks, or a free top guest. |
-| Rest the team | A forced light week that gives *double* the usual morale + freshness. |
+| Play | Upside | Downside |
+|------|--------|----------|
+| All in | this episode's Listener delta ×2 | …both directions |
+| Two-parter | Main becomes a 2-week arc; week 2 +40% reach + a free thread stage | locked in — can't pivot even if the story dies |
+| Live show | +appeal, +social, +€ if it lands | an extra chaotic recording beat, morale cost, money at risk |
+| Hot mic | Social +20, Follower spike | random cred swing, −8 … +2 |
+| Deep-dive doc | any segment becomes Investigation, no crew/access needed | eats a full slot's prep; can't also be a light week |
+| Damage control | cancel the next backfire, or halve an active slump | one use; −€150 to "get ahead of it" |
 
-**3. Contacts** — permanent, 3 slots, mostly from the fiction:
+### Acquisition — a deliberate mix
 
-| Card | Effect |
-|------|--------|
-| Club insider | +1 scoop chance/week; scoops arrive one tier earlier. |
-| Viral editor | One guaranteed viral clip per season (Social +20, Follower spike) on demand. |
-| Veteran pundit | A free recurring guest slot; +cred passively; enables Crossover. |
-| Tabloid contact | Trade scoops for ~2× the money; occasionally leaks *your* stuff (a beat). |
-| Rival host | Crossover available; a periodic friendly-beef event that's pure content. |
+- **From the fiction** (deterministic, the main source): resolve a thread well →
+  a themed card; survive a crisis → "Battle-tested"; beat a rival → "Bragging
+  rights"; win a cup → "Silverware"; a milestone → a strong card. The card fits
+  the moment.
+- **Paid random draw** ("chase a lead", ~€120): one card from a pool, rarity
+  weighted by Reputation. The cheap, lucky option.
+- **Paid specific pick** ("book something", €200–400): choose an exact Play card.
+  Competes with upgrade tiers for the same money.
 
-**4. Obligations** — negative, handed to you by events. **Must be played within
-N weeks** or they auto-resolve badly. Don't count against the hand limit but
-occupy a visible "owed" slot:
-
-| Card | If you play it | If it expires |
-|------|----------------|---------------|
-| Contractual ad read | −0.05 appeal one week, sponsor happy | sponsor deal ends, −rep |
-| Apology owed | An Emotional/correction segment, cred restored | −cred, "never owns it" reputation |
-| Promised appearance | A guest week you didn't plan | −rep, that contact leaves |
-| Favour called in (on you) | Give up a scoop or €200 | a rival gets the story + a grudge |
-
-### Acquisition
-
-- **Fiction payouts** (main source): resolve a thread well → a themed card;
-  survive a crisis → "Battle-tested"; hit a milestone → a strong card; beat a
-  rival → "Bragging rights"; win a cup → "Silverware". These are **specific, not
-  random** — the card fits the moment.
-- **Buy** (a "book something / plan a bit" menu): spend money for a **specific**
-  ingredient or move card you choose — no random packs. Prices ~€150–400,
-  competing with upgrade tiers for the same money.
-- **Milestone bonus**: a free themed card + a cash bonus + a flavour unlock.
-
-The old "hand of 5, 60-Buzz random 3-card packs, mostly stat buffs" model is
-retired. Cards are now *plays you time* and *a scrapbook of the run*.
+Obligations from the earlier draft are **gone** — that pressure now lives in
+sponsor **ASK** / **CONDUCT** terms (§18).
 
 ### Open questions (§26)
 
-- Random draw at all, or fully deterministic acquisition?
-- Contact slots separate from the action hand, or one shared limit?
-- Are Obligations good pressure or just fiddly bookkeeping?
+- Do the downsides make cards feel bad to draw, or is that tension the point?
+- Random-draw pool — how big, and does rep-weighting make it feel fair?
 - Is 2 plays/week still right now that each card does more?
 
 ## 22. Goal & milestones — endless
@@ -820,8 +831,9 @@ cosmetic unlocks only.
 startMoney 500 · startCore 40 · prepBase 12 · adRate core/casual/follower
 0.0045/0.0018/0.0003 (× difficulty) · churn core/casual/follower 0.015/0.070/0.120
 · qualityBreakeven 0.70 · deltaScale 0.19 · womRate 0.03 · fixedOverhead 20 (by
-difficulty) · hostingSlope 0.0007 · packCost — (removed) · cardBuyCost 150–400 ·
-redrawCost €15 · bankruptcyFloor/grace −200 / 3 · goalListeners 50000 ·
+difficulty) · hostingSlope 0.0007 · packCost — (removed) · cardDrawCost €120 ·
+cardPickCost €200–400 · sponsorTermsMax 3 · redrawCost €15 ·
+bankruptcyFloor/grace −200 / 3 · goalListeners 50000 ·
 homeAdvantage 0.06 · offseasonChurn core/casual/follower 0.08/0.22/0.30 ·
 crewMonthlyInterval 4wk · accessTierListeners [1000, 12000, 80000] ·
 accessCredFloor [–, 55, 70] · scoopDisruptionBase 0.15 · avgListenerWindow 6 ·
@@ -846,7 +858,8 @@ Slices 1–3 are shipped. v0.4 is the next four:
   - **Playtest gate:** is the week now a real decision, and does the safe play
     feel like holding serve rather than winning?
 - **Slice 5 — the recording.** Interactive beats (§10) + push dial + backfire +
-  Morale + the new threads (correction / beef / libel) + discourse events.
+  Morale + the new threads (correction / beef / libel) + discourse events +
+  sponsor deals become multi-term (§18: STANDING / ASK / CONDUCT).
 - **Slice 6 — the business grows.** Upgrade tracks (§20) + crew roster (§19) +
   the rival-podcast competitor + the reworked card system (§21).
 - **Slice 7 — economy & balance pass.** Retune every formula against playtest
@@ -857,10 +870,13 @@ Slices 1–3 are shipped. v0.4 is the next four:
 
 ## 26. Still open
 
-- **Cards (§21)** — the whole section is a first pass. Deterministic vs. random
-  acquisition; contact slots; obligations; plays per week.
+- **Cards (§21)** — specific cards are first-pass; the shape (contacts + plays,
+  every card +/−, mixed acquisition) is settled. Do the downsides make cards
+  feel bad to draw? Random-draw pool size? Plays per week?
 - Is Social Reach distinct enough as its own index now that Buzz is gone, or is
   it doing too many jobs (clip audience + amplifier + event driver)?
+- Sponsor deals with 1–3 terms (§18) — is 3 the right ceiling, or does tracking
+  which term you're failing get fiddly?
 - Backfire (§11) middle road — is the correction *opportunity* (carrot) enough,
   or does a bad take need a sharper immediate sting?
 - Loyalty as a label vs. a subtle meter — does "Fragile/Fickle/Solid/Devoted"
