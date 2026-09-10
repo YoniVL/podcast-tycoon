@@ -61,6 +61,15 @@ namespace PodcastTycoon.Game
             deltas.Add(grid);
             if (_result.MonthlyWagesCharged > 0)
                 deltas.Add(Ui.Wrapping($"Monthly wages of {Ui.Money(_result.MonthlyWagesCharged)} came out this week.", "body", "dim"));
+            if (_result.Topic.SourceThread != null)
+            {
+                string steer = _result.Quality >= 1.05f
+                    ? "A strong episode — you've nudged the story your way."
+                    : _result.Quality >= 0.8f
+                        ? "You covered it, which keeps you in the conversation."
+                        : "A thin episode on a story people care about — that won't have helped.";
+                deltas.Add(Ui.Wrapping($"Story: \"{_result.Topic.Name}\". {steer}", "body", "dim"));
+            }
             scroll.Add(deltas);
 
             // --- new totals ---

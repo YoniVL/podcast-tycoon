@@ -4,7 +4,12 @@ namespace PodcastTycoon.Core
 {
     public sealed class ProductionPlan
     {
+        /// <summary>A catalog topic. Ignored when <see cref="ThreadTopic"/> is set.</summary>
         public TopicId Topic;
+
+        /// <summary>Set instead of <see cref="Topic"/> when covering a story-thread topic.</summary>
+        public Topic ThreadTopic;
+
         public int PrepTopic;
         public int PrepResearch;
         public int PrepAudio;
@@ -12,9 +17,22 @@ namespace PodcastTycoon.Core
 
         public int TotalPrep => PrepTopic + PrepResearch + PrepAudio + PrepPromo;
 
+        /// <summary>The actual topic being covered.</summary>
+        public Topic Resolved => ThreadTopic ?? TopicCatalog.Get(Topic);
+
+        /// <summary>Build a plan that covers the given topic (catalog or thread).</summary>
+        public static ProductionPlan Cover(Topic topic)
+        {
+            var p = new ProductionPlan();
+            if (topic.SourceThread != null) p.ThreadTopic = topic;
+            else p.Topic = topic.Id;
+            return p;
+        }
+
         public ProductionPlan Clone() => new ProductionPlan
         {
-            Topic = Topic, PrepTopic = PrepTopic, PrepResearch = PrepResearch,
+            Topic = Topic, ThreadTopic = ThreadTopic,
+            PrepTopic = PrepTopic, PrepResearch = PrepResearch,
             PrepAudio = PrepAudio, PrepPromo = PrepPromo
         };
     }
@@ -64,7 +82,7 @@ namespace PodcastTycoon.Core
         {
             var cfg = _cfg;
             var d = DifficultyProfile.For(st.Difficulty);
-            var topic = TopicCatalog.Get(plan.Topic);
+            var topic = plan.Resolved;
 
             float micQ = st.HasGear(Gear.XlrMic) ? cfg.MicQualityUpgraded : cfg.MicQualityBase;
             float editSkill = st.HasGear(Gear.EditingSoftware) ? cfg.EditSkillUpgraded : cfg.EditSkillBase;

@@ -11,7 +11,7 @@ namespace PodcastTycoon.Game
         Engine E => _host.Engine;
 
         readonly ProductionPlan _plan = new ProductionPlan();
-        TopicId? _picked;
+        Topic _picked;
 
         VisualElement _topicList;
         VisualElement _prepBlock;
@@ -70,6 +70,16 @@ namespace PodcastTycoon.Game
                 "Hype from breakout episodes. Spends on redraws."));
             scroll.Add(strip);
 
+            // --- story headlines from the start of this week ---
+            foreach (var te in ctx.ThreadEvents)
+            {
+                var toast = Ui.Box("toast");
+                if (te.IsResolution) toast.AddToClassList("toast-story");
+                toast.Add(Ui.Text(te.Headline.ToUpperInvariant(), "eyebrow"));
+                toast.Add(Ui.Wrapping(te.Body, "body"));
+                scroll.Add(toast);
+            }
+
             // --- how it works (open on the very first week) ---
             var help = new Foldout { text = "How it works", value = st.GlobalWeek == 1 };
             help.AddToClassList("help-foldout");
@@ -96,6 +106,8 @@ namespace PodcastTycoon.Game
 
             // --- the week ---
             scroll.Add(BuildMatchPanel(ctx));
+            var threads = BuildThreadsPanel(ctx);
+            if (threads != null) scroll.Add(threads);
             scroll.Add(BuildSquadPanel());
 
             // --- topic offer ---
@@ -151,9 +163,8 @@ namespace PodcastTycoon.Game
             scroll.Add(_publish);
 
             // Restore selection if this is a re-render (e.g. after buying gear).
-            if (_picked.HasValue)
+            if (_picked != null)
             {
-                _plan.Topic = _picked.Value;
                 _prepBlock.style.display = DisplayStyle.Flex;
                 SyncSliders();
                 RefreshPreview();
@@ -207,6 +218,39 @@ namespace PodcastTycoon.Game
 
             AppendSquadNews(panel, ctx);
             return panel;
+        }
+
+        VisualElement BuildThreadsPanel(WeekContext ctx)
+        {
+            if (ctx.ActiveThreads == null || ctx.ActiveThreads.Count == 0) return null;
+
+            var panel = Ui.Box("panel");
+            panel.Add(Ui.Text("Running stories", "h2"));
+            panel.Add(Ui.Wrapping(
+                "Ongoing storylines around the club. Cover one on this week's episode to steer where it goes — " +
+                "ignore it and it drifts with the results.", "body", "dim"));
+
+            foreach (var t in ctx.ActiveThreads)
+            {
+                var row = Ui.Box();
+                row.style.marginTop = 8;
+                row.Add(Ui.Text(t.Label, "topiccard-title"));
+                if (!string.IsNullOrEmpty(t.Note))
+                    row.Add(Ui.Wrapping(t.Note, "body", "dim"));
+                row.Add(Ui.Wrapping("Which way it's leaning: " + LeanLabel(t.Momentum), "body",
+                    t.Momentum >= 0 ? "good" : "bad"));
+                panel.Add(row);
+            }
+            return panel;
+        }
+
+        static string LeanLabel(float momentum)
+        {
+            if (momentum > 0.35f) return "towards a happy ending";
+            if (momentum > 0.1f) return "cautiously positive";
+            if (momentum > -0.1f) return "genuinely up in the air";
+            if (momentum > -0.35f) return "not looking good";
+            return "heading for the worst outcome";
         }
 
         void AppendSquadNews(VisualElement panel, WeekContext ctx)
@@ -353,9 +397,17 @@ namespace PodcastTycoon.Game
             foreach (var topic in E.Offer)
             {
                 var card = Ui.Box("topiccard");
-                if (_picked == topic.Id) card.AddToClassList("selected");
+                if (ReferenceEquals(_picked, topic)) card.AddToClassList("selected");
 
-                card.Add(Ui.Text(topic.Name, "topiccard-title"));
+                var titleRow = Ui.Row();
+                titleRow.Add(Ui.Text(topic.Name, "topiccard-title"));
+                if (topic.SourceThread != null)
+                {
+                    var tag = Ui.Text("STORY", "chip");
+                    tag.AddToClassList("chip-story");
+                    titleRow.Add(tag);
+                }
+                card.Add(titleRow);
                 card.Add(Ui.Wrapping(topic.Blurb, "body", "dim"));
 
                 float ctxMult = ContextResolver.AppealMultiplier(topic.Response, E.CurrentWeek) * E.CurrentWeek.ImportanceAppealMult;
@@ -370,17 +422,18 @@ namespace PodcastTycoon.Game
                 if (topic.BuzzBonus >= 3) chips.Add(Ui.Chip("Good for buzz"));
                 card.Add(chips);
 
-                var id = topic.Id;
-                card.RegisterCallback<ClickEvent>(_ => Pick(id));
+                var picked = topic;
+                card.RegisterCallback<ClickEvent>(_ => Pick(picked));
                 _topicList.Add(card);
             }
         }
 
-        void Pick(TopicId id)
+        void Pick(Topic topic)
         {
-            _picked = id;
-            _plan.Topic = id;
-            var topic = TopicCatalog.Get(id);
+            _picked = topic;
+            if (topic.SourceThread != null) { _plan.ThreadTopic = topic; }
+            else { _plan.Topic = topic.Id; _plan.ThreadTopic = null; }
+
             // Sensible default allocation: meet the effort, spread the rest.
             int cap = E.State.PrepCapacity(E.Config);
             _plan.PrepTopic = Mathf.Min(topic.Effort, cap);
@@ -439,11 +492,11 @@ namespace PodcastTycoon.Game
             _prepMeter.EnableInClassList("over", used > cap);
 
             _previewBlock.Clear();
-            bool ok = _picked.HasValue && used <= cap && used > 0;
+            bool ok = _picked != null && used <= cap && used > 0;
             _publish.SetEnabled(ok);
 
-            if (!_picked.HasValue) return;
-            var topic = TopicCatalog.Get(_picked.Value);
+            if (_picked == null) return;
+            var topic = _picked;
 
             // A read on your *choice* — not on the outcome. The result is still a surprise.
             string prepNote;
@@ -480,6 +533,7 @@ namespace PodcastTycoon.Game
             if (E.TryRedraw())
             {
                 _picked = null;
+                _plan.ThreadTopic = null;
                 _plan.PrepTopic = _plan.PrepResearch = _plan.PrepAudio = _plan.PrepPromo = 0;
                 _host.RerenderWeek();
             }
@@ -494,19 +548,19 @@ namespace PodcastTycoon.Game
 
         void Publish()
         {
-            if (!_picked.HasValue) return;
+            if (_picked == null) return;
             _host.Publish(_plan.Clone());
         }
 
         // --- headless capture hooks ---
         public void DebugPickFirst()
         {
-            if (E.Offer.Count > 0) Pick(E.Offer[0].Id);
+            if (E.Offer.Count > 0) Pick(E.Offer[0]);
         }
 
         public void DebugPublish()
         {
-            if (_picked.HasValue) _host.Publish(_plan.Clone());
+            if (_picked != null) _host.Publish(_plan.Clone());
         }
 
         // ------------------------------------------------------------------

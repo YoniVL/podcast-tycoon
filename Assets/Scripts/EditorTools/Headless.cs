@@ -30,8 +30,11 @@ namespace PodcastTycoon.EditorTools
                 new GameConfig(),
                 new SystemRng(20260910));
 
-            engine.MilestoneReached += m => Debug.Log($"  [{(greedy ? "greedy" : "balanced")}] ★ {m.Message}");
-            engine.GameOver += r => Debug.Log($"  [{(greedy ? "greedy" : "balanced")}] ✗ GAME OVER: {r}");
+            string tag = greedy ? "greedy" : "balanced";
+            engine.MilestoneReached += m => Debug.Log($"  [{tag}] ★ {m.Message}");
+            engine.GameOver += r => Debug.Log($"  [{tag}] ✗ GAME OVER: {r}");
+            engine.ThreadOpened += ev => Debug.Log($"  [{tag}] 📰 opened: {ev.Headline}");
+            engine.ThreadResolved += ev => Debug.Log($"  [{tag}] 📰 resolved: {ev.Headline} — {ev.Body}");
 
             var sb = new StringBuilder();
             sb.AppendLine($"=== {label} ===");
@@ -96,6 +99,7 @@ namespace PodcastTycoon.EditorTools
             {
                 float appeal = t.BaseAppeal * ContextResolver.AppealMultiplier(t.Response, ctx);
                 float score = appeal;
+                if (t.SourceThread != null) score += 0.5f; // a running story is worth covering
                 if (!greedy)
                 {
                     // Value reputation; only pick a hot take when the week is genuinely bad.
@@ -111,7 +115,7 @@ namespace PodcastTycoon.EditorTools
         static ProductionPlan Plan(Engine engine, Topic pick)
         {
             int cap = engine.State.PrepCapacity(engine.Config);
-            var plan = new ProductionPlan { Topic = pick.Id };
+            var plan = ProductionPlan.Cover(pick);
             plan.PrepTopic = Mathf.Min(pick.Effort + 1, cap);
             int left = cap - plan.PrepTopic;
             plan.PrepResearch = Mathf.Clamp(left / 3, 0, 4);

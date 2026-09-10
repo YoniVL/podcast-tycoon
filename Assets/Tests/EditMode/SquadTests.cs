@@ -65,7 +65,9 @@ namespace PodcastTycoon.Tests
             {
                 var ctx = e.BeginWeek();
                 if (ctx.SquadNews.Count > 0) sawNews = true;
-                e.Publish(new ProductionPlan { Topic = e.Offer[0].Id, PrepTopic = 4, PrepAudio = 3 });
+                var plan = ProductionPlan.Cover(e.Offer[0]);
+                plan.PrepTopic = 4; plan.PrepAudio = 3;
+                e.Publish(plan);
             }
 
             Assert.That(sawNews, Is.True, "squad news should show up over 30 weeks");

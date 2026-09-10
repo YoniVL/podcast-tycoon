@@ -11,6 +11,16 @@ namespace PodcastTycoon.Tests
                 new GameConfig(), new SystemRng(seed));
         }
 
+        static ProductionPlan Plan(Engine e, int topicPrep = 4, int research = 2, int audio = 3, int promo = 1)
+        {
+            var p = ProductionPlan.Cover(e.Offer[0]);
+            p.PrepTopic = topicPrep;
+            p.PrepResearch = research;
+            p.PrepAudio = audio;
+            p.PrepPromo = promo;
+            return p;
+        }
+
         [Test]
         public void StartsWithConfiguredResources()
         {
@@ -35,8 +45,7 @@ namespace PodcastTycoon.Tests
         {
             var e = NewEngine();
             e.BeginWeek();
-            var topic = e.Offer[0].Id;
-            e.Publish(new ProductionPlan { Topic = topic, PrepTopic = 3, PrepAudio = 3, PrepPromo = 2, PrepResearch = 2 });
+            e.Publish(Plan(e, topicPrep: 3, research: 2, audio: 3, promo: 2));
 
             Assert.That(e.State.GlobalWeek, Is.EqualTo(2));
             Assert.That(e.State.EpisodesPublished, Is.EqualTo(1));
@@ -51,8 +60,7 @@ namespace PodcastTycoon.Tests
             while (e.State.Season == 1 && guard++ < 200)
             {
                 e.BeginWeek();
-                var t = e.Offer[0].Id;
-                e.Publish(new ProductionPlan { Topic = t, PrepTopic = 4, PrepAudio = 3, PrepResearch = 2, PrepPromo = 1 });
+                e.Publish(Plan(e));
             }
             Assert.That(e.State.Season, Is.GreaterThanOrEqualTo(2), "season should have rolled over");
             Assert.That(e.State.GlobalWeek, Is.GreaterThan(38));
@@ -69,8 +77,7 @@ namespace PodcastTycoon.Tests
             while (!rolled && guard++ < 200)
             {
                 e.BeginWeek();
-                var t = e.Offer[0].Id;
-                e.Publish(new ProductionPlan { Topic = t, PrepTopic = 10 });
+                e.Publish(Plan(e, topicPrep: 10, research: 0, audio: 0, promo: 0));
             }
 
             Assert.That(rolled, Is.True);
@@ -89,7 +96,7 @@ namespace PodcastTycoon.Tests
             {
                 e.BeginWeek();
                 // Publish the laziest possible episode every week.
-                e.Publish(new ProductionPlan { Topic = e.Offer[0].Id, PrepTopic = 0 });
+                e.Publish(Plan(e, topicPrep: 0, research: 0, audio: 0, promo: 0));
             }
 
             Assert.That(over, Is.True, "a show that never invests should eventually go broke");
@@ -116,7 +123,7 @@ namespace PodcastTycoon.Tests
 
             e.State.Listeners = 260;   // already past the 100 milestone
             e.BeginWeek();
-            e.Publish(new ProductionPlan { Topic = e.Offer[0].Id, PrepTopic = 4, PrepAudio = 3 });
+            e.Publish(Plan(e, topicPrep: 4, research: 0, audio: 3, promo: 0));
 
             Assert.That(fired, Is.EqualTo(100));
             Assert.That(e.State.NextMilestoneIndex, Is.EqualTo(1));

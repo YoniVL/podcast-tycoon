@@ -36,6 +36,7 @@ namespace PodcastTycoon.Core
         readonly Resolution _resolution;
 
         public Squad Roster { get; }
+        public ThreadManager Threads { get; }
 
         public WeekContext CurrentWeek { get; private set; }
         public IReadOnlyList<Topic> Offer { get; private set; } = Array.Empty<Topic>();
@@ -45,6 +46,8 @@ namespace PodcastTycoon.Core
         public event Action<string> GameOver;      // reason
         public event Action GoalReached;
         public event Action<int> SeasonRolledOver; // new season number
+        public event Action<ThreadEvent> ThreadOpened;
+        public event Action<ThreadEvent> ThreadResolved;
 
         public Engine(RunSetup setup, GameConfig config, IRng rng)
         {
@@ -69,6 +72,10 @@ namespace PodcastTycoon.Core
             };
 
             Roster = Squad.Generate(State.TeamStrength, _rng);
+
+            Threads = new ThreadManager(Config, _rng);
+            Threads.ThreadOpened += e => ThreadOpened?.Invoke(e);
+            Threads.ThreadResolved += e => ThreadResolved?.Invoke(e);
 
             Calendar = new SeasonCalendar(Config);
             Calendar.BuildSeason(State.ClubName, State.TeamStrength, 1, _rng);
@@ -106,6 +113,7 @@ namespace PodcastTycoon.Core
             ctx.LeaguePositionLabel = SeasonCalendar.Ordinal(pos);
 
             ContextResolver.Fill(ctx);
+            Threads.Tick(this, ctx);
 
             CurrentWeek = ctx;
             Offer = BuildOffer(ctx);
@@ -114,19 +122,31 @@ namespace PodcastTycoon.Core
 
         IReadOnlyList<Topic> BuildOffer(WeekContext ctx)
         {
-            var available = TopicCatalog.All.Where(t => t.IsAvailable(ctx, State)).ToList();
-            if (available.Count <= 3)
-                return available;
+            var offer = new List<Topic>();
 
-            // Guarantee the contextually strongest topic is offered, then two more at random.
-            Topic anchor = available
-                .OrderByDescending(t => t.BaseAppeal * ContextResolver.AppealMultiplier(t.Response, ctx))
-                .First();
+            // Running story threads always get a slot — that's the story you're covering.
+            foreach (var tt in ctx.ThreadTopics.Take(2))
+                offer.Add(tt);
 
-            var pool = available.Where(t => t != anchor).ToList();
-            Shuffle(pool);
+            var catalog = TopicCatalog.All.Where(t => t.IsAvailable(ctx, State)).ToList();
+            Shuffle(catalog);
 
-            var offer = new List<Topic> { anchor, pool[0], pool[1] };
+            // If there's room and no thread topic, guarantee the contextually strongest catalog topic.
+            if (offer.Count == 0 && catalog.Count > 0)
+            {
+                Topic anchor = catalog
+                    .OrderByDescending(t => t.BaseAppeal * ContextResolver.AppealMultiplier(t.Response, ctx))
+                    .First();
+                offer.Add(anchor);
+                catalog.Remove(anchor);
+            }
+
+            foreach (var t in catalog)
+            {
+                if (offer.Count >= 3) break;
+                offer.Add(t);
+            }
+
             Shuffle(offer);
             return offer;
         }
@@ -155,6 +175,9 @@ namespace PodcastTycoon.Core
         public EpisodeResult Publish(ProductionPlan plan)
         {
             var result = _resolution.Resolve(State, CurrentWeek, plan, _rng);
+
+            if (plan.ThreadTopic?.SourceThread != null)
+                Threads.MarkCovered(plan.ThreadTopic.SourceThread, result.Quality);
 
             long listeners = (long)State.Listeners + result.ListenerDeltaActual;
             listeners = Math.Max(0L, Math.Min(Config.MaxListeners, listeners));
@@ -274,6 +297,7 @@ namespace PodcastTycoon.Core
             else if (State.TeamStrength < 0.50f) State.TeamStrength += drift;
 
             Roster.Offseason(_rng);
+            Threads.OnSeasonRollover();
             Calendar.BuildSeason(State.ClubName, State.TeamStrength, State.Season, _rng);
             SeasonRolledOver?.Invoke(State.Season);
         }
