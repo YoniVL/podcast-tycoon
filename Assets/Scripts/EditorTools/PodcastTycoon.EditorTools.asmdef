@@ -1,0 +1,19 @@
+{
+  "name": "PodcastTycoon.EditorTools",
+  "rootNamespace": "PodcastTycoon.EditorTools",
+  "references": [
+    "PodcastTycoon.Core",
+    "PodcastTycoon.Game"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

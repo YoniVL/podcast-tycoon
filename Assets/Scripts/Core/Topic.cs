@@ -1,0 +1,104 @@
+using System;
+using System.Collections.Generic;
+
+namespace PodcastTycoon.Core
+{
+    public enum TopicId
+    {
+        Recap,
+        Preview,
+        TierList,
+        Mailbag,
+        Optimism,
+        HotTake
+    }
+
+    /// <summary>
+    /// How a topic reacts to the week's match result. Determines the context appeal
+    /// multiplier applied in resolution (spec §5).
+    /// </summary>
+    public enum TopicResponse
+    {
+        /// <summary>Follows the result up and down (a recap).</summary>
+        Reaction,
+        /// <summary>Great after a good result, dead after a bad one (vibes / optimism).</summary>
+        Positive,
+        /// <summary>Great after a bad result, unwanted after a good one (hot take, ratings).</summary>
+        Crisis,
+        /// <summary>Roughly flat regardless of result (mailbag, tier list, tactics).</summary>
+        Evergreen
+    }
+
+    public sealed class Topic
+    {
+        public TopicId Id;
+        public string Name;
+        public string Blurb;
+        public float BaseAppeal;
+        public int Effort;
+        public float Swing;
+        public float RepEarn;
+        public int BuzzBonus;
+        public TopicResponse Response;
+
+        /// <summary>Whether this topic is on the table given the week's context.</summary>
+        public Func<WeekContext, GameState, bool> IsAvailable;
+    }
+
+    /// <summary>The six slice-1 topics (spec §7).</summary>
+    public static class TopicCatalog
+    {
+        public static readonly IReadOnlyList<Topic> All = new List<Topic>
+        {
+            new Topic
+            {
+                Id = TopicId.Recap, Name = "Match recap", Response = TopicResponse.Reaction,
+                Blurb = "Break down what just happened.",
+                BaseAppeal = 1.00f, Effort = 3, Swing = 0.15f, RepEarn = 1f, BuzzBonus = 0,
+                IsAvailable = (c, s) => !c.IsMatchless
+            },
+            new Topic
+            {
+                Id = TopicId.Preview, Name = "Match preview", Response = TopicResponse.Evergreen,
+                Blurb = "Look ahead to the next fixture.",
+                BaseAppeal = 0.85f, Effort = 3, Swing = 0.15f, RepEarn = 1f, BuzzBonus = 0,
+                IsAvailable = (c, s) => true
+            },
+            new Topic
+            {
+                Id = TopicId.TierList, Name = "Tier list", Response = TopicResponse.Evergreen,
+                Blurb = "Rank something. Anything. The fans will argue.",
+                BaseAppeal = 1.20f, Effort = 4, Swing = 0.25f, RepEarn = 1f, BuzzBonus = 2,
+                IsAvailable = (c, s) => true
+            },
+            new Topic
+            {
+                Id = TopicId.Mailbag, Name = "Mailbag", Response = TopicResponse.Evergreen,
+                Blurb = "Answer listener questions. Cheap and cheerful.",
+                BaseAppeal = 0.70f, Effort = 2, Swing = 0.10f, RepEarn = 2f, BuzzBonus = 0,
+                IsAvailable = (c, s) => true
+            },
+            new Topic
+            {
+                Id = TopicId.Optimism, Name = "Vibes / optimism", Response = TopicResponse.Positive,
+                Blurb = "Ride the good feeling while it lasts.",
+                BaseAppeal = 1.10f, Effort = 3, Swing = 0.20f, RepEarn = 0f, BuzzBonus = 2,
+                IsAvailable = (c, s) => !c.IsMatchless && c.Surprise >= Surprise.Good
+            },
+            new Topic
+            {
+                Id = TopicId.HotTake, Name = "Hot take", Response = TopicResponse.Crisis,
+                Blurb = "Say the thing. Loudly. Consequences later.",
+                BaseAppeal = 1.55f, Effort = 3, Swing = 0.60f, RepEarn = -1f, BuzzBonus = 5,
+                IsAvailable = (c, s) => !c.IsMatchless && (c.Surprise <= Surprise.Poor || s.Reputation >= 15f)
+            }
+        };
+
+        public static Topic Get(TopicId id)
+        {
+            foreach (var t in All)
+                if (t.Id == id) return t;
+            throw new ArgumentOutOfRangeException(nameof(id), id, "Unknown topic id");
+        }
+    }
+}

@@ -1,0 +1,95 @@
+namespace PodcastTycoon.Core
+{
+    /// <summary>
+    /// Every tuning knob for the slice-1 loop (spec §24). Difficulty-dependent values
+    /// (ad rate, fixed overhead, team strength) live on <see cref="DifficultyProfile"/>.
+    /// These are deliberately mutable fields so a designer can tweak a live instance.
+    /// </summary>
+    public sealed class GameConfig
+    {
+        // --- starting state ---
+        public int StartMoney = 500;
+        public int StartListeners = 40;
+        public float StartReputation = 10f;
+        public int PrepBase = 10;
+
+        // --- listener model ---
+        public float ChurnRate = 0.045f;
+        public float QualityBreakeven = 0.70f;
+        public float DeltaScale = 0.42f;
+        public float WordOfMouthRate = 0.03f;
+
+        // --- quality model ---
+        public float QualityFloor = 0.35f;
+        public float QualityPrepWeight = 0.65f;
+        public float QualityOvershootPerPoint = 0.025f;
+        public float QualityGearWeight = 0.15f;      // applied to both mic and editing skill
+        public float QualityAudioPerPoint = 0.035f;
+        public float QualityMin = 0.20f;
+        public float QualityMax = 1.60f;
+
+        // --- volatility ---
+        public float ResearchSpreadReductionPerPoint = 0.18f;
+
+        // --- reach / promo ---
+        public float PromoReachPerPoint = 0.08f;
+
+        // --- reputation ---
+        public float SloppyQualityThreshold = 0.55f;
+        public float SloppyReputationPenalty = 4f;
+
+        // --- buzz ---
+        public float BuzzThreshold = 1.15f;
+        public float BuzzScale = 35f;
+
+        // --- economy ---
+        public float HostingBase = 5f;
+        public float HostingSlope = 0.0009f;         // € per listener per week
+        public float AdReputationFloor = 0.80f;      // ad multiplier at 0 reputation
+        public float AdReputationRange = 0.40f;      // extra multiplier at 100 reputation
+
+        // --- fail state ---
+        public float BankruptcyFloor = -200f;
+        public int BankruptcyGraceWeeks = 3;
+
+        // --- goal ---
+        public int GoalListeners = 50000;
+        public int[] Milestones = { 100, 500, 1000, 2500, 10000, 25000, 50000 };
+
+        // --- match sim ---
+        public float HomeAdvantage = 0.06f;
+        public float MatchProbBase = 0.45f;
+        public float MatchProbSlope = 0.85f;
+        public float MatchProbMin = 0.05f;
+        public float MatchProbMax = 0.88f;
+        public float ExpectationThreshold = 0.55f;   // pWin/pLoss above this => "expected"
+        public float OffseasonChurn = 0.15f;
+        public float TeamStrengthSeasonDrift = 0.01f; // per season, toward 0.50
+
+        // --- gear upgrades (one-time) ---
+        public int MicCost = 150;
+        public float MicQualityBase = 0.20f;
+        public float MicQualityUpgraded = 0.60f;
+
+        public int PanelsCost = 120;
+        public float PanelsQualityFloorBonus = 0.08f;
+
+        public int EditingCost = 200;
+        public float EditSkillBase = 0.15f;
+        public float EditSkillUpgraded = 0.45f;
+
+        // --- co-host (monthly) ---
+        public int CoHostHireCost = 0;                // no signing fee in slice 1
+        public int CoHostMonthlyWage = 180;
+        public int CoHostPrepBonus = 3;
+        public float CoHostAppealBonus = 0.05f;
+        public int MonthlyIntervalWeeks = 4;
+
+        // --- actions ---
+        public int RedrawCost = 15;
+
+        // --- calendar ---
+        public int LeagueMatchdays = 38;
+        public int[] InternationalBreakTurns = { 6, 15, 24, 33 };
+    }
+}

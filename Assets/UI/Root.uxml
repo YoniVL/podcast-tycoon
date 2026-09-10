@@ -1,0 +1,4 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="PodcastTycoon.uss" />
+    <ui:VisualElement name="app" class="app" />
+</ui:UXML>

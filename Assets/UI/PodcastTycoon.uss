@@ -1,0 +1,241 @@
+/* Podcast Tycoon — slice 1 UI. Committed dark "studio" look; club colours are
+   layered on specific elements at runtime from Theme.cs. */
+
+.app {
+    flex-grow: 1;
+    background-color: rgb(21, 20, 27);
+    color: rgb(236, 233, 242);
+    font-size: 15px;
+}
+
+.screen {
+    flex-grow: 1;
+    align-items: center;
+    padding: 24px;
+}
+
+.column {
+    width: 640px;
+    max-width: 100%;
+    flex-grow: 1;
+}
+
+.scroll {
+    flex-grow: 1;
+    width: 100%;
+}
+
+/* ---- typography ---- */
+.h1 {
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: rgb(244, 242, 250);
+    margin-bottom: 2px;
+    white-space: normal;
+}
+
+.h2 {
+    font-size: 19px;
+    -unity-font-style: bold;
+    color: rgb(240, 238, 248);
+    margin-top: 6px;
+    margin-bottom: 6px;
+}
+
+.eyebrow {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: rgb(231, 165, 68);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+}
+
+.muted { color: rgb(150, 144, 165); }
+.dim { color: rgb(178, 172, 190); }
+.good { color: rgb(92, 195, 137); }
+.bad { color: rgb(232, 106, 102); }
+.body { white-space: normal; color: rgb(206, 202, 216); }
+.tabnum { -unity-font-style: normal; }
+
+/* ---- panels ---- */
+.panel {
+    background-color: rgb(31, 30, 40);
+    border-color: rgb(48, 46, 60);
+    border-width: 1px;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 14px;
+}
+
+.panel-tight { padding: 12px; }
+
+.row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.row-wrap { flex-direction: row; flex-wrap: wrap; }
+
+.divider {
+    height: 1px;
+    background-color: rgb(48, 46, 60);
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+/* ---- stat strip ---- */
+.statstrip { flex-direction: row; flex-wrap: wrap; }
+
+.stat {
+    background-color: rgb(24, 23, 31);
+    border-color: rgb(45, 43, 56);
+    border-width: 1px;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    min-width: 92px;
+}
+
+.stat-label {
+    font-size: 10px;
+    -unity-font-style: bold;
+    color: rgb(140, 134, 156);
+    letter-spacing: 1px;
+}
+
+.stat-value {
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: rgb(240, 238, 248);
+}
+
+/* ---- buttons ---- */
+.btn {
+    -unity-font-style: bold;
+    font-size: 14px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    border-width: 0;
+    background-color: rgb(44, 42, 56);
+    color: rgb(236, 233, 242);
+    margin-right: 8px;
+    margin-bottom: 4px;
+}
+
+.btn:hover { background-color: rgb(56, 53, 70); }
+.btn:disabled { opacity: 0.4; }
+
+.btn-primary {
+    background-color: rgb(231, 165, 68);
+    color: rgb(22, 21, 27);
+}
+.btn-primary:hover { background-color: rgb(240, 184, 104); }
+
+.btn-ghost { background-color: rgba(0, 0, 0, 0); border-width: 1px; border-color: rgb(64, 61, 78); }
+.btn-ghost:hover { background-color: rgb(36, 34, 45); }
+
+/* ---- topic cards ---- */
+.topiccard {
+    background-color: rgb(26, 25, 33);
+    border-color: rgb(48, 46, 60);
+    border-width: 1px;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 8px;
+}
+
+.topiccard.selected {
+    border-color: rgb(231, 165, 68);
+    background-color: rgb(35, 31, 27);
+}
+
+.topiccard-title { font-size: 15px; -unity-font-style: bold; color: rgb(240, 238, 248); }
+
+.chip {
+    font-size: 10px;
+    -unity-font-style: bold;
+    color: rgb(178, 172, 190);
+    background-color: rgb(38, 36, 47);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin-right: 4px;
+    margin-top: 4px;
+}
+
+/* ---- surprise badge ---- */
+.badge {
+    -unity-font-style: bold;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background-color: rgb(44, 42, 56);
+    color: rgb(236, 233, 242);
+}
+
+/* ---- scoreboard ---- */
+.scoreboard {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    border-radius: 10px;
+    background-color: rgb(17, 16, 22);
+    border-width: 1px;
+    border-color: rgb(48, 46, 60);
+}
+
+.score {
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: rgb(244, 242, 250);
+    margin-left: 14px;
+    margin-right: 14px;
+}
+
+.club-name { font-size: 15px; -unity-font-style: bold; color: rgb(220, 216, 230); }
+
+/* ---- sliders ---- */
+.prep-row { flex-direction: row; align-items: center; margin-bottom: 4px; }
+.prep-name { width: 92px; font-size: 13px; -unity-font-style: bold; }
+.prep-slider { flex-grow: 1; margin-right: 8px; }
+.prep-value { width: 26px; -unity-font-style: bold; -unity-text-align: middle-right; }
+
+.prep-meter {
+    -unity-font-style: bold;
+    font-size: 12px;
+}
+.prep-meter.over { color: rgb(232, 106, 102); }
+
+/* ---- form fields ---- */
+.field { margin-bottom: 10px; }
+.field-label { font-size: 11px; -unity-font-style: bold; color: rgb(150, 144, 165); letter-spacing: 1px; margin-bottom: 3px; }
+.text-input { }
+.swatch-row { flex-direction: row; flex-wrap: wrap; }
+.swatch {
+    width: 30px; height: 30px; border-radius: 6px; margin-right: 6px; margin-bottom: 6px;
+    border-width: 2px; border-color: rgba(0,0,0,0);
+}
+.swatch.selected { border-color: rgb(244, 242, 250); }
+
+.diff-card {
+    background-color: rgb(26, 25, 33);
+    border-color: rgb(48, 46, 60);
+    border-width: 1px;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 6px;
+}
+.diff-card.selected { border-color: rgb(231, 165, 68); background-color: rgb(35, 31, 27); }
+.diff-name { -unity-font-style: bold; font-size: 14px; }
+
+.toast {
+    background-color: rgb(35, 31, 27);
+    border-left-width: 3px;
+    border-left-color: rgb(231, 165, 68);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+}

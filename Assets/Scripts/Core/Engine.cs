@@ -1,0 +1,292 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace PodcastTycoon.Core
+{
+    public sealed class RunSetup
+    {
+        public string PodcastName = "The Untitled Pod";
+        public string ClubName = "Rovers";
+        public string ColourPrimary = "#2F6DB5";
+        public string ColourSecondary = "#F2C14E";
+        public Difficulty Difficulty = Difficulty.Regular;
+    }
+
+    public sealed class MilestoneEvent
+    {
+        public int Listeners;
+        public bool IsPrimaryGoal;
+        public string Message;
+    }
+
+    /// <summary>
+    /// Orchestrates the weekly loop (spec §3): begin week (sim the match, build context and
+    /// the topic offer) → the player builds a <see cref="ProductionPlan"/> → publish.
+    /// The engine owns all state mutation; the presentation layer only reads and calls in.
+    /// </summary>
+    public sealed class Engine
+    {
+        public GameConfig Config { get; }
+        public GameState State { get; }
+        public SeasonCalendar Calendar { get; }
+
+        readonly IRng _rng;
+        readonly MatchSimulator _match;
+        readonly Resolution _resolution;
+
+        public WeekContext CurrentWeek { get; private set; }
+        public IReadOnlyList<Topic> Offer { get; private set; } = Array.Empty<Topic>();
+        public bool HasRedrawnThisWeek { get; private set; }
+
+        public event Action<MilestoneEvent> MilestoneReached;
+        public event Action<string> GameOver;      // reason
+        public event Action GoalReached;
+        public event Action<int> SeasonRolledOver; // new season number
+
+        public Engine(RunSetup setup, GameConfig config, IRng rng)
+        {
+            Config = config ?? new GameConfig();
+            _rng = rng ?? new SystemRng();
+            _match = new MatchSimulator(Config);
+            _resolution = new Resolution(Config);
+
+            var profile = DifficultyProfile.For(setup.Difficulty);
+            State = new GameState
+            {
+                PodcastName = setup.PodcastName,
+                ClubName = setup.ClubName,
+                ColourPrimary = setup.ColourPrimary,
+                ColourSecondary = setup.ColourSecondary,
+                Difficulty = setup.Difficulty,
+                Money = Config.StartMoney,
+                Listeners = Config.StartListeners,
+                Reputation = Config.StartReputation,
+                TeamStrength = profile.TeamStrength,
+                PeakListeners = Config.StartListeners
+            };
+
+            Calendar = new SeasonCalendar(Config);
+            Calendar.BuildSeason(State.ClubName, State.TeamStrength, 1, _rng);
+        }
+
+        // ------------------------------------------------------------------
+        // Begin week: "the week happens"
+        // ------------------------------------------------------------------
+        public WeekContext BeginWeek()
+        {
+            HasRedrawnThisWeek = false;
+
+            var fixture = Calendar.FixtureForTurn(State.SeasonTurn);
+            var ctx = new WeekContext
+            {
+                Turn = State.SeasonTurn,
+                GlobalWeek = State.GlobalWeek,
+                Season = State.Season,
+                Fixture = fixture
+            };
+
+            if (fixture != null && !fixture.IsMatchless)
+            {
+                Calendar.SimulateOtherFixtures(State.SeasonTurn, _rng, _match);
+                ctx.Match = _match.Simulate(State.TeamStrength, 0f, fixture, _rng);
+                Calendar.RecordPlayerResult(fixture, ctx.Match);
+            }
+
+            int pos = Calendar.PlayerPosition();
+            ctx.LeaguePosition = pos;
+            ctx.LeaguePositionLabel = SeasonCalendar.Ordinal(pos);
+
+            ContextResolver.Fill(ctx);
+
+            CurrentWeek = ctx;
+            Offer = BuildOffer(ctx);
+            return ctx;
+        }
+
+        IReadOnlyList<Topic> BuildOffer(WeekContext ctx)
+        {
+            var available = TopicCatalog.All.Where(t => t.IsAvailable(ctx, State)).ToList();
+            if (available.Count <= 3)
+                return available;
+
+            // Guarantee the contextually strongest topic is offered, then two more at random.
+            Topic anchor = available
+                .OrderByDescending(t => t.BaseAppeal * ContextResolver.AppealMultiplier(t.Response, ctx))
+                .First();
+
+            var pool = available.Where(t => t != anchor).ToList();
+            Shuffle(pool);
+
+            var offer = new List<Topic> { anchor, pool[0], pool[1] };
+            Shuffle(offer);
+            return offer;
+        }
+
+        public bool TryRedraw()
+        {
+            if (HasRedrawnThisWeek) return false;
+            if (State.Money < Config.RedrawCost && State.Buzz < 1) return false;
+
+            if (State.Money >= Config.RedrawCost) State.Money -= Config.RedrawCost;
+            else State.Buzz -= 1;
+
+            HasRedrawnThisWeek = true;
+            Offer = BuildOffer(CurrentWeek);
+            return true;
+        }
+
+        // ------------------------------------------------------------------
+        // Preview (no state change)
+        // ------------------------------------------------------------------
+        public EpisodeResult Preview(ProductionPlan plan) => _resolution.Project(State, CurrentWeek, plan);
+
+        // ------------------------------------------------------------------
+        // Publish: resolve, apply, advance
+        // ------------------------------------------------------------------
+        public EpisodeResult Publish(ProductionPlan plan)
+        {
+            var result = _resolution.Resolve(State, CurrentWeek, plan, _rng);
+
+            State.Listeners = Math.Max(0, State.Listeners + result.ListenerDeltaActual);
+            State.Reputation = MathX.Clamp(State.Reputation + result.ReputationDelta, 0f, 100f);
+            State.Buzz += result.BuzzGained;
+            State.Money += result.MoneyDelta;
+            State.EpisodesPublished++;
+            State.PeakListeners = Math.Max(State.PeakListeners, State.Listeners);
+            State.ListenerHistory.Add(State.Listeners);
+
+            CheckBankruptcy();
+            CheckMilestones();
+            CheckGoal();
+
+            AdvanceWeek();
+            return result;
+        }
+
+        void CheckBankruptcy()
+        {
+            if (State.Money < Config.BankruptcyFloor)
+                State.ConsecutiveWeeksInDebt++;
+            else
+                State.ConsecutiveWeeksInDebt = 0;
+
+            if (!State.IsGameOver && State.ConsecutiveWeeksInDebt >= Config.BankruptcyGraceWeeks)
+            {
+                State.IsGameOver = true;
+                State.GameOverReason = $"The podcast ran out of money. {State.ClubName} will have to find another show.";
+                GameOver?.Invoke(State.GameOverReason);
+            }
+        }
+
+        void CheckMilestones()
+        {
+            while (State.NextMilestoneIndex < Config.Milestones.Length
+                   && State.Listeners >= Config.Milestones[State.NextMilestoneIndex])
+            {
+                int value = Config.Milestones[State.NextMilestoneIndex];
+                State.NextMilestoneIndex++;
+                MilestoneReached?.Invoke(new MilestoneEvent
+                {
+                    Listeners = value,
+                    IsPrimaryGoal = value >= Config.GoalListeners,
+                    Message = MilestoneMessage(value)
+                });
+            }
+        }
+
+        string MilestoneMessage(int value)
+        {
+            if (value >= Config.GoalListeners) return "You made it. 50,000 listeners.";
+            if (value >= 25000) return "25,000 listeners — the national media is quoting you.";
+            if (value >= 10000) return "10,000 listeners — you're a fixture of the fanbase now.";
+            if (value >= 2500) return "2,500 listeners — the numbers are getting serious.";
+            if (value >= 1000) return "1,000 listeners — the club has started to notice.";
+            if (value >= 500) return "500 listeners — real sponsors would talk to you now.";
+            return "100 listeners — you have an actual audience.";
+        }
+
+        void CheckGoal()
+        {
+            if (!State.GoalReached && State.Listeners >= Config.GoalListeners)
+            {
+                State.GoalReached = true;
+                GoalReached?.Invoke();
+            }
+        }
+
+        void AdvanceWeek()
+        {
+            State.GlobalWeek++;
+            State.SeasonTurn++;
+
+            if (State.SeasonTurn > Calendar.TurnsPerSeason)
+            {
+                RollOverSeason();
+            }
+        }
+
+        void RollOverSeason()
+        {
+            State.Season++;
+            State.SeasonTurn = 1;
+
+            // Offseason audience churn.
+            State.Listeners = Math.Max(0, MathX.RoundToInt(State.Listeners * (1f - Config.OffseasonChurn)));
+
+            // Club drifts gently toward the middle of the division.
+            float drift = Config.TeamStrengthSeasonDrift;
+            if (State.TeamStrength > 0.50f) State.TeamStrength -= drift;
+            else if (State.TeamStrength < 0.50f) State.TeamStrength += drift;
+
+            Calendar.BuildSeason(State.ClubName, State.TeamStrength, State.Season, _rng);
+            SeasonRolledOver?.Invoke(State.Season);
+        }
+
+        // ------------------------------------------------------------------
+        // Studio actions
+        // ------------------------------------------------------------------
+        public bool CanBuy(Gear gear) => !State.HasGear(gear) && State.Money >= GearCost(gear);
+
+        public bool BuyGear(Gear gear)
+        {
+            if (!CanBuy(gear)) return false;
+            State.Money -= GearCost(gear);
+            State.Gear |= gear;
+            return true;
+        }
+
+        public int GearCost(Gear gear)
+        {
+            switch (gear)
+            {
+                case Gear.XlrMic: return Config.MicCost;
+                case Gear.AcousticPanels: return Config.PanelsCost;
+                case Gear.EditingSoftware: return Config.EditingCost;
+                default: return int.MaxValue;
+            }
+        }
+
+        public bool CanHireCoHost() => !State.HasCoHost && State.Money >= Config.CoHostHireCost;
+
+        public bool HireCoHost()
+        {
+            if (!CanHireCoHost()) return false;
+            State.Money -= Config.CoHostHireCost;
+            State.HasCoHost = true;
+            return true;
+        }
+
+        // ------------------------------------------------------------------
+        // Helpers
+        // ------------------------------------------------------------------
+        void Shuffle<T>(IList<T> list)
+        {
+            for (int i = list.Count - 1; i > 0; i--)
+            {
+                int j = _rng.Range(0, i + 1);
+                (list[i], list[j]) = (list[j], list[i]);
+            }
+        }
+    }
+}
