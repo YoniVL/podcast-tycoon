@@ -31,6 +31,9 @@ namespace PodcastTycoon.Core
 
         /// <summary>A short line describing what kind of week this is, for the UI.</summary>
         public string Headline;
+
+        /// <summary>A longer line on what this week's mood means for the episode you make.</summary>
+        public string Advice;
     }
 
     public static class ContextResolver
@@ -47,6 +50,7 @@ namespace PodcastTycoon.Core
             {
                 c.ReachMult = 0.85f;
                 c.Headline = "Offseason — no football, but the fans are still listening.";
+                c.Advice = "Quieter week. Evergreen content holds up; anything tied to a result falls flat.";
                 return;
             }
 
@@ -54,6 +58,7 @@ namespace PodcastTycoon.Core
             {
                 c.ReachMult = 0.80f;
                 c.Headline = "International break — no club game this week.";
+                c.Advice = "Fewer people tuning in with no club game. A good week for the mailbag or a tier list.";
                 return;
             }
 
@@ -62,21 +67,26 @@ namespace PodcastTycoon.Core
                 case Surprise.Heroic:
                     c.PassiveGainRate = 0.020f;
                     c.Headline = "A famous result. Everyone wants to hear about this one.";
+                    c.Advice = "New listeners are arriving on their own. A reaction episode will reach far — don't waste it on filler.";
                     break;
                 case Surprise.Good:
                     c.PassiveGainRate = 0.010f;
                     c.Headline = "A good day. The mood is up.";
+                    c.Advice = "The feel-good angle plays well right now. A recap or a vibes episode both land.";
                     break;
                 case Surprise.Par:
                     c.Headline = "Roughly what everyone expected.";
+                    c.Advice = "No strong story from the result. This is when evergreen content — a tier list, tactics, the mailbag — earns its keep.";
                     break;
                 case Surprise.Poor:
                     c.MoodChurnRate = 0.010f;
                     c.Headline = "A frustrating one. The fanbase is grumbling.";
+                    c.Advice = "There's appetite for a strong opinion. A sharp hot take draws well — but it costs you reputation.";
                     break;
                 case Surprise.Disaster:
                     c.MoodChurnRate = 0.025f;
                     c.Headline = "A disaster. Handle this badly and people will switch off.";
+                    c.Advice = "Crisis content peaks now. A well-argued take can grow the show off the back of it — a lazy episode will bleed listeners.";
                     break;
             }
 
@@ -84,8 +94,9 @@ namespace PodcastTycoon.Core
             {
                 c.ImportanceAppealMult = 1.30f;
                 c.BuzzMultiplier = 2;
-                if (c.Importance == FixtureImportance.Derby)
-                    c.Headline = "Derby week. " + c.Headline;
+                string tag = c.Importance == FixtureImportance.Derby ? "Derby week. " : "Big match. ";
+                c.Headline = tag + c.Headline;
+                c.Advice = "Everything is bigger this week — more reach and more buzz on whatever you cover. " + c.Advice;
             }
         }
 

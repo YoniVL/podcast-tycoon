@@ -60,11 +60,26 @@ namespace PodcastTycoon.Game
 
             // --- resource strip ---
             var strip = Ui.Box("statstrip");
-            strip.Add(Ui.Stat("Money", Ui.Money(st.Money), st.Money < 0 ? "bad" : null));
-            strip.Add(Ui.Stat("Listeners", st.Listeners.ToString("N0")));
-            strip.Add(Ui.Stat("Reputation", Mathf.RoundToInt(st.Reputation).ToString()));
-            strip.Add(Ui.Stat("Buzz", st.Buzz.ToString()));
+            strip.Add(Tip(Ui.Stat("Money", Ui.Money(st.Money), st.Money < 0 ? "bad" : null),
+                "Weekly overhead eats into this. Run three weeks below -€200 and the show is over."));
+            strip.Add(Tip(Ui.Stat("Listeners", st.Listeners.ToString("N0")),
+                "Your audience, and the score. A bigger audience reaches further next week — but growth slows as you near what the fanbase can support."));
+            strip.Add(Tip(Ui.Stat("Reputation", Mathf.RoundToInt(st.Reputation).ToString()),
+                "0-100. Built by well-made, thoughtful episodes; spent by lazy takes and cheap drama. High reputation raises the ceiling on how big the show can get."));
+            strip.Add(Tip(Ui.Stat("Buzz", st.Buzz.ToString()),
+                "Earned when an episode over-performs. For now it just pays for topic redraws; it matters more later."));
             scroll.Add(strip);
+
+            // --- how it works (open on the very first week) ---
+            var help = new Foldout { text = "How a week works", value = st.GlobalWeek == 1 };
+            help.AddToClassList("help-foldout");
+            help.Add(Ui.Wrapping(
+                "Every week your club plays. You see the result and how surprising it was, then you make one episode about it.\n\n" +
+                "1. Pick a topic. Each has a \"draw\" (how many people it pulls in this week) and a \"prep needed\".\n" +
+                "2. Split your prep points between the topic and three levers — research, audio, promo.\n" +
+                "3. Release it. Listeners, reputation, buzz and money all move — and you won't know exactly how until it's out.\n\n" +
+                "Spend what you earn on gear and a co-host. Keep money above water. Grow the audience.", "body"));
+            scroll.Add(help);
 
             // --- the week ---
             scroll.Add(BuildMatchPanel(ctx));
@@ -77,7 +92,9 @@ namespace PodcastTycoon.Game
             _redraw.SetEnabled(!E.HasRedrawnThisWeek && (E.State.Money >= E.Config.RedrawCost || E.State.Buzz >= 1));
             offerHead.Add(_redraw);
             offerPanel.Add(offerHead);
-            offerPanel.Add(Ui.Wrapping("Pick your angle. Appeal shown is after this week's context.", "body", "dim"));
+            offerPanel.Add(Ui.Wrapping(
+                "Pick your angle. \"Draw\" is how many people this topic pulls in given how the week has gone. " +
+                "\"Prep needed\" is how many prep points it takes to do the topic justice.", "body", "dim"));
             _topicList = Ui.Box();
             offerPanel.Add(_topicList);
             RenderTopics();
@@ -87,12 +104,19 @@ namespace PodcastTycoon.Game
             _prepBlock = Ui.Box("panel");
             _prepBlock.style.display = DisplayStyle.None;
             _prepBlock.Add(Ui.Text("Production", "h2"));
+            _prepBlock.Add(Ui.Wrapping(
+                $"You get {st.PrepCapacity(E.Config)} prep points this week. Spend them across the four areas below. " +
+                "Unspent points are wasted.", "body", "dim"));
             _prepMeter = Ui.Text("", "prep-meter");
             _prepBlock.Add(_prepMeter);
-            _prepBlock.Add(Slider("Topic prep", () => _plan.PrepTopic, v => _plan.PrepTopic = v));
-            _prepBlock.Add(Slider("Research", () => _plan.PrepResearch, v => _plan.PrepResearch = v));
-            _prepBlock.Add(Slider("Audio", () => _plan.PrepAudio, v => _plan.PrepAudio = v));
-            _prepBlock.Add(Slider("Promo", () => _plan.PrepPromo, v => _plan.PrepPromo = v));
+            _prepBlock.Add(Slider("Topic prep", "The homework for this episode. Hit the topic's \"prep needed\" to do it justice; go over for a small extra edge.",
+                () => _plan.PrepTopic, v => _plan.PrepTopic = v));
+            _prepBlock.Add(Slider("Research", "Fact-checking and prep depth. Makes the outcome less of a gamble — a shaky topic becomes a safer bet.",
+                () => _plan.PrepResearch, v => _plan.PrepResearch = v));
+            _prepBlock.Add(Slider("Audio", "Editing and sound. Lifts the episode and keeps listeners from drifting away.",
+                () => _plan.PrepAudio, v => _plan.PrepAudio = v));
+            _prepBlock.Add(Slider("Promo", "Pushing this one episode — clips, posts, plugs. A one-week bump in reach, nothing lasting.",
+                () => _plan.PrepPromo, v => _plan.PrepPromo = v));
             _prepBlock.Add(Ui.Divider());
             _previewBlock = Ui.Box();
             _prepBlock.Add(_previewBlock);
@@ -129,6 +153,8 @@ namespace PodcastTycoon.Game
             if (ctx.IsMatchless)
             {
                 panel.Add(Ui.Wrapping(ctx.Headline, "body"));
+                if (!string.IsNullOrEmpty(ctx.Advice))
+                    panel.Add(Ui.Wrapping(ctx.Advice, "body", "dim"));
                 return panel;
             }
 
@@ -153,6 +179,8 @@ namespace PodcastTycoon.Game
             panel.Add(meta);
 
             panel.Add(Ui.Wrapping(ctx.Headline, "body"));
+            if (!string.IsNullOrEmpty(ctx.Advice))
+                panel.Add(Ui.Wrapping(ctx.Advice, "body", "dim"));
             return panel;
         }
 
@@ -217,11 +245,12 @@ namespace PodcastTycoon.Game
                 float effAppeal = topic.BaseAppeal * ctxMult;
 
                 var chips = Ui.Box("row-wrap");
-                chips.Add(Ui.Chip($"appeal {effAppeal:0.00}"));
-                chips.Add(Ui.Chip($"effort {topic.Effort}"));
-                chips.Add(Ui.Chip($"swing ±{topic.Swing:0.00}"));
-                if (topic.RepEarn != 0) chips.Add(Ui.Chip($"rep {(topic.RepEarn > 0 ? "+" : "")}{topic.RepEarn:0}"));
-                if (topic.BuzzBonus != 0) chips.Add(Ui.Chip($"buzz +{topic.BuzzBonus}"));
+                chips.Add(Ui.Chip("Draw this week: " + DrawLabel(effAppeal)));
+                chips.Add(Ui.Chip($"Prep needed: {topic.Effort}"));
+                chips.Add(Ui.Chip(RiskLabel(topic.Swing)));
+                if (topic.RepEarn >= 2) chips.Add(Ui.Chip("Builds reputation"));
+                else if (topic.RepEarn <= -1) chips.Add(Ui.Chip("Costs reputation"));
+                if (topic.BuzzBonus >= 3) chips.Add(Ui.Chip("Good for buzz"));
                 card.Add(chips);
 
                 var id = topic.Id;
@@ -251,8 +280,11 @@ namespace PodcastTycoon.Game
             RefreshPreview();
         }
 
-        VisualElement Slider(string name, System.Func<int> get, System.Action<int> set)
+        VisualElement Slider(string name, string help, System.Func<int> get, System.Action<int> set)
         {
+            var wrap = Ui.Box();
+            wrap.style.marginBottom = 8;
+
             var row = Ui.Box("prep-row");
             row.Add(Ui.Text(name, "prep-name"));
             var s = new SliderInt(0, 10) { value = get() };
@@ -266,8 +298,11 @@ namespace PodcastTycoon.Game
             });
             row.Add(s);
             row.Add(val);
+            wrap.Add(row);
+            wrap.Add(Ui.Wrapping(help, "body", "dim"));
+
             _prep.Add(new PrepControl { Slider = s, Value = val, Get = get });
-            return row;
+            return wrap;
         }
 
         void SyncSliders()
@@ -283,7 +318,7 @@ namespace PodcastTycoon.Game
         {
             int cap = E.State.PrepCapacity(E.Config);
             int used = _plan.TotalPrep;
-            _prepMeter.text = $"Prep points   {used} / {cap}";
+            _prepMeter.text = $"Prep points spent   {used} / {cap}";
             _prepMeter.EnableInClassList("over", used > cap);
 
             _previewBlock.Clear();
@@ -291,24 +326,42 @@ namespace PodcastTycoon.Game
             _publish.SetEnabled(ok);
 
             if (!_picked.HasValue) return;
+            var topic = TopicCatalog.Get(_picked.Value);
 
-            var p = E.Preview(_plan);
-            var grid = Ui.Box("statstrip");
-            grid.Add(Ui.Stat("Quality", p.Quality.ToString("0.00") + "  " + p.QualityLabel));
-            grid.Add(Ui.Stat("Reach", Mathf.RoundToInt(p.Reach).ToString("N0")));
-            grid.Add(Ui.Stat("Listeners", Ui.Signed(p.ListenerDeltaExpected),
-                p.ListenerDeltaExpected >= 0 ? "good" : "bad"));
-            grid.Add(Ui.Stat("Rep", Ui.Signed(p.ReputationDelta, "0.0")));
-            grid.Add(Ui.Stat("Buzz", p.BuzzGained > 0 ? "+" + p.BuzzGained : "0"));
-            grid.Add(Ui.Stat("Weekly cash", Ui.Money(p.MoneyDelta), p.MoneyDelta >= 0 ? "good" : "bad"));
-            _previewBlock.Add(grid);
-
-            _previewBlock.Add(Ui.Wrapping(
-                $"On the roll, listeners land between {Ui.Signed(p.ListenerDeltaLow)} and {Ui.Signed(p.ListenerDeltaHigh)}.",
-                "body", "dim"));
+            // A read on your *choice* — not on the outcome. The result is still a surprise.
+            string prepNote;
+            if (_plan.PrepTopic <= 0) prepNote = "You've put no real prep into the topic itself — this will sound thin.";
+            else if (_plan.PrepTopic < topic.Effort - 1) prepNote = "Well under-prepped on the topic.";
+            else if (_plan.PrepTopic < topic.Effort) prepNote = "A touch under-prepped on the topic.";
+            else if (_plan.PrepTopic == topic.Effort) prepNote = "Topic is properly prepped.";
+            else prepNote = "You've gone deep on the topic.";
+            _previewBlock.Add(Ui.Wrapping(prepNote, "body", "dim"));
 
             if (used > cap)
-                _previewBlock.Add(Ui.Wrapping("You've allocated more prep points than you have.", "body", "bad"));
+                _previewBlock.Add(Ui.Wrapping("You've allocated more prep points than you have this week.", "body", "bad"));
+            else if (used < cap)
+                _previewBlock.Add(Ui.Wrapping($"{cap - used} point(s) still unspent.", "body", "dim"));
+        }
+
+        static VisualElement Tip(VisualElement el, string tip)
+        {
+            el.tooltip = tip;
+            return el;
+        }
+
+        static string DrawLabel(float effectiveAppeal)
+        {
+            if (effectiveAppeal < 0.75f) return "Low";
+            if (effectiveAppeal < 1.15f) return "Moderate";
+            if (effectiveAppeal < 1.80f) return "High";
+            return "Huge";
+        }
+
+        static string RiskLabel(float swing)
+        {
+            if (swing < 0.16f) return "Predictable";
+            if (swing < 0.35f) return "Some variance";
+            return "A gamble";
         }
 
         void Redraw()

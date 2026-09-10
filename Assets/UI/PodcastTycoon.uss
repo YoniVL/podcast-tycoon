@@ -210,15 +210,37 @@
 .prep-meter.over { color: rgb(232, 106, 102); }
 
 /* ---- form fields ---- */
-.field { margin-bottom: 10px; }
-.field-label { font-size: 11px; -unity-font-style: bold; color: rgb(150, 144, 165); letter-spacing: 1px; margin-bottom: 3px; }
-.text-input { }
+.field { margin-bottom: 12px; }
+.field-label { font-size: 11px; -unity-font-style: bold; color: rgb(150, 144, 165); letter-spacing: 1px; margin-bottom: 4px; }
+
+/* Unity's TextField renders its editable area in a nested element — style that
+   directly, otherwise it inherits the OS default (dark text on a light box). */
+.text-input .unity-base-text-field__input,
+.text-input .unity-base-field__input {
+    background-color: rgb(24, 23, 31);
+    color: rgb(237, 234, 242);
+    border-color: rgb(64, 61, 78);
+    border-width: 1px;
+    border-radius: 6px;
+    padding: 7px 9px;
+    font-size: 14px;
+    --unity-cursor-color: rgb(237, 234, 242);
+    -unity-selection-color: rgb(60, 78, 120);
+}
+.text-input .unity-base-text-field__input:focus,
+.text-input .unity-base-field__input:focus {
+    border-color: rgb(231, 165, 68);
+}
+
 .swatch-row { flex-direction: row; flex-wrap: wrap; }
 .swatch {
-    width: 30px; height: 30px; border-radius: 6px; margin-right: 6px; margin-bottom: 6px;
-    border-width: 2px; border-color: rgba(0,0,0,0);
+    width: 34px; height: 34px; border-radius: 7px; margin-right: 7px; margin-bottom: 7px;
+    border-width: 3px; border-color: rgba(0,0,0,0);
+    align-items: center; justify-content: center;
 }
-.swatch.selected { border-color: rgb(244, 242, 250); }
+/* Fixed high-contrast ring so it reads on a light OR dark swatch. */
+.swatch.selected { border-color: rgb(120, 170, 255); }
+.swatch-check { font-size: 16px; -unity-font-style: bold; }
 
 .diff-card {
     background-color: rgb(26, 25, 33);
@@ -239,3 +261,27 @@
     padding: 10px 12px;
     margin-bottom: 8px;
 }
+
+/* ---- foldout ---- */
+.help-foldout {
+    background-color: rgb(26, 25, 33);
+    border-color: rgb(48, 46, 60);
+    border-width: 1px;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 14px;
+}
+.help-foldout > .unity-foldout__toggle {
+    -unity-font-style: bold;
+}
+.help-foldout .unity-foldout__toggle .unity-text-element {
+    color: rgb(231, 165, 68);
+    -unity-font-style: bold;
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+.help-foldout .unity-foldout__content {
+    margin-left: 4px;
+    margin-top: 4px;
+}
+.unity-foldout__text { color: rgb(236, 233, 242); }

@@ -50,6 +50,10 @@ namespace PodcastTycoon.Game
             scroll.Add(panel);
 
             scroll.Add(Ui.Text("DIFFICULTY", "eyebrow"));
+            scroll.Add(Ui.Wrapping(
+                "A stronger club wins more, so more of your weeks are feel-good content and the money comes a little easier. " +
+                "A weaker club loses more — more crisis weeks, a tighter budget, but the drama makes for compelling episodes.",
+                "body", "dim"));
             foreach (Difficulty d in System.Enum.GetValues(typeof(Difficulty)))
                 scroll.Add(DifficultyCard(d));
 
@@ -94,10 +98,17 @@ namespace PodcastTycoon.Game
                 row.Clear();
                 foreach (var (name, hex) in Palette)
                 {
+                    var col = Ui.ParseColor(hex, Color.gray);
                     var sw = Ui.Box("swatch");
                     sw.tooltip = name;
-                    sw.style.backgroundColor = Ui.ParseColor(hex, Color.gray);
-                    if (get() == hex) sw.AddToClassList("selected");
+                    sw.style.backgroundColor = col;
+                    if (get() == hex)
+                    {
+                        sw.AddToClassList("selected");
+                        var check = Ui.Text("✓", "swatch-check");
+                        check.style.color = _host.Theme.Ink(col);
+                        sw.Add(check);
+                    }
                     sw.RegisterCallback<ClickEvent>(_ => { set(hex); Refresh(); });
                     row.Add(sw);
                 }
