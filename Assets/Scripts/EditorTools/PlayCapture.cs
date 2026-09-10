@@ -16,6 +16,7 @@ namespace PodcastTycoon.EditorTools
     public static class PlayCapture
     {
         const string ActiveKey = "PT_CAPTURE_ACTIVE";
+        const string FinishedKey = "PT_CAPTURE_FINISHED";
         public static readonly string OutDir =
             Path.Combine(Directory.GetParent(Application.dataPath).FullName, "CaptureOut");
 
@@ -29,6 +30,12 @@ namespace PodcastTycoon.EditorTools
                     Object.DontDestroyOnLoad(go);
                     go.AddComponent<CaptureRunner>();
                 }
+                else if (s == PlayModeStateChange.EnteredEditMode && SessionState.GetBool(FinishedKey, false))
+                {
+                    SessionState.SetBool(FinishedKey, false);
+                    if (Application.isBatchMode)
+                        EditorApplication.delayCall += () => EditorApplication.Exit(0);
+                }
             };
         }
 
@@ -36,6 +43,7 @@ namespace PodcastTycoon.EditorTools
         {
             Directory.CreateDirectory(OutDir);
             SessionState.SetBool(ActiveKey, true);
+            SessionState.SetBool(FinishedKey, false);
             EditorSceneManager.OpenScene("Assets/Scenes/Game.unity");
             EditorApplication.EnterPlaymode();
         }
@@ -43,6 +51,7 @@ namespace PodcastTycoon.EditorTools
         public static void Done()
         {
             SessionState.SetBool(ActiveKey, false);
+            SessionState.SetBool(FinishedKey, true);
         }
     }
 
@@ -51,7 +60,7 @@ namespace PodcastTycoon.EditorTools
         IEnumerator Start()
         {
             yield return new WaitForSecondsRealtime(2.5f);
-            var bootstrap = FindObjectOfType<Bootstrap>();
+            var bootstrap = FindAnyObjectByType<Bootstrap>();
 
             yield return Shot("01_setup");
 
