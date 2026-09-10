@@ -233,14 +233,14 @@ namespace PodcastTycoon.Core
 
             // variant: 0 = cautious (should be hittable), 1 = standard, 2 = aggressive (a gamble)
             float weeklyMult = variant == 0 ? 0.7f : variant == 1 ? 1.0f : 1.7f;
-            float growthReq = variant == 0 ? 0.12f : variant == 1 ? 0.25f : 0.48f;
-            int weeks = variant == 0 ? 13 : variant == 1 ? 10 : 7;
+            float growthReq = variant == 0 ? 0.10f : variant == 1 ? 0.24f : 0.48f;
+            int weeks = variant == 0 ? 14 : variant == 1 ? 10 : 7;
             float missRep = variant == 0 ? 1f : variant == 1 ? 3f : 7f;
             bool clawback = variant == 2;
             int signing = (int)Math.Round(b.bonus * (variant == 2 ? 1.8f : variant == 0 ? 0.5f : 1f));
 
             // Growth slows near the market ceiling, so a big show can't promise a big % rise.
-            float sizeFactor = MathX.Clamp(1f - avg / 90000f, 0.35f, 1f);
+            float sizeFactor = MathX.Clamp(1f - avg / 90000f, 0.28f, 1f);
             growthReq *= sizeFactor;
 
             bool betting = name.Contains("betting");

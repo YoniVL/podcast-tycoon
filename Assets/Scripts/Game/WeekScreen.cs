@@ -443,8 +443,10 @@ namespace PodcastTycoon.Game
 
         VisualElement BuildStudioPanel()
         {
-            var panel = Ui.Box("panel");
-            panel.Add(Ui.Text("Studio", "h2"));
+            bool anythingToBuy = !E.State.HasGear(Gear.XlrMic) || !E.State.HasGear(Gear.AcousticPanels)
+                                 || !E.State.HasGear(Gear.EditingSoftware) || !E.State.HasCoHost;
+            var panel = new Foldout { text = "Studio — gear & co-host", value = anythingToBuy && E.State.GlobalWeek <= 3 };
+            panel.AddToClassList("help-foldout");
             var st = E.State;
 
             void GearRow(string name, Gear g, string effect)
