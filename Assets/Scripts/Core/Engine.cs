@@ -282,6 +282,15 @@ namespace PodcastTycoon.Core
                 if (State.WeeklyListenerDriftWeeks == 0) State.WeeklyListenerDrift = 0f;
             }
 
+            // Overreach from last week: the extra reach a weak-but-heavily-promoted episode
+            // pulled in bounces straight back out (spec §12).
+            if (State.OverreachChurnNextWeek > 0f)
+            {
+                listeners -= (long)Math.Round(listeners * State.OverreachChurnNextWeek);
+                State.OverreachChurnNextWeek = 0f;
+            }
+            State.OverreachChurnNextWeek = result.OverreachNextWeek;
+
             listeners = Math.Max(0L, Math.Min(Config.MaxListeners, listeners));
             State.Listeners = (int)listeners;
             State.Reputation = MathX.Clamp(State.Reputation + result.ReputationDelta, 0f, 100f);
@@ -297,6 +306,7 @@ namespace PodcastTycoon.Core
                 Season = State.Season,
                 TopicName = result.Topic.Name,
                 QualityLabel = result.QualityLabel,
+                Quality = result.Quality,
                 Surprise = CurrentWeek.Surprise,
                 Matchless = CurrentWeek.IsMatchless,
                 ListenerDelta = result.ListenerDeltaActual,
@@ -304,12 +314,67 @@ namespace PodcastTycoon.Core
                 SocialGained = result.SocialGained
             });
 
+            UpdateRundownState(plan, result);
+
             CheckFailStates();
             CheckMilestones();
             CheckGoal();
 
             AdvanceWeek();
             return result;
+        }
+
+        // Freshness, slump and the recurring-bit streak (spec §12).
+        void UpdateRundownState(ProductionPlan plan, EpisodeResult result)
+        {
+            var st = State;
+            var mainTopic = plan.Main.Resolved;
+            bool sameRecurring = !plan.Recurring.IsEmpty && st.LastHadRecurring
+                                 && plan.Recurring.Topic == st.LastRecurringTopic;
+            bool lightWeek = plan.TotalPrep <= Config.PrepBase / 2;
+
+            float f = st.Freshness;
+            if (st.HadEpisodeLastWeek)
+            {
+                if (plan.Main.Angle == st.LastMainAngle) f -= 4f;
+                if (mainTopic.Family == st.LastMainFamily) f -= 3f;
+                if (sameRecurring) f -= 4f;
+            }
+            if (lightWeek) f += 10f;
+            if (CurrentWeek.IsInternationalBreak || CurrentWeek.IsOffseason) f += 6f;
+            f += (Config.FreshnessDriftTarget - f) * 0.20f;
+            st.Freshness = MathX.Clamp(f, 0f, 100f);
+
+            if (sameRecurring) st.RecurringStreak++;
+            else st.RecurringStreak = plan.Recurring.IsEmpty ? 0 : 1;
+
+            // Slump: 2 of the last 3 episodes weak, or a whiplash clash, drops you in.
+            var eps = st.Episodes;
+            int bad = 0;
+            for (int i = eps.Count - 1, seen = 0; i >= 0 && seen < 3; i--, seen++)
+                if (eps[i].Quality < Config.SlumpQualityCeiling) bad++;
+
+            if (st.SlumpWeeks == 0)
+            {
+                if (bad >= 2 || result.Whiplash) st.SlumpWeeks = 1;
+            }
+            else
+            {
+                int cleanInARow = 0;
+                for (int i = eps.Count - 1, seen = 0; i >= 0 && seen < 2; i--, seen++)
+                {
+                    if (eps[i].Quality >= Config.SlumpRecoverQuality) cleanInARow++;
+                    else break;
+                }
+                if (cleanInARow >= 2 && !result.AnyClash) st.SlumpWeeks = 0;
+                else st.SlumpWeeks++;
+            }
+
+            st.HadEpisodeLastWeek = true;
+            st.LastMainAngle = plan.Main.Angle;
+            st.LastMainFamily = mainTopic.Family;
+            st.LastHadRecurring = !plan.Recurring.IsEmpty;
+            st.LastRecurringTopic = plan.Recurring.IsEmpty ? default : plan.Recurring.Topic;
         }
 
         void CheckFailStates()

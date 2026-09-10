@@ -133,6 +133,77 @@ namespace PodcastTycoon.Tests
         }
 
         [Test]
+        public void RepeatingTheSameAngleAndFamilyDragsFreshness()
+        {
+            var e = new Engine(new RunSetup { ClubName = "Testford" }, new GameConfig(), new SystemRng(5));
+            float start = e.State.Freshness;
+
+            for (int i = 0; i < 8; i++)
+            {
+                e.BeginWeek();
+                var plan = new ProductionPlan();
+                plan.Main.Set(TopicCatalog.Get(TopicId.Mailbag));  // Meta family, every week
+                plan.Main.Angle = Angle.Analysis;                  // same angle, every week
+                plan.Main.Prep = 6;
+                plan.PrepAudio = 3;
+                e.Publish(plan);
+            }
+
+            Assert.That(e.State.Freshness, Is.LessThan(start - 15f));
+        }
+
+        [Test]
+        public void TwoAnalyticalSegmentsOnOneSubjectClashAsOneNoteButDeepDive()
+        {
+            var (st, cfg) = Fresh();
+            var res = new Resolution(cfg);
+
+            var plan = new ProductionPlan();
+            plan.Main.Set(TopicCatalog.Get(TopicId.Recap));   // Match family
+            plan.Main.Angle = Angle.Analysis; plan.Main.Prep = 3;
+            plan.Second.Set(TopicCatalog.Get(TopicId.Preview)); // also Match family
+            plan.Second.Angle = Angle.Analysis; plan.Second.Prep = 3;
+
+            var r = res.Project(st, ParWeek(), plan);
+            Assert.That(r.Notes, Does.Contain("one-note"));
+            Assert.That(r.Notes, Does.Contain("deep dive"));
+            Assert.That(r.AnyClash, Is.True);
+        }
+
+        [Test]
+        public void ThreeDistinctAnglesGiveTheWellProducedBonus()
+        {
+            var (st, cfg) = Fresh();
+            var res = new Resolution(cfg);
+
+            var plan = new ProductionPlan();
+            plan.Main.Set(TopicCatalog.Get(TopicId.Recap)); plan.Main.Angle = Angle.Analysis; plan.Main.Prep = 3;
+            plan.Second.Set(TopicCatalog.Get(TopicId.Mailbag)); plan.Second.Angle = Angle.Emotional; plan.Second.Prep = 2;
+            plan.Recurring.Set(TopicCatalog.Get(TopicId.TierList)); plan.Recurring.Angle = Angle.Comedy; plan.Recurring.Prep = 4;
+
+            var r = res.Project(st, ParWeek(), plan);
+            Assert.That(r.Notes, Does.Contain("well-produced"));
+        }
+
+        [Test]
+        public void AWhiplashClashDropsYouIntoASlump()
+        {
+            var e = new Engine(new RunSetup { ClubName = "Testford" }, new GameConfig(), new SystemRng(9));
+            e.BeginWeek();
+
+            var plan = new ProductionPlan();
+            plan.Main.Set(TopicCatalog.Get(TopicId.HotTake)); // Crisis response
+            plan.Main.Angle = Angle.HotTake; plan.Main.Prep = 3;
+            plan.Recurring.Set(TopicCatalog.Get(TopicId.Mailbag));
+            plan.Recurring.Angle = Angle.Comedy; plan.Recurring.Prep = 3;   // comedy after crisis
+            plan.PrepAudio = 3;
+
+            var r = e.Publish(plan);
+            Assert.That(r.Whiplash, Is.True);
+            Assert.That(e.State.SlumpWeeks, Is.GreaterThan(0));
+        }
+
+        [Test]
         public void GuestLiftsAppealWhenBooked()
         {
             var (st, cfg) = Fresh();

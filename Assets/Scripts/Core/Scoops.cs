@@ -148,6 +148,7 @@ namespace PodcastTycoon.Core
             RepEarn = 0f,
             SocialHook = 8,
             Response = TopicResponse.Reaction,
+            Family = TopicFamily.Drama,
             IsAvailable = (c, st) => true
         };
 

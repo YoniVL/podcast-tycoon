@@ -385,6 +385,9 @@ namespace PodcastTycoon.Core
                 RepEarn = rep,
                 SocialHook = social,
                 Response = response,
+                Family = t.Kind == ThreadKind.TransferSaga ? TopicFamily.Transfer
+                    : t.Kind == ThreadKind.WonderkidWatch || t.Kind == ThreadKind.StarWantsOut ? TopicFamily.Player
+                    : TopicFamily.Club,
                 IsAvailable = (c, s) => true,
                 SourceThread = t
             };

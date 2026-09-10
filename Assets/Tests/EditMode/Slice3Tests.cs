@@ -10,14 +10,41 @@ namespace PodcastTycoon.Tests
             new Engine(new RunSetup { ClubName = "Testford", Difficulty = diff, Modifiers = mods ?? new RunModifiers() },
                 new GameConfig(), new SystemRng(seed));
 
+        static int _wk;
+
         static void PlayWeek(Engine e)
         {
             e.BeginWeek();
             if (e.Events.Pending != null) e.ResolveEvent(e.Events.Pending.Options.Count - 1);
             if (e.Scoops.Pending != null) e.ResolveScoop(ScoopChoice.VerifyHold);
             if (e.State.BuyoutPending) e.DeclineBuyout();
-            var plan = ProductionPlan.Cover(e.Offer[0]);
-            plan.PrepTopic = 5; plan.PrepAudio = 3;
+
+            // The basics any player does: buy gear, hire, take a sponsor when it's affordable.
+            if (e.State.Money > 400 && e.CanBuy(Gear.XlrMic)) e.BuyGear(Gear.XlrMic);
+            if (e.State.Money > 400 && e.CanBuy(Gear.EditingSoftware)) e.BuyGear(Gear.EditingSoftware);
+            if (e.State.Money > 700 && e.CanHireCoHost()) e.HireCoHost();
+            if (e.Sponsors.Active == null && e.Sponsors.Inbox.Count > 0) e.SignSponsor(0);
+
+            // A varied two/three-segment rundown — rotate angles so freshness doesn't crater.
+            var plan = new ProductionPlan();
+            plan.Main.Set(e.Offer[0]);
+            plan.Main.Angle = (_wk % 3) switch { 0 => Angle.Analysis, 1 => Angle.Emotional, _ => Angle.Analysis };
+            plan.Main.Prep = 5;
+            if (e.Offer.Count > 1)
+            {
+                plan.Second.Set(e.Offer[1]);
+                plan.Second.Angle = Angle.Analysis;
+                plan.Second.Prep = 3;
+            }
+            var rec = e.Offer.FirstOrDefault(t => t.Id == TopicId.Mailbag || t.Id == TopicId.TierList || t.Id == TopicId.Explainer);
+            if (rec != null && !ReferenceEquals(rec, plan.Main.Resolved))
+            {
+                plan.Recurring.Set(rec);
+                plan.Recurring.Angle = _wk % 2 == 0 ? Angle.Analysis : Angle.Comedy;
+                plan.Recurring.Prep = 2;
+            }
+            plan.PrepAudio = 2;
+            _wk++;
             e.Publish(plan);
         }
 

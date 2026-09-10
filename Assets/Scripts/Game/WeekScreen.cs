@@ -105,6 +105,9 @@ namespace PodcastTycoon.Game
                 "How much people trust what you say. Built by analysis and verified scoops."));
             strip.Add(Ui.Stat("Social reach", Mathf.RoundToInt(st.SocialReach).ToString(), null,
                 "How much the show is talked about online. Fades if you go quiet."));
+            strip.Add(Ui.Stat("Freshness", Mathf.RoundToInt(st.Freshness).ToString(),
+                st.Freshness < 45f ? "bad" : null,
+                "Falls when you repeat yourself — same angle, same bit. Vary the show or take a lighter week to recover."));
             return strip;
         }
 
@@ -1174,11 +1177,43 @@ namespace PodcastTycoon.Game
                 : filled == 2 ? "Two segments. A solid show."
                 : "A full three-segment rundown.", "body", "dim"));
 
+            // Interaction read — how the segments play together (spec §8).
+            if (used <= cap && used > 0)
+            {
+                var preview = E.Preview(_plan);
+                foreach (var note in preview.Notes)
+                {
+                    bool bad = note == "just ranting" || note == "tonal whiplash" || note == "one-note"
+                               || note == "same bit again" || note == "overhyped";
+                    _previewBlock.Add(Ui.Wrapping((bad ? "⚠ " : "✓ ") + NoteLabel(note), "body", bad ? "bad" : "good"));
+                }
+            }
+
+            var stt = E.State;
+            if (stt.Freshness < 45f)
+                _previewBlock.Add(Ui.Wrapping("The show's feeling stale — you've been repeating yourself. Vary the angle, rotate the bit, or take a lighter week.", "body", "bad"));
+            if (stt.SlumpWeeks > 0)
+                _previewBlock.Add(Ui.Wrapping("You're in a slump — listeners are leaving faster than usual. Two strong episodes in a row pulls you out.", "body", "bad"));
+
             if (used > cap)
                 _previewBlock.Add(Ui.Wrapping("You've allocated more prep points than you have this week.", "body", "bad"));
             else if (used < cap)
                 _previewBlock.Add(Ui.Wrapping($"{cap - used} point(s) still unspent.", "body", "dim"));
         }
+
+        static string NoteLabel(string note) => note switch
+        {
+            "just ranting" => "Two hot takes in one episode reads as ranting — costs reputation and credibility.",
+            "tonal whiplash" => "A comedy bit straight after a crisis segment jars — listeners drift.",
+            "one-note" => "Main and second are on the same subject — less overall reach (but the story moves faster).",
+            "same bit again" => "Same recurring bit too many weeks running — it's wearing thin.",
+            "overhyped" => "Heavy promo on a weak episode — the new listeners won't stick.",
+            "well-produced" => "Three distinct angles, no clashes — a well-rounded show.",
+            "palate cleanser" => "A light bit after a heavy main gives listeners a breather.",
+            "deep dive" => "Two analytical segments on one subject — a real deep dive. Credibility up.",
+            "range" => "Something serious and something funny — range. More clips.",
+            _ => note
+        };
 
         static string DrawLabel(float effectiveAppeal)
         {

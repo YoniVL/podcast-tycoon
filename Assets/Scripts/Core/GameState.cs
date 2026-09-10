@@ -9,6 +9,7 @@ namespace PodcastTycoon.Core
         public int Season;
         public string TopicName;
         public string QualityLabel;
+        public float Quality;
         public Surprise Surprise;
         public bool Matchless;
         public int ListenerDelta;
@@ -81,6 +82,17 @@ namespace PodcastTycoon.Core
 
         // --- season review (slice 3D) ---
         public SeasonSummary LastSeason;
+
+        // --- freshness / slumps / overreach (slice 4B, spec §12) ---
+        public float Freshness = 80f;
+        public int SlumpWeeks;                    // > 0 while the show is in a slump
+        public int RecurringStreak;              // consecutive weeks with the same recurring bit
+        public bool HadEpisodeLastWeek;
+        public Angle LastMainAngle;
+        public TopicFamily LastMainFamily;
+        public TopicId LastRecurringTopic;
+        public bool LastHadRecurring;
+        public float OverreachChurnNextWeek;     // fraction of listeners that churn next week
 
         // --- cards (slice 3E) ---
         public readonly List<string> Hand = new List<string>();

@@ -130,6 +130,14 @@ namespace PodcastTycoon.Core
         public float MonthlyWagesCharged;
         public float MoneyDelta;
 
+        // --- rundown interactions & risk state (spec §8, §12) ---
+        public readonly System.Collections.Generic.List<string> Notes = new System.Collections.Generic.List<string>();
+        public bool Whiplash;
+        public bool AnyClash;
+        public float OverreachNextWeek;     // fraction of listeners to churn next week
+        public int SegmentCount;
+        public float FreshnessMult = 1f;
+
         public string QualityLabel =>
             Quality >= 1.35f ? "Outstanding" :
             Quality >= 1.10f ? "Strong" :
@@ -173,17 +181,38 @@ namespace PodcastTycoon.Core
             if (filled.Count == 0) filled.Add(plan.Main);   // guard: never a zero-slot episode
             float totalWeight = filled.Sum(s => SlotWeight(plan, s));
 
+            // Freshness (spec §12): repetition drags appeal, variety and lighter weeks restore it.
+            float freshnessMult = MathX.Clamp(0.80f + (st.Freshness / 100f) * 0.25f, 0.80f, 1.05f);
+            int bigSurprise = Math.Abs((int)ctx.Surprise - (int)Surprise.Par);
+
+            var notes = new List<string>();
+            bool sawCrisisEarlier = false;
+            bool whiplash = false;
+
             float reach = 0f, qualityW = 0f, spreadW = 0f, appealW = 0f;
             float repDelta = 0f, credDelta = 0f, socialFlat = 0f;
             bool anyCrisis = false;
+            int hotTakes = 0, distinctAngles;
+            var anglesSeen = new HashSet<Angle>();
+            var families = new List<TopicFamily>();
+            bool mainLightRecurringHeavy = false;
 
-            foreach (var seg in filled)
+            for (int i = 0; i < filled.Count; i++)
             {
+                var seg = filled[i];
                 var topic = seg.Resolved;
                 var ang = AngleCatalog.Get(seg.Angle);
+                bool isMain = ReferenceEquals(seg, plan.Main);
+                bool isRecurring = ReferenceEquals(seg, plan.Recurring);
                 float w = SlotWeight(plan, seg) / totalWeight;
 
+                anglesSeen.Add(seg.Angle);
+                families.Add(topic.Family);
+                if (seg.Angle == Angle.HotTake) hotTakes++;
+                if (seg.Angle == Angle.Comedy && sawCrisisEarlier) whiplash = true;
+
                 int effort = Math.Max(1, topic.Effort - effortRelief);
+                bool thin = seg.Prep < effort * 0.4f;
                 float prepRatio = MathX.Clamp01((float)seg.Prep / effort);
                 float overshoot = Math.Max(0, seg.Prep - effort) * cfg.QualityOvershootPerPoint;
                 float q = cfg.QualityFloor
@@ -194,6 +223,7 @@ namespace PodcastTycoon.Core
                           + qualityFloorBonus
                           + st.CardQualityBonusThisWeek;
                 q = MathX.Clamp(q, cfg.QualityMin, cfg.QualityMax);
+                if (thin) q = Math.Min(q, 0.5f);
 
                 float spread = Math.Max(0f, topic.Swing * ang.SwingMult
                     * (1f - cfg.ResearchSpreadReductionPerPoint * plan.PrepResearch * researchMult));
@@ -202,9 +232,14 @@ namespace PodcastTycoon.Core
                 float contextMult = ContextResolver.AppealMultiplier(topic.Response, ctx) * ctx.ImportanceAppealMult;
                 float momentBonus = ctx.HasDramaticMoment
                     && (topic.Response == TopicResponse.Reaction || topic.Response == TopicResponse.Crisis) ? 0.12f : 0f;
+                float angleMult = ang.AppealMult;
+                if (seg.Angle == Angle.Emotional) angleMult *= 1f + 0.20f * bigSurprise;      // lands on a big result
+                if (seg.Angle == Angle.Comedy && sawCrisisEarlier) angleMult *= 0.5f;          // bombs after a crisis
+                if (isRecurring && st.RecurringStreak >= 3) angleMult *= 0.6f;                 // overexposed bit
                 float appeal = Math.Max(0.05f,
-                    topic.BaseAppeal * contextMult * ang.AppealMult + crewAppeal + st.SponsorAppealPenalty + momentBonus);
+                    topic.BaseAppeal * contextMult * angleMult + crewAppeal + st.SponsorAppealPenalty + momentBonus);
                 if (seg.Guest) appeal += cfg.GuestAppealBonus;
+                appeal *= freshnessMult;
 
                 float segReach = st.Listeners * appeal * w
                     * (1f + cfg.PromoReachPerPoint * plan.PrepPromo)
@@ -221,12 +256,55 @@ namespace PodcastTycoon.Core
                 credDelta += (topic.CredHook * MathX.Clamp(q, 0.4f, 1.5f) + ang.CredDelta) * w;
                 socialFlat += topic.SocialHook * ctx.SocialMultiplier + ang.SocialAdd + (seg.Guest ? cfg.GuestSocialBonus : 0);
 
-                if (topic.Response == TopicResponse.Crisis) anyCrisis = true;
+                if (topic.Response == TopicResponse.Crisis) { anyCrisis = true; sawCrisisEarlier = true; }
+                if (isMain && topic.BaseAppeal >= 1.2f) mainLightRecurringHeavy = true;
+                if (isRecurring && topic.BaseAppeal <= 1.0f && mainLightRecurringHeavy) notes.Add("palate cleanser");
             }
+
+            distinctAngles = anglesSeen.Count;
 
             float quality = qualityW;
             float spreadC = spreadW;
             float appealC = appealW;
+
+            // ---- interaction pass (spec §8) ----
+            float reachMod = 1f, qualityMod = 0f;
+            bool anyClash = false;
+
+            if (hotTakes >= 2)
+            {
+                repDelta -= 3f; credDelta -= 2f; socialFlat += 3f;
+                notes.Add("just ranting"); anyClash = true;
+            }
+            if (whiplash)
+            {
+                notes.Add("tonal whiplash"); anyClash = true;
+            }
+            if (filled.Count >= 2 && families[0] == families[1] && families[0] != TopicFamily.Meta)
+            {
+                reachMod *= 0.85f;
+                notes.Add("one-note"); anyClash = true;
+                bool deepDive = (plan.Main.Angle == Angle.Analysis || plan.Main.Angle == Angle.Investigation)
+                                && filled[1].Angle == Angle.Analysis;
+                if (deepDive) { credDelta += 3f; notes.Add("deep dive"); }
+            }
+            if (st.RecurringStreak >= 3 && !plan.Recurring.IsEmpty)
+            {
+                // Overexposed: handled as a freshness hit in Engine; note it here.
+                notes.Add("same bit again");
+            }
+            if (distinctAngles == filled.Count && filled.Count == 3 && !anyClash)
+            {
+                qualityMod += 0.08f; notes.Add("well-produced");
+            }
+            bool seriousMain = plan.Main.Angle == Angle.Analysis || plan.Main.Angle == Angle.Investigation;
+            if (!plan.Recurring.IsEmpty && plan.Recurring.Angle == Angle.Comedy && seriousMain && !whiplash)
+            {
+                socialFlat += 4f; notes.Add("range");
+            }
+
+            reach *= reachMod;
+            quality = MathX.Clamp(quality + qualityMod, cfg.QualityMin, cfg.QualityMax);
 
             // Market saturation: growth tails off as the audience nears the addressable market.
             float market = (cfg.MarketBase + cfg.MarketSeasonBonus * (st.Season - 1))
@@ -237,13 +315,15 @@ namespace PodcastTycoon.Core
             float passiveGain = st.Listeners * ctx.PassiveGainRate * growthRoom;
             float clipsPassive = st.Listeners * CrewCatalog.PassiveReachPerWeek(crew) * growthRoom;
             float churnRate = cfg.ChurnRate * (st.Modifiers.GentleChurn ? 0.8f : 1f);
+            if (st.SlumpWeeks > 0) churnRate *= cfg.SlumpChurnMult;
+            float moodChurnMult = whiplash ? 1.5f : 1f;
 
             int Delta(float roll)
             {
                 float gross = reach * (quality - cfg.QualityBreakeven) * roll * cfg.DeltaScale * growthRoom;
                 float wom = quality > 1f ? st.Listeners * cfg.WordOfMouthRate * (quality - 1f) * growthRoom : 0f;
                 float churn = st.Listeners * churnRate * MathX.Clamp(1.40f - quality, 0f, 1.40f);
-                float moodChurn = st.Listeners * ctx.MoodChurnRate * Math.Max(0f, 1.15f - quality);
+                float moodChurn = st.Listeners * ctx.MoodChurnRate * Math.Max(0f, 1.15f - quality) * moodChurnMult;
                 return MathX.RoundToInt(gross + wom - churn + passiveGain + clipsPassive - moodChurn);
             }
 
@@ -259,11 +339,25 @@ namespace PodcastTycoon.Core
                 EffectiveAppeal = appealC,
                 Reach = reach,
                 Roll = actualRoll,
+                Whiplash = whiplash,
+                AnyClash = anyClash,
+                SegmentCount = filled.Count,
+                FreshnessMult = freshnessMult,
                 ListenerDeltaExpected = Delta(1f),
                 ListenerDeltaLow = Delta(1f - spreadC),
                 ListenerDeltaHigh = Delta(1f + spreadC),
                 ListenerDeltaActual = Delta(actualRoll)
             };
+            result.Notes.AddRange(notes);
+
+            // --- overreach (spec §9, §12): heavy promo on a weak episode churns back next week ---
+            if (plan.PrepPromo >= 3 && quality < 0.85f)
+            {
+                float bump = cfg.PromoReachPerPoint * plan.PrepPromo;
+                result.OverreachNextWeek = bump * cfg.OverreachChurnFraction;
+                credDelta -= 1.5f;
+                result.Notes.Add("overhyped");
+            }
 
             // --- reputation ---
             result.ReputationDelta = repDelta

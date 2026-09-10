@@ -32,7 +32,25 @@ namespace PodcastTycoon.Game
 
             scroll.Add(Ui.Text("EPISODE PUBLISHED", "eyebrow"));
             scroll.Add(Ui.Text($"“{_result.Topic.Name}”", "h1"));
-            scroll.Add(Ui.Wrapping($"{_result.QualityLabel} episode — quality {_result.Quality:0.00}.", "body"));
+            scroll.Add(Ui.Wrapping(
+                $"{_result.QualityLabel} episode — quality {_result.Quality:0.00}" +
+                (_result.SegmentCount > 1 ? $", {_result.SegmentCount} segments." : "."), "body"));
+
+            foreach (var note in _result.Notes)
+            {
+                bool bad = note == "just ranting" || note == "tonal whiplash" || note == "one-note"
+                           || note == "same bit again" || note == "overhyped";
+                var toast = Ui.Box("toast");
+                if (bad) toast.AddToClassList("toast-bad");
+                toast.Add(Ui.Wrapping((bad ? "That didn't sit right — " : "That worked — ") + note + ".", "body"));
+                scroll.Add(toast);
+            }
+            if (st.SlumpWeeks == 1 && _result.Whiplash)
+            {
+                var toast = Ui.Box("toast", "toast-bad");
+                toast.Add(Ui.Wrapping("The show's in a slump now. Two strong episodes back to back gets you out of it.", "body"));
+                scroll.Add(toast);
+            }
 
             foreach (var m in _milestones)
             {

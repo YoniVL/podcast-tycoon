@@ -161,11 +161,19 @@ namespace PodcastTycoon.EditorTools
             headline = main;
             if (main == null) return plan;
 
+            // Vary the main angle week to week so freshness doesn't crater.
+            Angle[] balancedRotation = { Angle.Analysis, Angle.Emotional, Angle.Analysis, Angle.Investigation };
             plan.Main.Set(main, main.SourceThread != null ? (main.SourceThread.Momentum >= 0f ? 1 : -1) : 0);
-            plan.Main.Angle = greedy && (ctx.Surprise <= Surprise.Poor || st.Reputation >= 15f)
-                ? Angle.HotTake : Angle.Analysis;
+            if (greedy)
+                plan.Main.Angle = (ctx.Surprise <= Surprise.Poor || st.Reputation >= 15f) ? Angle.HotTake : Angle.Emotional;
+            else
+            {
+                var want = balancedRotation[st.GlobalWeek % balancedRotation.Length];
+                plan.Main.Angle = AngleCatalog.Allowed(want, st) ? want : Angle.Analysis;
+            }
 
-            Topic second = offer.Skip(1).FirstOrDefault(t => !ReferenceEquals(t, main));
+            Topic second = offer.Skip(1).FirstOrDefault(t => !ReferenceEquals(t, main) && t.Family != main.Family)
+                           ?? offer.Skip(1).FirstOrDefault(t => !ReferenceEquals(t, main));
             if (second != null)
             {
                 plan.Second.Set(second, second.SourceThread != null ? (second.SourceThread.Momentum >= 0f ? 1 : -1) : 0);
@@ -177,7 +185,9 @@ namespace PodcastTycoon.EditorTools
             if (rec != null && !ReferenceEquals(rec, main) && !ReferenceEquals(rec, second))
             {
                 plan.Recurring.Set(rec);
-                plan.Recurring.Angle = greedy ? Angle.Comedy : Angle.Analysis;
+                // Comedy only when the main isn't a crisis take (avoid tonal whiplash).
+                bool crisisMain = plan.Main.Resolved.Response == TopicResponse.Crisis;
+                plan.Recurring.Angle = (!crisisMain && st.GlobalWeek % 3 == 0) ? Angle.Comedy : Angle.Analysis;
             }
 
             // Meet each segment's effort, then spread whatever's left across the levers.

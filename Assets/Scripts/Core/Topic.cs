@@ -37,6 +37,9 @@ namespace PodcastTycoon.Core
         Evergreen
     }
 
+    /// <summary>Broad subject of a topic — used for the "one-note" clash and freshness (spec §8, §12).</summary>
+    public enum TopicFamily { Match, Club, Transfer, Player, Meta, Drama }
+
     public sealed class Topic
     {
         public TopicId Id;
@@ -49,6 +52,7 @@ namespace PodcastTycoon.Core
         public int SocialHook;      // how much this topic gets talked about (feeds Social Reach)
         public float CredHook;      // effect on credibility when covered (can be negative)
         public TopicResponse Response;
+        public TopicFamily Family = TopicFamily.Meta;
 
         /// <summary>Whether this topic is on the table given the week's context.</summary>
         public Func<WeekContext, GameState, bool> IsAvailable;
@@ -64,42 +68,42 @@ namespace PodcastTycoon.Core
         {
             new Topic
             {
-                Id = TopicId.Recap, Name = "Match recap", Response = TopicResponse.Reaction,
+                Id = TopicId.Recap, Name = "Match recap", Response = TopicResponse.Reaction, Family = TopicFamily.Match,
                 Blurb = "Break down what just happened.",
                 BaseAppeal = 1.00f, Effort = 3, Swing = 0.15f, RepEarn = 1f, SocialHook = 0, CredHook = 0.3f,
                 IsAvailable = (c, s) => !c.IsMatchless
             },
             new Topic
             {
-                Id = TopicId.Preview, Name = "Match preview", Response = TopicResponse.Evergreen,
+                Id = TopicId.Preview, Name = "Match preview", Response = TopicResponse.Evergreen, Family = TopicFamily.Match,
                 Blurb = "Look ahead to the next fixture.",
                 BaseAppeal = 0.85f, Effort = 3, Swing = 0.15f, RepEarn = 1f, SocialHook = 0, CredHook = 0.3f,
                 IsAvailable = (c, s) => true
             },
             new Topic
             {
-                Id = TopicId.TierList, Name = "Tier list", Response = TopicResponse.Evergreen,
+                Id = TopicId.TierList, Name = "Tier list", Response = TopicResponse.Evergreen, Family = TopicFamily.Meta,
                 Blurb = "Rank something. Anything. The fans will argue.",
                 BaseAppeal = 1.20f, Effort = 4, Swing = 0.25f, RepEarn = 1f, SocialHook = 3, CredHook = 0f,
                 IsAvailable = (c, s) => true
             },
             new Topic
             {
-                Id = TopicId.Mailbag, Name = "Mailbag", Response = TopicResponse.Evergreen,
+                Id = TopicId.Mailbag, Name = "Mailbag", Response = TopicResponse.Evergreen, Family = TopicFamily.Meta,
                 Blurb = "Answer listener questions. Cheap and cheerful.",
                 BaseAppeal = 0.70f, Effort = 2, Swing = 0.10f, RepEarn = 2f, SocialHook = 0, CredHook = 0.5f,
                 IsAvailable = (c, s) => true
             },
             new Topic
             {
-                Id = TopicId.Optimism, Name = "Vibes / optimism", Response = TopicResponse.Positive,
+                Id = TopicId.Optimism, Name = "Vibes / optimism", Response = TopicResponse.Positive, Family = TopicFamily.Match,
                 Blurb = "Ride the good feeling while it lasts.",
                 BaseAppeal = 1.10f, Effort = 3, Swing = 0.20f, RepEarn = 0f, SocialHook = 1, CredHook = 0f,
                 IsAvailable = (c, s) => !c.IsMatchless && c.Surprise >= Surprise.Good
             },
             new Topic
             {
-                Id = TopicId.HotTake, Name = "Hot take", Response = TopicResponse.Crisis,
+                Id = TopicId.HotTake, Name = "Hot take", Response = TopicResponse.Crisis, Family = TopicFamily.Drama,
                 Blurb = "Say the thing. Loudly. Consequences later.",
                 BaseAppeal = 1.55f, Effort = 3, Swing = 0.60f, RepEarn = -1f, SocialHook = 6, CredHook = -1.5f,
                 IsAvailable = (c, s) => !c.IsMatchless && (c.Surprise <= Surprise.Poor || s.Reputation >= 15f)
@@ -108,56 +112,56 @@ namespace PodcastTycoon.Core
             // --- slice 2/3 contextual topics ---
             new Topic
             {
-                Id = TopicId.Ratings, Name = "Player ratings", Response = TopicResponse.Crisis,
+                Id = TopicId.Ratings, Name = "Player ratings", Response = TopicResponse.Crisis, Family = TopicFamily.Player,
                 Blurb = "Score every player out of ten. The comments will not be kind.",
                 BaseAppeal = 1.15f, Effort = 3, Swing = 0.30f, RepEarn = 0f, SocialHook = 1, CredHook = 0f,
                 IsAvailable = (c, s) => !c.IsMatchless && c.Surprise <= Surprise.Poor
             },
             new Topic
             {
-                Id = TopicId.Transfers, Name = "Transfer talk", Response = TopicResponse.Evergreen,
+                Id = TopicId.Transfers, Name = "Transfer talk", Response = TopicResponse.Evergreen, Family = TopicFamily.Transfer,
                 Blurb = "Who's in, who's out, who's a fantasy. The rumour-mill episode.",
                 BaseAppeal = 1.40f, Effort = 4, Swing = 0.45f, RepEarn = 0f, SocialHook = 3, CredHook = -0.5f,
                 IsAvailable = (c, s) => c.TransferWindowOpen || c.IsInternationalBreak
             },
             new Topic
             {
-                Id = TopicId.Tactics, Name = "Tactical deep-dive", Response = TopicResponse.Evergreen,
+                Id = TopicId.Tactics, Name = "Tactical deep-dive", Response = TopicResponse.Evergreen, Family = TopicFamily.Match,
                 Blurb = "Freeze-frames, half-spaces, the lot. For the sickos.",
                 BaseAppeal = 0.90f, Effort = 6, Swing = 0.12f, RepEarn = 3f, SocialHook = 0, CredHook = 1.5f,
                 IsAvailable = (c, s) => s.Reputation >= 25f
             },
             new Topic
             {
-                Id = TopicId.Prospect, Name = "One to watch", Response = TopicResponse.Positive,
+                Id = TopicId.Prospect, Name = "One to watch", Response = TopicResponse.Positive, Family = TopicFamily.Player,
                 Blurb = "Profile the kid before everyone else does.",
                 BaseAppeal = 1.05f, Effort = 4, Swing = 0.30f, RepEarn = 1f, SocialHook = 2, CredHook = 0.5f,
                 IsAvailable = (c, s) => c.IsInternationalBreak || c.TransferWindowOpen
             },
             new Topic
             {
-                Id = TopicId.Schadenfreude, Name = "Enjoying their misery", Response = TopicResponse.Evergreen,
+                Id = TopicId.Schadenfreude, Name = "Enjoying their misery", Response = TopicResponse.Evergreen, Family = TopicFamily.Drama,
                 Blurb = "A whole episode on how badly it's going for that lot.",
                 BaseAppeal = 1.35f, Effort = 3, Swing = 0.40f, RepEarn = -1f, SocialHook = 4, CredHook = -1f,
                 IsAvailable = (c, s) => c.AnyRivalStumbled
             },
             new Topic
             {
-                Id = TopicId.Worried, Name = "Should we be worried?", Response = TopicResponse.Evergreen,
+                Id = TopicId.Worried, Name = "Should we be worried?", Response = TopicResponse.Evergreen, Family = TopicFamily.Club,
                 Blurb = "The rivals are pulling away. Talk the fanbase down — or wind them up.",
                 BaseAppeal = 1.05f, Effort = 4, Swing = 0.25f, RepEarn = 0f, SocialHook = 0, CredHook = 0f,
                 IsAvailable = (c, s) => c.AnyRivalSurged
             },
             new Topic
             {
-                Id = TopicId.Interview, Name = "Big interview", Response = TopicResponse.Evergreen,
+                Id = TopicId.Interview, Name = "Big interview", Response = TopicResponse.Evergreen, Family = TopicFamily.Club,
                 Blurb = "Sit down with someone who actually knows. A proper episode.",
                 BaseAppeal = 1.90f, Effort = 7, Swing = 0.14f, RepEarn = 4f, SocialHook = 2, CredHook = 2f,
                 IsAvailable = (c, s) => s.HasCrew(Crew.Booker) || s.AccessTier >= 2
             },
             new Topic
             {
-                Id = TopicId.Explainer, Name = "The explainer", Response = TopicResponse.Evergreen,
+                Id = TopicId.Explainer, Name = "The explainer", Response = TopicResponse.Evergreen, Family = TopicFamily.Meta,
                 Blurb = "Take one thing and actually explain it properly. No hot takes.",
                 BaseAppeal = 0.95f, Effort = 4, Swing = 0.10f, RepEarn = 2f, SocialHook = 0, CredHook = 1.5f,
                 IsAvailable = (c, s) => true

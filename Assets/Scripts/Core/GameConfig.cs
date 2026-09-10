@@ -25,8 +25,16 @@ namespace PodcastTycoon.Core
         // --- listener model ---
         public float ChurnRate = 0.045f;
         public float QualityBreakeven = 0.70f;
-        public float DeltaScale = 0.26f;
+        public float DeltaScale = 0.22f;   // v0.4: the safe episode only holds serve (spec §12, §17)
         public float WordOfMouthRate = 0.03f;
+
+        // --- freshness / slumps / overreach (spec §12) ---
+        public float FreshnessStart = 80f;
+        public float FreshnessDriftTarget = 60f;
+        public float SlumpChurnMult = 1.5f;
+        public float SlumpQualityCeiling = 0.75f;   // episodes below this count as "bad"
+        public float SlumpRecoverQuality = 0.95f;   // two of these in a row exits a slump
+        public float OverreachChurnFraction = 0.35f; // fraction of the promo bump that churns back
 
         // Market saturation — growth slows to zero as the audience approaches the
         // addressable market, which itself grows with reputation and over seasons.
