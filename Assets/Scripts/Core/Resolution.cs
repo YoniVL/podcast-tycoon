@@ -1,49 +1,113 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace PodcastTycoon.Core
 {
+    /// <summary>
+    /// One slot in the episode rundown (spec §7): a topic covered from an angle, with its own
+    /// share of the topic-prep points. Main / Second / Recurring; Second and Recurring can be
+    /// left empty on a lighter week.
+    /// </summary>
+    public sealed class Segment
+    {
+        public TopicId Topic;
+        public Topic ThreadTopic;         // set instead of Topic for a story-thread topic
+        public int Stance;                // -1 / 0 / +1 on a thread topic
+        public Angle Angle = Angle.Analysis;
+        public int Prep;                  // topic-prep points spent on this segment
+        public bool Guest;
+        public bool IsEmpty = true;
+
+        public Topic Resolved => ThreadTopic ?? TopicCatalog.Get(Topic);
+
+        public void Set(Topic topic, int stance = 0)
+        {
+            if (topic == null) { Clear(); return; }
+            if (topic.SourceThread != null) { ThreadTopic = topic; Stance = stance == 0 ? 1 : stance; }
+            else { Topic = topic.Id; ThreadTopic = null; Stance = 0; }
+            IsEmpty = false;
+        }
+
+        public void Clear()
+        {
+            ThreadTopic = null; Stance = 0; Prep = 0; Guest = false; IsEmpty = true;
+        }
+
+        public Segment Clone() => new Segment
+        {
+            Topic = Topic, ThreadTopic = ThreadTopic, Stance = Stance, Angle = Angle,
+            Prep = Prep, Guest = Guest, IsEmpty = IsEmpty
+        };
+    }
+
+    /// <summary>The episode the player builds each week: a three-slot rundown plus the shared
+    /// production levers (spec §7, §9).</summary>
     public sealed class ProductionPlan
     {
-        /// <summary>A catalog topic. Ignored when <see cref="ThreadTopic"/> is set.</summary>
-        public TopicId Topic;
+        public readonly Segment Main = new Segment();
+        public readonly Segment Second = new Segment();
+        public readonly Segment Recurring = new Segment();
 
-        /// <summary>Set instead of <see cref="Topic"/> when covering a story-thread topic.</summary>
-        public Topic ThreadTopic;
-
-        /// <summary>The position taken on a thread topic: -1, 0 (none), or +1.</summary>
-        public int Stance;
-
-        public int PrepTopic;
         public int PrepResearch;
         public int PrepAudio;
         public int PrepPromo;
 
-        public int TotalPrep => PrepTopic + PrepResearch + PrepAudio + PrepPromo;
+        public IEnumerable<Segment> Slots
+        {
+            get { yield return Main; yield return Second; yield return Recurring; }
+        }
 
-        /// <summary>The actual topic being covered.</summary>
-        public Topic Resolved => ThreadTopic ?? TopicCatalog.Get(Topic);
+        public IEnumerable<Segment> FilledSlots => Slots.Where(s => !s.IsEmpty);
 
-        /// <summary>Build a plan that covers the given topic (catalog or thread).</summary>
+        public int TopicPrep => Main.Prep + Second.Prep + Recurring.Prep;
+        public int TotalPrep => TopicPrep + PrepResearch + PrepAudio + PrepPromo;
+
+        // --- back-compat shims: older callers and tests treat the plan as a single topic ---
+        public TopicId Topic
+        {
+            get => Main.Topic;
+            set { Main.Topic = value; Main.ThreadTopic = null; Main.Stance = 0; Main.IsEmpty = false; }
+        }
+        public Topic ThreadTopic
+        {
+            get => Main.ThreadTopic;
+            set { Main.ThreadTopic = value; if (value != null) Main.IsEmpty = false; }
+        }
+        public int Stance { get => Main.Stance; set => Main.Stance = value; }
+        public int PrepTopic { get => Main.Prep; set => Main.Prep = value; }
+
+        /// <summary>The headline topic — Main's, used for the episode log and the results screen.</summary>
+        public Topic Resolved => Main.Resolved;
+
         public static ProductionPlan Cover(Topic topic, int stance = 1)
         {
             var p = new ProductionPlan();
-            if (topic.SourceThread != null) { p.ThreadTopic = topic; p.Stance = stance; }
-            else p.Topic = topic.Id;
+            p.Main.Set(topic, stance);
             return p;
         }
 
-        public ProductionPlan Clone() => new ProductionPlan
+        public ProductionPlan Clone()
         {
-            Topic = Topic, ThreadTopic = ThreadTopic, Stance = Stance,
-            PrepTopic = PrepTopic, PrepResearch = PrepResearch,
-            PrepAudio = PrepAudio, PrepPromo = PrepPromo
-        };
+            var p = new ProductionPlan
+            {
+                PrepResearch = PrepResearch, PrepAudio = PrepAudio, PrepPromo = PrepPromo
+            };
+            CopySlot(Main, p.Main); CopySlot(Second, p.Second); CopySlot(Recurring, p.Recurring);
+            return p;
+        }
+
+        static void CopySlot(Segment from, Segment to)
+        {
+            to.Topic = from.Topic; to.ThreadTopic = from.ThreadTopic; to.Stance = from.Stance;
+            to.Angle = from.Angle; to.Prep = from.Prep; to.Guest = from.Guest; to.IsEmpty = from.IsEmpty;
+        }
     }
 
-    /// <summary>The full outcome of publishing one episode (spec §13).</summary>
+    /// <summary>The full outcome of publishing one episode (spec §17).</summary>
     public sealed class EpisodeResult
     {
-        public Topic Topic;
+        public Topic Topic;                // the Main segment's topic (the headline)
 
         public float Quality;
         public float Spread;
@@ -83,56 +147,94 @@ namespace PodcastTycoon.Core
         public EpisodeResult Project(GameState st, WeekContext ctx, ProductionPlan plan)
             => Resolve(st, ctx, plan, new FixedRng(0.5));
 
+        float SlotWeight(ProductionPlan plan, Segment s)
+        {
+            if (ReferenceEquals(s, plan.Main)) return _cfg.SlotWeightMain;
+            if (ReferenceEquals(s, plan.Second)) return _cfg.SlotWeightSecond;
+            return _cfg.SlotWeightRecurring;
+        }
+
         public EpisodeResult Resolve(GameState st, WeekContext ctx, ProductionPlan plan, IRng rng)
         {
             var cfg = _cfg;
             var d = DifficultyProfile.For(st.Difficulty);
-            var topic = plan.Resolved;
+            var crew = st.Crew;
 
             float micQ = st.HasGear(Gear.XlrMic) ? cfg.MicQualityUpgraded : cfg.MicQualityBase;
             float editSkill = st.HasGear(Gear.EditingSoftware) ? cfg.EditSkillUpgraded : cfg.EditSkillBase;
             float qualityFloorBonus = st.HasGear(Gear.AcousticPanels) ? cfg.PanelsQualityFloorBonus : 0f;
             float crewAppeal = st.HasCoHost ? cfg.CoHostAppealBonus : 0f;
-
-            var crew = st.Crew;
-            int effectiveEffort = Math.Max(1, topic.Effort - CrewCatalog.EffortRelief(crew));
-            float researchMult = CrewCatalog.ResearchMultiplier(crew);
-
-            // --- quality ---
-            float prepRatio = MathX.Clamp01((float)plan.PrepTopic / effectiveEffort);
-            float overshoot = Math.Max(0, plan.PrepTopic - effectiveEffort) * cfg.QualityOvershootPerPoint;
             float gear = cfg.QualityGearWeight * micQ + cfg.QualityGearWeight * editSkill;
-            float quality = cfg.QualityFloor
-                            + cfg.QualityPrepWeight * prepRatio
-                            + overshoot
-                            + gear
-                            + cfg.QualityAudioPerPoint * plan.PrepAudio
-                            + qualityFloorBonus
-                            + st.CardQualityBonusThisWeek;
-            quality = MathX.Clamp(quality, cfg.QualityMin, cfg.QualityMax);
-
-            // --- volatility ---
-            float spread = Math.Max(0f, topic.Swing * (1f - cfg.ResearchSpreadReductionPerPoint * plan.PrepResearch * researchMult));
-            if (st.Modifiers.ChaosCycle) spread *= 1.5f;
-
-            // --- appeal & reach ---
-            float contextMult = ContextResolver.AppealMultiplier(topic.Response, ctx) * ctx.ImportanceAppealMult;
-            float momentBonus = ctx.HasDramaticMoment
-                && (topic.Response == TopicResponse.Reaction || topic.Response == TopicResponse.Crisis) ? 0.12f : 0f;
-            float appeal = Math.Max(0.05f, topic.BaseAppeal * contextMult + crewAppeal + st.SponsorAppealPenalty + momentBonus);
+            int effortRelief = CrewCatalog.EffortRelief(crew);
+            float researchMult = CrewCatalog.ResearchMultiplier(crew);
             float studioReach = st.HasStudioSpace ? 1.08f : 1f;
-            float reach = st.Listeners * appeal * (1f + cfg.PromoReachPerPoint * plan.PrepPromo)
-                          * ctx.ReachMult * st.CardReachMultThisWeek * studioReach;
 
-            // Market saturation: growth tails off as the audience nears the addressable
-            // market, which grows with reputation and across seasons.
+            var filled = plan.FilledSlots.ToList();
+            if (filled.Count == 0) filled.Add(plan.Main);   // guard: never a zero-slot episode
+            float totalWeight = filled.Sum(s => SlotWeight(plan, s));
+
+            float reach = 0f, qualityW = 0f, spreadW = 0f, appealW = 0f;
+            float repDelta = 0f, credDelta = 0f, socialFlat = 0f;
+            bool anyCrisis = false;
+
+            foreach (var seg in filled)
+            {
+                var topic = seg.Resolved;
+                var ang = AngleCatalog.Get(seg.Angle);
+                float w = SlotWeight(plan, seg) / totalWeight;
+
+                int effort = Math.Max(1, topic.Effort - effortRelief);
+                float prepRatio = MathX.Clamp01((float)seg.Prep / effort);
+                float overshoot = Math.Max(0, seg.Prep - effort) * cfg.QualityOvershootPerPoint;
+                float q = cfg.QualityFloor
+                          + cfg.QualityPrepWeight * prepRatio
+                          + overshoot
+                          + gear
+                          + cfg.QualityAudioPerPoint * plan.PrepAudio
+                          + qualityFloorBonus
+                          + st.CardQualityBonusThisWeek;
+                q = MathX.Clamp(q, cfg.QualityMin, cfg.QualityMax);
+
+                float spread = Math.Max(0f, topic.Swing * ang.SwingMult
+                    * (1f - cfg.ResearchSpreadReductionPerPoint * plan.PrepResearch * researchMult));
+                if (st.Modifiers.ChaosCycle) spread *= 1.5f;
+
+                float contextMult = ContextResolver.AppealMultiplier(topic.Response, ctx) * ctx.ImportanceAppealMult;
+                float momentBonus = ctx.HasDramaticMoment
+                    && (topic.Response == TopicResponse.Reaction || topic.Response == TopicResponse.Crisis) ? 0.12f : 0f;
+                float appeal = Math.Max(0.05f,
+                    topic.BaseAppeal * contextMult * ang.AppealMult + crewAppeal + st.SponsorAppealPenalty + momentBonus);
+                if (seg.Guest) appeal += cfg.GuestAppealBonus;
+
+                float segReach = st.Listeners * appeal * w
+                    * (1f + cfg.PromoReachPerPoint * plan.PrepPromo)
+                    * ctx.ReachMult * st.CardReachMultThisWeek * studioReach;
+
+                reach += segReach;
+                qualityW += q * w;
+                spreadW += spread * w;
+                appealW += appeal * w;
+
+                float analysisRep = topic.Response == TopicResponse.Evergreen && topic.RepEarn > 0f
+                    ? CrewCatalog.AnalysisRepBonus(crew) : 0f;
+                repDelta += (topic.RepEarn * q + analysisRep + ang.RepDelta) * w;
+                credDelta += (topic.CredHook * MathX.Clamp(q, 0.4f, 1.5f) + ang.CredDelta) * w;
+                socialFlat += topic.SocialHook * ctx.SocialMultiplier + ang.SocialAdd + (seg.Guest ? cfg.GuestSocialBonus : 0);
+
+                if (topic.Response == TopicResponse.Crisis) anyCrisis = true;
+            }
+
+            float quality = qualityW;
+            float spreadC = spreadW;
+            float appealC = appealW;
+
+            // Market saturation: growth tails off as the audience nears the addressable market.
             float market = (cfg.MarketBase + cfg.MarketSeasonBonus * (st.Season - 1))
                            * (cfg.MarketRepFloor + cfg.MarketRepPerPoint * st.Reputation)
                            * d.MarketFactor;
             float growthRoom = MathX.Clamp01(1f - st.Listeners / Math.Max(1f, market));
 
             float passiveGain = st.Listeners * ctx.PassiveGainRate * growthRoom;
-
             float clipsPassive = st.Listeners * CrewCatalog.PassiveReachPerWeek(crew) * growthRoom;
             float churnRate = cfg.ChurnRate * (st.Modifiers.GentleChurn ? 0.8f : 1f);
 
@@ -146,39 +248,37 @@ namespace PodcastTycoon.Core
             }
 
             float actualRoll = st.CardGuaranteeGoodRoll
-                ? 1f + spread
-                : (float)(1.0 + (rng.NextDouble() * 2.0 - 1.0) * spread);
+                ? 1f + spreadC
+                : (float)(1.0 + (rng.NextDouble() * 2.0 - 1.0) * spreadC);
 
             var result = new EpisodeResult
             {
-                Topic = topic,
+                Topic = plan.Resolved,
                 Quality = quality,
-                Spread = spread,
-                EffectiveAppeal = appeal,
+                Spread = spreadC,
+                EffectiveAppeal = appealC,
                 Reach = reach,
                 Roll = actualRoll,
                 ListenerDeltaExpected = Delta(1f),
-                ListenerDeltaLow = Delta(1f - spread),
-                ListenerDeltaHigh = Delta(1f + spread),
+                ListenerDeltaLow = Delta(1f - spreadC),
+                ListenerDeltaHigh = Delta(1f + spreadC),
                 ListenerDeltaActual = Delta(actualRoll)
             };
 
             // --- reputation ---
-            float analysisRep = topic.Response == TopicResponse.Evergreen && topic.RepEarn > 0f
-                ? CrewCatalog.AnalysisRepBonus(crew) : 0f;
-            result.ReputationDelta = topic.RepEarn * quality + analysisRep
+            result.ReputationDelta = repDelta
                                      - (quality < cfg.SloppyQualityThreshold ? cfg.SloppyReputationPenalty : 0f)
-                                     - (st.HasPartnership && topic.Response == TopicResponse.Crisis ? 1.5f : 0f);
+                                     - (st.HasPartnership && anyCrisis ? 1.5f : 0f);
 
-            // --- credibility (spec §17) ---
-            result.CredibilityDelta = topic.CredHook * MathX.Clamp(quality, 0.4f, 1.5f);
+            // --- credibility ---
+            result.CredibilityDelta = credDelta;
 
-            // --- social reach (absorbs old "Buzz"; a hot episode gets talked about) ---
+            // --- social reach (a hot episode gets talked about) ---
             float perf = quality * actualRoll;
             float hotEpisode = perf > cfg.SocialHotThreshold
-                ? (perf - cfg.SocialHotThreshold) * cfg.SocialHotScale * (float)Math.Sqrt(Math.Max(0.1f, appeal))
+                ? (perf - cfg.SocialHotThreshold) * cfg.SocialHotScale * (float)Math.Sqrt(Math.Max(0.1f, appealC))
                 : 0f;
-            float social = topic.SocialHook * ctx.SocialMultiplier + hotEpisode + st.CardSocialBonusThisWeek;
+            float social = socialFlat + hotEpisode + st.CardSocialBonusThisWeek;
             social *= CrewCatalog.SocialMultiplier(crew);
             result.SocialGained = Math.Max(0f, social);
 

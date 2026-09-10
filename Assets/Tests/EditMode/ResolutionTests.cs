@@ -105,9 +105,9 @@ namespace PodcastTycoon.Tests
         public void CoHostRaisesPrepCapacityAndAppeal()
         {
             var (st, cfg) = Fresh();
-            Assert.That(st.PrepCapacity(cfg), Is.EqualTo(10));
+            Assert.That(st.PrepCapacity(cfg), Is.EqualTo(12));
             st.HasCoHost = true;
-            Assert.That(st.PrepCapacity(cfg), Is.EqualTo(13));
+            Assert.That(st.PrepCapacity(cfg), Is.EqualTo(15));
 
             var res = new Resolution(cfg);
             var plan = new ProductionPlan { Topic = TopicId.Recap, PrepTopic = 3 };

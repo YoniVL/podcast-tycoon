@@ -17,7 +17,8 @@ namespace PodcastTycoon.Core
         Prospect,
         Schadenfreude,
         Worried,
-        Interview
+        Interview,
+        Explainer
     }
 
     /// <summary>
@@ -153,6 +154,13 @@ namespace PodcastTycoon.Core
                 Blurb = "Sit down with someone who actually knows. A proper episode.",
                 BaseAppeal = 1.90f, Effort = 7, Swing = 0.14f, RepEarn = 4f, SocialHook = 2, CredHook = 2f,
                 IsAvailable = (c, s) => s.HasCrew(Crew.Booker) || s.AccessTier >= 2
+            },
+            new Topic
+            {
+                Id = TopicId.Explainer, Name = "The explainer", Response = TopicResponse.Evergreen,
+                Blurb = "Take one thing and actually explain it properly. No hot takes.",
+                BaseAppeal = 0.95f, Effort = 4, Swing = 0.10f, RepEarn = 2f, SocialHook = 0, CredHook = 1.5f,
+                IsAvailable = (c, s) => true
             }
         };
 

@@ -73,14 +73,14 @@ namespace PodcastTycoon.Tests
             var e = NewEngine(1);
             e.BeginWeek();
             e.State.PrepPenaltyThisWeek = 3;
-            Assert.That(e.State.PrepCapacity(e.Config), Is.EqualTo(7));
+            Assert.That(e.State.PrepCapacity(e.Config), Is.EqualTo(9));
 
             var plan = ProductionPlan.Cover(e.Offer[0]);
             plan.PrepTopic = 4;
             e.Publish(plan);
 
             e.BeginWeek();
-            Assert.That(e.State.PrepCapacity(e.Config), Is.EqualTo(10), "the penalty should not carry over");
+            Assert.That(e.State.PrepCapacity(e.Config), Is.EqualTo(12), "the penalty should not carry over");
         }
 
         [Test]

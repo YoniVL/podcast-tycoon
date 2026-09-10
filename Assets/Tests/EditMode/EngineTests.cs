@@ -32,11 +32,11 @@ namespace PodcastTycoon.Tests
         }
 
         [Test]
-        public void BeginWeek_ProducesAnOfferOfUpToThree()
+        public void BeginWeek_ProducesAnOfferOfUpToSix()
         {
             var e = NewEngine();
             e.BeginWeek();
-            Assert.That(e.Offer.Count, Is.InRange(1, 3));
+            Assert.That(e.Offer.Count, Is.InRange(1, 6));
             Assert.That(e.CurrentWeek, Is.Not.Null);
         }
 

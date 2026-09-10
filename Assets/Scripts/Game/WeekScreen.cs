@@ -11,7 +11,6 @@ namespace PodcastTycoon.Game
         Engine E => _host.Engine;
 
         readonly ProductionPlan _plan = new ProductionPlan();
-        Topic _picked;
 
         // tabs
         static readonly string[] TabNames = { "This Week", "The Club", "Business", "Logbook", "Help" };
@@ -21,8 +20,7 @@ namespace PodcastTycoon.Game
         VisualElement _tabContent;
 
         // this-week widgets (rebuilt whenever the This Week tab is shown)
-        VisualElement _topicList;
-        VisualElement _prepBlock;
+        VisualElement _leversBlock;
         VisualElement _previewBlock;
         Label _prepMeter;
         Button _publish;
@@ -294,46 +292,14 @@ namespace PodcastTycoon.Game
                 root.Add(note);
             }
 
-            // topic offer
-            var offerPanel = Ui.Box("panel");
-            var offerHead = Ui.Row();
-            offerHead.Add(Ui.Text("This week's episode", "h2"));
-            _redraw = Ui.Btn(RedrawLabel(), Redraw, "btn-ghost");
-            _redraw.SetEnabled(!E.HasRedrawnThisWeek && E.State.Money >= E.Config.RedrawCost);
-            offerHead.Add(_redraw);
-            offerPanel.Add(offerHead);
-            offerPanel.Add(Ui.Wrapping(
-                "Pick your angle. \"Draw\" is how many people this topic pulls in given how the week has gone. " +
-                "\"Prep needed\" is how many prep points it takes to do the topic justice.", "body", "dim"));
-            _topicList = Ui.Box();
-            offerPanel.Add(_topicList);
-            RenderTopics();
-            root.Add(offerPanel);
+            // the rundown — three segment slots
+            root.Add(BuildRundownPanel());
 
             // cards — a step in the weekly loop: play up to a couple to shape this episode
             root.Add(BuildWeeklyCardsPanel());
 
-            // production
-            _prepBlock = Ui.Box("panel");
-            _prepBlock.style.display = DisplayStyle.None;
-            _prepBlock.Add(Ui.Text("Production", "h2"));
-            _prepBlock.Add(Ui.Wrapping(
-                $"You get {st.PrepCapacity(E.Config)} prep points this week. Spend them across the four areas below. " +
-                "Unspent points are wasted.", "body", "dim"));
-            _prepMeter = Ui.Text("", "prep-meter");
-            _prepBlock.Add(_prepMeter);
-            _prepBlock.Add(Slider("Topic prep", "The homework for this episode. Hit the topic's \"prep needed\" to do it justice; go over for a small extra edge.",
-                () => _plan.PrepTopic, v => _plan.PrepTopic = v));
-            _prepBlock.Add(Slider("Research", "Fact-checking and prep depth. Makes the outcome less of a gamble — a shaky topic becomes a safer bet.",
-                () => _plan.PrepResearch, v => _plan.PrepResearch = v));
-            _prepBlock.Add(Slider("Audio", "Editing and sound. Lifts the episode and keeps listeners from drifting away.",
-                () => _plan.PrepAudio, v => _plan.PrepAudio = v));
-            _prepBlock.Add(Slider("Promo", "Pushing this one episode — clips, posts, plugs. A one-week bump in reach, nothing lasting.",
-                () => _plan.PrepPromo, v => _plan.PrepPromo = v));
-            _prepBlock.Add(Ui.Divider());
-            _previewBlock = Ui.Box();
-            _prepBlock.Add(_previewBlock);
-            root.Add(_prepBlock);
+            // production levers
+            root.Add(BuildLeversPanel());
 
             _publish = Ui.Btn("Record & release", Publish, "btn-primary");
             _host.Theme.PaintPrimaryButton(_publish);
@@ -341,13 +307,8 @@ namespace PodcastTycoon.Game
             _publish.SetEnabled(false);
             root.Add(_publish);
 
-            // restore selection on a re-render (e.g. after buying gear on Business)
-            if (_picked != null)
-            {
-                _prepBlock.style.display = DisplayStyle.Flex;
-                SyncSliders();
-                RefreshPreview();
-            }
+            SyncSliders();
+            RefreshPreview();
         }
 
         // ================================================================
@@ -618,12 +579,13 @@ namespace PodcastTycoon.Game
             var week = Ui.Box("panel");
             week.Add(Ui.Text("THE WEEK", "eyebrow"));
             week.Add(Ui.Wrapping(
-                "Every week your club plays. You see the result and how surprising it was, then you make one episode about it.\n" +
+                "Every week your club plays. You see the result and how surprising it was, then you build that week's episode.\n" +
                 "1. Deal with anything waiting — an interrupt event, a scoop, a big decision.\n" +
-                "2. Pick a topic. Each has a \"draw\" (how many people it pulls in this week) and a \"prep needed\".\n" +
-                "3. Optionally play a card or two to shape the episode.\n" +
-                "4. Split your prep points between the topic and three levers — research, audio, promo.\n" +
-                "5. Release it. The result is a surprise until it's out.\n" +
+                "2. Build the rundown: a main story, a second segment and a small recurring bit. Second and recurring can be left empty for a lighter week.\n" +
+                "3. For each segment, pick a topic and an angle. The angle — analysis, hot take, emotional, comedy, investigation — decides how it lands: reach, risk, and what it does to your reputation and credibility.\n" +
+                "4. Optionally play a card or two.\n" +
+                "5. Split your prep points across the segments and the three levers — research, audio, promo.\n" +
+                "6. Release it. The result is a surprise until it's out.\n" +
                 "Spend what you earn on gear, crew and a co-host. Keep money above water. Grow the audience.", "body"));
             root.Add(week);
 
@@ -651,7 +613,9 @@ namespace PodcastTycoon.Game
                 gloss.Add(Ui.Wrapping(d, "body", "dim"));
                 gloss.Add(Ui.Divider());
             }
-            Term("Draw", "How many listeners a topic pulls in this week, before quality. Shifts with the result, the fixture and story context.");
+            Term("Rundown", "The three segments that make up the episode — main story, second segment, recurring bit. The main carries most of the reach; the recurring bit is small but it builds the show's identity over time.");
+            Term("Angle", "How a segment covers its topic. Analysis is safe and builds credibility. Hot take is loud — big reach, but it burns credibility. Emotional lands on a big result. Comedy drives clips. Investigation digs in (needs a Researcher or insider access).");
+            Term("Draw", "How many listeners a topic pulls in this week, before quality. Shifts with the result, the fixture, the angle and story context.");
             Term("Prep needed", "The prep points it takes to cover a topic properly. Under it and the episode sounds thin; a point or two over gives a small edge.");
             Term("Risk", "How much the outcome can swing. Research prep narrows it — a gamble becomes a safer bet.");
             Term("Surprise", "How far the match result landed from what was expected. Drives the mood you're reacting to and which topics land.");
@@ -992,122 +956,183 @@ namespace PodcastTycoon.Game
             return panel;
         }
 
-        // ------------------------------------------------------------------
-        void RenderTopics()
+        // ================================================================
+        // The rundown — three segment slots, each a topic + an angle (spec §7)
+        // ================================================================
+        VisualElement BuildRundownPanel()
         {
-            _topicList.Clear();
+            var panel = Ui.Box("panel");
+            var head = Ui.Row();
+            head.Add(Ui.Text("This week's rundown", "h2"));
+            _redraw = Ui.Btn(RedrawLabel(), Redraw, "btn-ghost");
+            _redraw.SetEnabled(!E.HasRedrawnThisWeek && E.State.Money >= E.Config.RedrawCost);
+            head.Add(_redraw);
+            panel.Add(head);
+            panel.Add(Ui.Wrapping(
+                "Build the show from three segments. The main story carries most of the reach; the recurring bit is small " +
+                "but it's what gives the show its identity. Pick a topic and an angle for each — the angle decides how it lands.",
+                "body", "dim"));
+
+            panel.Add(BuildSlotCard(_plan.Main, "MAIN STORY", canBeEmpty: false));
+            panel.Add(BuildSlotCard(_plan.Second, "SECOND SEGMENT", canBeEmpty: true));
+            panel.Add(BuildSlotCard(_plan.Recurring, "RECURRING BIT", canBeEmpty: true));
+            return panel;
+        }
+
+        VisualElement BuildSlotCard(Segment seg, string label, bool canBeEmpty)
+        {
+            var st = E.State;
+            var ctx = E.CurrentWeek;
+            var card = Ui.Box("panel", "panel-tight");
+            card.Add(Ui.Text(label, "eyebrow"));
+
+            // --- topic picker ---
+            var topicRow = Ui.Box("row-wrap");
+            if (canBeEmpty)
+            {
+                var none = Ui.Btn("— none —", () => { seg.Clear(); _host.RerenderWeek(); }, "btn-ghost");
+                if (seg.IsEmpty) none.AddToClassList("btn-primary");
+                topicRow.Add(none);
+            }
             foreach (var topic in E.Offer)
             {
-                var card = Ui.Box("topiccard");
-                bool isThread = topic.SourceThread != null;
-                if (ReferenceEquals(_picked, topic)) card.AddToClassList("selected");
-
-                var titleRow = Ui.Row();
-                titleRow.Add(Ui.Text(topic.Name, "topiccard-title"));
-                if (isThread)
-                {
-                    var tag = Ui.Text("STORY", "chip");
-                    tag.AddToClassList("chip-story");
-                    titleRow.Add(tag);
-                }
-                card.Add(titleRow);
-                card.Add(Ui.Wrapping(topic.Blurb, "body", "dim"));
-
-                float ctxMult = ContextResolver.AppealMultiplier(topic.Response, E.CurrentWeek) * E.CurrentWeek.ImportanceAppealMult;
-                float effAppeal = topic.BaseAppeal * ctxMult;
-
-                var chips = Ui.Box("row-wrap");
-                chips.Add(Ui.Chip("Draw this week: " + DrawLabel(effAppeal)));
-                chips.Add(Ui.Chip($"Prep needed: {topic.Effort}"));
-                chips.Add(Ui.Chip(RiskLabel(topic.Swing)));
-                if (topic.RepEarn >= 2) chips.Add(Ui.Chip("Builds reputation"));
-                else if (topic.RepEarn <= -1) chips.Add(Ui.Chip("Costs reputation"));
-                if (topic.SocialHook >= 3) chips.Add(Ui.Chip("Gets shared"));
-                card.Add(chips);
-
-                if (isThread)
-                {
-                    var thread = topic.SourceThread;
-                    card.Add(Ui.Wrapping(thread.StanceQuestion, "body", "dim"));
-                    var btns = Ui.Box("row-wrap");
-                    var plus = Ui.Btn(thread.StancePlusLabel, () => PickThread(topic, +1), "btn-ghost");
-                    var minus = Ui.Btn(thread.StanceMinusLabel, () => PickThread(topic, -1), "btn-ghost");
-                    if (ReferenceEquals(_picked, topic) && _plan.Stance == +1) plus.AddToClassList("btn-primary");
-                    if (ReferenceEquals(_picked, topic) && _plan.Stance == -1) minus.AddToClassList("btn-primary");
-                    btns.Add(plus);
-                    btns.Add(minus);
-                    card.Add(btns);
-                }
-                else
-                {
-                    var picked = topic;
-                    card.RegisterCallback<ClickEvent>(_ => Pick(picked));
-                }
-                _topicList.Add(card);
+                var t = topic;
+                bool selected = !seg.IsEmpty && ReferenceEquals(seg.Resolved, t);
+                var b = Ui.Btn(t.Name + (t.SourceThread != null ? "  (story)" : ""), () => AssignTopic(seg, t), "btn-ghost");
+                if (selected) b.AddToClassList("btn-primary");
+                topicRow.Add(b);
             }
-        }
+            card.Add(topicRow);
 
-        void PickThread(Topic topic, int stance)
-        {
-            _plan.Stance = stance;
-            _plan.ThreadTopic = topic;
-            _plan.Topic = default;
-            SelectTopic(topic);
-        }
-
-        void Pick(Topic topic)
-        {
-            _plan.Topic = topic.Id;
-            _plan.ThreadTopic = null;
-            _plan.Stance = 0;
-            SelectTopic(topic);
-        }
-
-        void SelectTopic(Topic topic)
-        {
-            bool changed = !ReferenceEquals(_picked, topic);
-            _picked = topic;
-
-            if (changed)
+            if (seg.IsEmpty)
             {
-                // Sensible default allocation: meet the effort, spread the rest.
-                int cap = E.State.PrepCapacity(E.Config);
-                _plan.PrepTopic = Mathf.Min(topic.Effort, cap);
-                int left = cap - _plan.PrepTopic;
-                _plan.PrepResearch = Mathf.Clamp(left / 3, 0, 6);
-                left -= _plan.PrepResearch;
-                _plan.PrepAudio = Mathf.Clamp(left / 2, 0, 6);
-                left -= _plan.PrepAudio;
-                _plan.PrepPromo = Mathf.Clamp(left, 0, 6);
+                card.Add(Ui.Wrapping("Nothing in this slot — a lighter week.", "body", "dim"));
+                return card;
             }
 
-            RenderTopics();
-            _prepBlock.style.display = DisplayStyle.Flex;
-            SyncSliders();
-            RefreshPreview();
+            var chosen = seg.Resolved;
+            card.Add(Ui.Wrapping(chosen.Blurb, "body", "dim"));
+
+            // --- thread stance ---
+            if (chosen.SourceThread != null)
+            {
+                var thr = chosen.SourceThread;
+                card.Add(Ui.Wrapping(thr.StanceQuestion, "body", "dim"));
+                var stanceRow = Ui.Box("row-wrap");
+                var plus = Ui.Btn(thr.StancePlusLabel, () => { seg.Stance = +1; _host.RerenderWeek(); }, "btn-ghost");
+                var minus = Ui.Btn(thr.StanceMinusLabel, () => { seg.Stance = -1; _host.RerenderWeek(); }, "btn-ghost");
+                if (seg.Stance == +1) plus.AddToClassList("btn-primary");
+                if (seg.Stance == -1) minus.AddToClassList("btn-primary");
+                stanceRow.Add(plus); stanceRow.Add(minus);
+                card.Add(stanceRow);
+            }
+
+            // --- angle picker ---
+            card.Add(Ui.Text("Angle", "prep-name"));
+            var angleRow = Ui.Box("row-wrap");
+            foreach (var ap in AngleCatalog.All)
+            {
+                var a = ap;
+                var b = Ui.Btn(a.Name, () => { seg.Angle = a.Id; _host.RerenderWeek(); }, "btn-ghost");
+                if (seg.Angle == a.Id) b.AddToClassList("btn-primary");
+                b.SetEnabled(AngleCatalog.Allowed(a.Id, st));
+                angleRow.Add(b);
+            }
+            card.Add(angleRow);
+            card.Add(Ui.Wrapping(AngleCatalog.Get(seg.Angle).Blurb, "body", "dim"));
+
+            // --- guest ---
+            if (st.HasCrew(Crew.Booker) || st.AccessTier >= 2)
+            {
+                var g = new Toggle("Book a guest for this segment") { value = seg.Guest };
+                g.RegisterValueChangedCallback(e => { seg.Guest = e.newValue; RefreshPreview(); });
+                card.Add(g);
+            }
+
+            // --- per-segment topic prep ---
+            card.Add(SegPrepSlider(seg));
+
+            // --- read ---
+            var ang = AngleCatalog.Get(seg.Angle);
+            float ctxMult = ContextResolver.AppealMultiplier(chosen.Response, ctx) * ctx.ImportanceAppealMult;
+            float draw = chosen.BaseAppeal * ctxMult * ang.AppealMult;
+            int effort = Mathf.Max(1, chosen.Effort - CrewCatalog.EffortRelief(st.Crew));
+            var chips = Ui.Box("row-wrap");
+            chips.Add(Ui.Chip("Draw: " + DrawLabel(draw)));
+            chips.Add(Ui.Chip($"Prep needed: {effort}"));
+            chips.Add(Ui.Chip(RiskLabel(chosen.Swing * ang.SwingMult)));
+            if (ang.CredDelta >= 1.5f) chips.Add(Ui.Chip("Builds credibility"));
+            else if (ang.CredDelta <= -1f) chips.Add(Ui.Chip("Costs credibility"));
+            if (ang.SocialAdd >= 4 || chosen.SocialHook >= 3) chips.Add(Ui.Chip("Gets shared"));
+            card.Add(chips);
+
+            return card;
         }
 
-        VisualElement Slider(string name, string help, System.Func<int> get, System.Action<int> set)
+        VisualElement SegPrepSlider(Segment seg)
+        {
+            var wrap = Ui.Box();
+            wrap.style.marginTop = 4;
+            var row = Ui.Box("prep-row");
+            row.Add(Ui.Text("Prep on this segment", "prep-name"));
+            var s = new SliderInt(0, 10) { value = seg.Prep };
+            s.AddToClassList("prep-slider");
+            var val = Ui.Text(seg.Prep.ToString(), "prep-value");
+            s.RegisterValueChangedCallback(e => { seg.Prep = e.newValue; val.text = e.newValue.ToString(); RefreshPreview(); });
+            row.Add(s); row.Add(val);
+            wrap.Add(row);
+            return wrap;
+        }
+
+        void AssignTopic(Segment seg, Topic topic)
+        {
+            bool changed = seg.IsEmpty || !ReferenceEquals(seg.Resolved, topic);
+            seg.Set(topic, topic.SourceThread != null ? (topic.SourceThread.Momentum >= 0f ? 1 : -1) : 0);
+            if (changed && seg.Prep == 0)
+            {
+                int effort = Mathf.Max(1, topic.Effort - CrewCatalog.EffortRelief(E.State.Crew));
+                int room = Mathf.Max(0, E.State.PrepCapacity(E.Config) - _plan.TotalPrep);
+                seg.Prep = Mathf.Min(effort, room);
+            }
+            _host.RerenderWeek();
+        }
+
+        VisualElement BuildLeversPanel()
+        {
+            var st = E.State;
+            _prep.Clear();
+            _leversBlock = Ui.Box("panel");
+            _leversBlock.Add(Ui.Text("Production", "h2"));
+            _leversBlock.Add(Ui.Wrapping(
+                $"You have {st.PrepCapacity(E.Config)} prep points this week, shared across the segments above and the three levers below. " +
+                "Unspent points are wasted.", "body", "dim"));
+            _prepMeter = Ui.Text("", "prep-meter");
+            _leversBlock.Add(_prepMeter);
+            _leversBlock.Add(Lever("Research", "Fact-checking and depth. Narrows the swing on every segment — a gamble becomes a safer bet.",
+                () => _plan.PrepResearch, v => _plan.PrepResearch = v));
+            _leversBlock.Add(Lever("Audio", "Editing and sound. Lifts every segment and keeps listeners from drifting away.",
+                () => _plan.PrepAudio, v => _plan.PrepAudio = v));
+            _leversBlock.Add(Lever("Promo", "Pushing this one episode — clips, posts, plugs. A one-week bump in reach, nothing lasting.",
+                () => _plan.PrepPromo, v => _plan.PrepPromo = v));
+            _leversBlock.Add(Ui.Divider());
+            _previewBlock = Ui.Box();
+            _leversBlock.Add(_previewBlock);
+            return _leversBlock;
+        }
+
+        VisualElement Lever(string name, string help, System.Func<int> get, System.Action<int> set)
         {
             var wrap = Ui.Box();
             wrap.style.marginBottom = 8;
-
             var row = Ui.Box("prep-row");
             row.Add(Ui.Text(name, "prep-name"));
-            var s = new SliderInt(0, 10) { value = get() };
+            var s = new SliderInt(0, 8) { value = get() };
             s.AddToClassList("prep-slider");
             var val = Ui.Text(get().ToString(), "prep-value");
-            s.RegisterValueChangedCallback(e =>
-            {
-                set(e.newValue);
-                val.text = e.newValue.ToString();
-                RefreshPreview();
-            });
-            row.Add(s);
-            row.Add(val);
+            s.RegisterValueChangedCallback(e => { set(e.newValue); val.text = e.newValue.ToString(); RefreshPreview(); });
+            row.Add(s); row.Add(val);
             wrap.Add(row);
             wrap.Add(Ui.Wrapping(help, "body", "dim"));
-
             _prep.Add(new PrepControl { Slider = s, Value = val, Get = get });
             return wrap;
         }
@@ -1123,27 +1148,31 @@ namespace PodcastTycoon.Game
 
         void RefreshPreview()
         {
+            if (_prepMeter == null || _publish == null) return;
             int cap = E.State.PrepCapacity(E.Config);
             int used = _plan.TotalPrep;
             _prepMeter.text = $"Prep points spent   {used} / {cap}";
             _prepMeter.EnableInClassList("over", used > cap);
 
-            _previewBlock.Clear();
-            bool ok = _picked != null && used <= cap && used > 0
+            _previewBlock?.Clear();
+            bool ok = !_plan.Main.IsEmpty && used <= cap && used > 0
                       && E.Events.Pending == null && E.Scoops.Pending == null && !E.State.BuyoutPending;
             _publish.SetEnabled(ok);
 
-            if (_picked == null) return;
-            var topic = _picked;
+            if (_previewBlock == null) return;
 
-            // A read on your *choice* — not on the outcome. The result is still a surprise.
-            string prepNote;
-            if (_plan.PrepTopic <= 0) prepNote = "You've put no real prep into the topic itself — this will sound thin.";
-            else if (_plan.PrepTopic < topic.Effort - 1) prepNote = "Well under-prepped on the topic.";
-            else if (_plan.PrepTopic < topic.Effort) prepNote = "A touch under-prepped on the topic.";
-            else if (_plan.PrepTopic == topic.Effort) prepNote = "Topic is properly prepped.";
-            else prepNote = "You've gone deep on the topic.";
-            _previewBlock.Add(Ui.Wrapping(prepNote, "body", "dim"));
+            if (_plan.Main.IsEmpty)
+            {
+                _previewBlock.Add(Ui.Wrapping("Pick a main story to build the episode around.", "body", "dim"));
+                return;
+            }
+
+            int filled = 0;
+            foreach (var s in _plan.FilledSlots) filled++;
+            _previewBlock.Add(Ui.Wrapping(
+                filled == 1 ? "A single-segment episode — lean, but it leaves reach on the table."
+                : filled == 2 ? "Two segments. A solid show."
+                : "A full three-segment rundown.", "body", "dim"));
 
             if (used > cap)
                 _previewBlock.Add(Ui.Wrapping("You've allocated more prep points than you have this week.", "body", "bad"));
@@ -1170,9 +1199,10 @@ namespace PodcastTycoon.Game
         {
             if (E.TryRedraw())
             {
-                _picked = null;
-                _plan.ThreadTopic = null;
-                _plan.PrepTopic = _plan.PrepResearch = _plan.PrepAudio = _plan.PrepPromo = 0;
+                _plan.Main.Clear();
+                _plan.Second.Clear();
+                _plan.Recurring.Clear();
+                _plan.PrepResearch = _plan.PrepAudio = _plan.PrepPromo = 0;
                 _host.RerenderWeek();
             }
             else
@@ -1185,7 +1215,7 @@ namespace PodcastTycoon.Game
 
         void Publish()
         {
-            if (_picked == null) return;
+            if (_plan.Main.IsEmpty) return;
             _host.Publish(_plan.Clone());
         }
 
@@ -1193,12 +1223,12 @@ namespace PodcastTycoon.Game
         public void DebugPickFirst()
         {
             if (_activeTab != 0) SwitchTab(0);
-            if (E.Offer.Count > 0) Pick(E.Offer[0]);
+            if (E.Offer.Count > 0) { _plan.Main.Set(E.Offer[0], 1); _plan.Main.Prep = 5; }
         }
 
         public void DebugPublish()
         {
-            if (_picked != null) _host.Publish(_plan.Clone());
+            if (!_plan.Main.IsEmpty) _host.Publish(_plan.Clone());
         }
 
         // ------------------------------------------------------------------

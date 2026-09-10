@@ -13,7 +13,14 @@ namespace PodcastTycoon.Core
         public float StartReputation = 10f;
         public float StartCredibility = 50f;
         public float StartSocialReach = 5f;
-        public int PrepBase = 10;
+        public int PrepBase = 12;
+
+        // --- the rundown (spec §7): three segment slots, reach split by weight ---
+        public float SlotWeightMain = 0.60f;
+        public float SlotWeightSecond = 0.30f;
+        public float SlotWeightRecurring = 0.10f;
+        public float GuestAppealBonus = 0.15f;
+        public int GuestSocialBonus = 3;
 
         // --- listener model ---
         public float ChurnRate = 0.045f;

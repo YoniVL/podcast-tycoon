@@ -231,7 +231,7 @@ namespace PodcastTycoon.Core
 
             foreach (var t in catalog)
             {
-                if (offer.Count >= 3) break;
+                if (offer.Count >= 6) break;
                 offer.Add(t);
             }
 
@@ -266,8 +266,10 @@ namespace PodcastTycoon.Core
         {
             var result = _resolution.Resolve(State, CurrentWeek, plan, _rng);
 
-            if (plan.ThreadTopic?.SourceThread != null)
-                Threads.MarkCovered(plan.ThreadTopic.SourceThread, result.Quality, plan.Stance);
+            // Any slot can carry a story-thread topic (spec §7).
+            foreach (var seg in plan.FilledSlots)
+                if (seg.ThreadTopic?.SourceThread != null)
+                    Threads.MarkCovered(seg.ThreadTopic.SourceThread, result.Quality, seg.Stance);
 
             Scoops.ConsumeBrokenTopic();
 

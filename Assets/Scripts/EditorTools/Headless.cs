@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text;
 using PodcastTycoon.Core;
 using UnityEditor;
@@ -97,8 +98,7 @@ namespace PodcastTycoon.EditorTools
                 if (engine.State.Money > 350 && engine.CanBuy(Gear.AcousticPanels)) engine.BuyGear(Gear.AcousticPanels);
                 if (engine.State.Money > 650 && engine.CanHireCoHost()) engine.HireCoHost();
 
-                Topic pick = ChooseTopic(engine, ctx, greedy);
-                var plan = Plan(engine, pick);
+                var plan = BuildRundown(engine, ctx, greedy, out Topic pick);
 
                 string fixtureText;
                 string surprise;
@@ -136,40 +136,65 @@ namespace PodcastTycoon.EditorTools
             Debug.Log("[Headless]\n" + sb);
         }
 
-        static Topic ChooseTopic(Engine engine, WeekContext ctx, bool greedy)
+        static float Score(Topic t, WeekContext ctx, bool greedy)
         {
-            Topic best = null;
-            float bestScore = float.MinValue;
-            foreach (var t in engine.Offer)
+            float score = t.BaseAppeal * ContextResolver.AppealMultiplier(t.Response, ctx);
+            if (t.SourceThread != null) score += 0.5f;
+            if (!greedy)
             {
-                float appeal = t.BaseAppeal * ContextResolver.AppealMultiplier(t.Response, ctx);
-                float score = appeal;
-                if (t.SourceThread != null) score += 0.5f; // a running story is worth covering
-                if (!greedy)
-                {
-                    // Value reputation; only pick a hot take when the week is genuinely bad.
-                    score += t.RepEarn * 0.25f;
-                    if (t.Response == TopicResponse.Crisis && ctx.Surprise > Surprise.Poor)
-                        score -= 1.5f;
-                }
-                if (score > bestScore) { bestScore = score; best = t; }
+                score += t.RepEarn * 0.25f + t.CredHook * 0.2f;
+                if (t.Response == TopicResponse.Crisis && ctx.Surprise > Surprise.Poor) score -= 1.5f;
             }
-            return best;
+            return score;
         }
 
-        static ProductionPlan Plan(Engine engine, Topic pick)
+        // Build a three-segment rundown (spec §7): a main story, a second segment, a cheap
+        // recurring bit, with angles that fit the strategy.
+        static ProductionPlan BuildRundown(Engine engine, WeekContext ctx, bool greedy, out Topic headline)
         {
-            int cap = engine.State.PrepCapacity(engine.Config);
-            // On a story, back whichever way it's already trending.
-            int stance = pick.SourceThread != null ? (pick.SourceThread.Momentum >= 0f ? 1 : -1) : 0;
-            var plan = ProductionPlan.Cover(pick, stance);
-            plan.PrepTopic = Mathf.Min(pick.Effort + 1, cap);
-            int left = cap - plan.PrepTopic;
+            var st = engine.State;
+            int cap = st.PrepCapacity(engine.Config);
+            var offer = engine.Offer.OrderByDescending(t => Score(t, ctx, greedy)).ToList();
+
+            var plan = new ProductionPlan();
+            Topic main = offer.FirstOrDefault();
+            headline = main;
+            if (main == null) return plan;
+
+            plan.Main.Set(main, main.SourceThread != null ? (main.SourceThread.Momentum >= 0f ? 1 : -1) : 0);
+            plan.Main.Angle = greedy && (ctx.Surprise <= Surprise.Poor || st.Reputation >= 15f)
+                ? Angle.HotTake : Angle.Analysis;
+
+            Topic second = offer.Skip(1).FirstOrDefault(t => !ReferenceEquals(t, main));
+            if (second != null)
+            {
+                plan.Second.Set(second, second.SourceThread != null ? (second.SourceThread.Momentum >= 0f ? 1 : -1) : 0);
+                plan.Second.Angle = greedy ? Angle.Emotional : Angle.Analysis;
+            }
+
+            Topic rec = offer.FirstOrDefault(t => t.Id == TopicId.Mailbag || t.Id == TopicId.TierList || t.Id == TopicId.Explainer)
+                        ?? offer.FirstOrDefault(t => !ReferenceEquals(t, main) && !ReferenceEquals(t, second));
+            if (rec != null && !ReferenceEquals(rec, main) && !ReferenceEquals(rec, second))
+            {
+                plan.Recurring.Set(rec);
+                plan.Recurring.Angle = greedy ? Angle.Comedy : Angle.Analysis;
+            }
+
+            // Meet each segment's effort, then spread whatever's left across the levers.
+            int relief = CrewCatalog.EffortRelief(st.Crew);
+            foreach (var seg in plan.FilledSlots)
+                seg.Prep = Math.Max(1, seg.Resolved.Effort - relief);
+            int left = cap - plan.TopicPrep;
             plan.PrepResearch = Mathf.Clamp(left / 3, 0, 4);
             left -= plan.PrepResearch;
             plan.PrepAudio = Mathf.Clamp(left / 2, 0, 4);
             left -= plan.PrepAudio;
             plan.PrepPromo = Mathf.Max(0, left);
+
+            // If we overspent on topics, trim the recurring bit first.
+            while (plan.TotalPrep > cap && plan.Recurring.Prep > 0) plan.Recurring.Prep--;
+            while (plan.TotalPrep > cap && plan.Second.Prep > 0) plan.Second.Prep--;
+            while (plan.TotalPrep > cap && plan.Main.Prep > 1) plan.Main.Prep--;
             return plan;
         }
     }
