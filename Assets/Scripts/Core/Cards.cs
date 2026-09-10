@@ -112,7 +112,7 @@ namespace PodcastTycoon.Core
 
         public void GrantMilestoneReward(Engine engine, int milestoneValue, WeekContext ctx)
         {
-            int n = milestoneValue >= 2500 ? 3 : 1;
+            int n = milestoneValue >= engine.Config.GoalListeners ? 3 : milestoneValue >= 2500 ? 2 : 1;
             for (int i = 0; i < n; i++) AddCard(engine, ctx, Draw(engine.State.Reputation));
         }
 

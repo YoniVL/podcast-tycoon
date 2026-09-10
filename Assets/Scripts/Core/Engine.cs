@@ -106,6 +106,9 @@ namespace PodcastTycoon.Core
             Rivals.OnSeasonStart(Calendar);
             State.InEuropeThisSeason = Calendar.InEurope;
 
+            // A card in hand from the start, so the mechanic is visible in week one.
+            State.Hand.Add("all_nighter");
+
             _seasonStartListeners = State.Listeners;
             _seasonStartRep = State.Reputation;
         }
@@ -339,8 +342,7 @@ namespace PodcastTycoon.Core
                     Message = MilestoneMessage(value)
                 });
 
-                if (value >= Config.GoalListeners)
-                    Cards.GrantMilestoneReward(this, value, CurrentWeek);
+                Cards.GrantMilestoneReward(this, value, CurrentWeek);
 
                 if (value == Config.BuyoutListeners && !State.BuyoutResolved)
                 {

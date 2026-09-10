@@ -153,6 +153,7 @@ namespace PodcastTycoon.Tests
         {
             var e = NewEngine(9);
             e.BeginWeek();
+            e.State.Hand.Clear();
             e.State.Hand.Add("genius_appointment");
             float before = e.State.TeamStrength;
             Assert.That(e.PlayCard("genius_appointment"), Is.True);
