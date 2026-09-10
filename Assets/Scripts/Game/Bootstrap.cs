@@ -14,6 +14,7 @@ namespace PodcastTycoon.Game
     {
         [SerializeField] int _rngSeed = 0; // 0 => random
         [SerializeField] StyleSheet _styleSheet;
+        [SerializeField] PanelSettings _panelSettings;
 
         UIDocument _document;
         VisualElement _app;
@@ -28,6 +29,8 @@ namespace PodcastTycoon.Game
         void Start()
         {
             _document = GetComponent<UIDocument>();
+            if (_document.panelSettings == null && _panelSettings != null)
+                _document.panelSettings = _panelSettings;
             var root = _document.rootVisualElement;
             if (_styleSheet != null && !root.styleSheets.Contains(_styleSheet))
                 root.styleSheets.Add(_styleSheet);

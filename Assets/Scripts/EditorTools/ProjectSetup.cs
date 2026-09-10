@@ -81,8 +81,14 @@ namespace PodcastTycoon.EditorTools
             var go = GameObject.Find("Game") ?? new GameObject("Game");
 
             var doc = go.GetComponent<UIDocument>() ?? go.AddComponent<UIDocument>();
-            doc.panelSettings = panelSettings;
             doc.visualTreeAsset = uxml;
+            // Assign panelSettings through SerializedObject — the plain property setter
+            // does not always flush to the serialized scene.
+            var docSo = new SerializedObject(doc);
+            docSo.FindProperty("m_PanelSettings").objectReferenceValue = panelSettings;
+            var srcProp = docSo.FindProperty("sourceAsset");
+            if (srcProp != null && uxml != null) srcProp.objectReferenceValue = uxml;
+            docSo.ApplyModifiedPropertiesWithoutUndo();
 
             var bootstrap = go.GetComponent<Bootstrap>() ?? go.AddComponent<Bootstrap>();
             var uss = AssetDatabase.LoadAssetAtPath<StyleSheet>("Assets/UI/PodcastTycoon.uss");
@@ -91,7 +97,11 @@ namespace PodcastTycoon.EditorTools
                 var so = new SerializedObject(bootstrap);
                 var prop = so.FindProperty("_styleSheet");
                 if (prop != null) { prop.objectReferenceValue = uss; so.ApplyModifiedPropertiesWithoutUndo(); }
+                var psProp = so.FindProperty("_panelSettings");
+                if (psProp != null) { psProp.objectReferenceValue = panelSettings; so.ApplyModifiedPropertiesWithoutUndo(); }
             }
+            EditorUtility.SetDirty(doc);
+            EditorUtility.SetDirty(bootstrap);
 
             if (Camera.main == null)
             {
