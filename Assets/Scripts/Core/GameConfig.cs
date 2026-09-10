@@ -145,5 +145,6 @@ namespace PodcastTycoon.Core
         // --- cards & packs (slice 3E) ---
         public int PackCostBuzz = 60;
         public int CardHandLimit = 5;
+        public int CardPlaysPerWeek = 2;
     }
 }

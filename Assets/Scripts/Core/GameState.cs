@@ -81,6 +81,7 @@ namespace PodcastTycoon.Core
 
         // --- cards (slice 3E) ---
         public readonly List<string> Hand = new List<string>();
+        public int CardsPlayedThisWeek;
         public float CardReachMultThisWeek = 1f;
         public int CardPrepBonusThisWeek;
         public int CardPermanentPrepBonus;

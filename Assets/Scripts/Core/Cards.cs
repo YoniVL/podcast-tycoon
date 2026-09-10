@@ -126,13 +126,17 @@ namespace PodcastTycoon.Core
             return true;
         }
 
+        public bool CanPlay(GameState st) => st.CardsPlayedThisWeek < _cfg.CardPlaysPerWeek;
+
         public bool Play(Engine engine, string cardId)
         {
             if (!engine.State.Hand.Contains(cardId)) return false;
+            if (!CanPlay(engine.State)) return false;
             var card = Get(cardId);
             if (card == null) return false;
             card.Apply(engine);
             engine.State.Hand.Remove(cardId);
+            engine.State.CardsPlayedThisWeek++;
             return true;
         }
 

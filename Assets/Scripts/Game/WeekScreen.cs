@@ -292,25 +292,6 @@ namespace PodcastTycoon.Game
                 root.Add(note);
             }
 
-            // cards in hand — quick-play to buff this episode
-            if (st.Hand.Count > 0)
-            {
-                var handPanel = Ui.Box("panel");
-                handPanel.Add(Ui.Text("Cards in hand", "h2"));
-                handPanel.Add(Ui.Wrapping("Play a card before you record to shape this week's episode. Full descriptions on Business.", "body", "dim"));
-                var wrap = Ui.Box("row-wrap");
-                foreach (var id in st.Hand.ToArray())
-                {
-                    var card = CardManager.Get(id);
-                    if (card == null) continue;
-                    string cid = id;
-                    var b = Ui.Btn(card.Name, () => { E.PlayCard(cid); _host.RerenderWeek(); }, "btn-ghost");
-                    wrap.Add(b);
-                }
-                handPanel.Add(wrap);
-                root.Add(handPanel);
-            }
-
             // topic offer
             var offerPanel = Ui.Box("panel");
             var offerHead = Ui.Row();
@@ -326,6 +307,9 @@ namespace PodcastTycoon.Game
             offerPanel.Add(_topicList);
             RenderTopics();
             root.Add(offerPanel);
+
+            // cards — a step in the weekly loop: play up to a couple to shape this episode
+            root.Add(BuildWeeklyCardsPanel());
 
             // production
             _prepBlock = Ui.Box("panel");
@@ -480,33 +464,83 @@ namespace PodcastTycoon.Game
             return panel;
         }
 
-        VisualElement BuildCardsPanel()
+        // Shown on This Week as a step in the loop.
+        VisualElement BuildWeeklyCardsPanel()
         {
             var st = E.State;
+            int left = Mathf.Max(0, E.Config.CardPlaysPerWeek - st.CardsPlayedThisWeek);
+
             var panel = Ui.Box("panel");
             var head = Ui.Row();
             head.Add(Ui.Text("Cards", "h2"));
-            var buy = Ui.Btn($"Buy pack  ({E.Config.PackCostBuzz} Buzz)", () => { E.BuyPack(); _host.RerenderWeek(); }, "btn-ghost");
-            buy.SetEnabled(E.Cards.CanBuyPack(st));
-            head.Add(buy);
+            if (E.Cards.CanBuyPack(st))
+            {
+                var buy = Ui.Btn($"Buy pack  ({E.Config.PackCostBuzz} Buzz)", () => { E.BuyPack(); _host.RerenderWeek(); }, "btn-ghost");
+                head.Add(buy);
+            }
             panel.Add(head);
 
             if (st.Hand.Count == 0)
             {
-                panel.Add(Ui.Wrapping("No cards in hand. You get them from milestones, or buy a 3-card pack with Buzz.", "body", "dim"));
+                panel.Add(Ui.Wrapping(
+                    "No cards right now. You get one at every listener milestone, or buy a 3-card pack with Buzz.", "body", "dim"));
                 return panel;
             }
-            panel.Add(Ui.Wrapping($"Hand: {st.Hand.Count}/{E.Config.CardHandLimit}. One-shot cards buff the current episode; permanent cards change the club or the show for good.", "body", "dim"));
+
+            panel.Add(Ui.Wrapping(
+                left > 0
+                    ? $"Play up to {left} this week to shape the episode you're about to record. One-shots affect this week only; permanent cards stick."
+                    : "You've played your cards for this week.", "body", "dim"));
+
             foreach (var id in st.Hand.ToArray())
             {
                 var card = CardManager.Get(id);
                 if (card == null) continue;
                 string cid = id;
                 var box = Ui.Box("topiccard");
-                box.Add(Ui.Text(card.Name + (card.Kind == CardKind.Permanent ? "  · permanent" : ""), "topiccard-title"));
+                box.Add(Ui.Text(card.Name + (card.Kind == CardKind.Permanent ? "   · permanent" : ""), "topiccard-title"));
                 box.Add(Ui.Wrapping(card.Text, "body", "dim"));
                 var play = Ui.Btn("Play", () => { E.PlayCard(cid); _host.RerenderWeek(); }, "btn-ghost");
                 play.style.marginTop = 4;
+                play.SetEnabled(left > 0 && E.Events.Pending == null && E.Scoops.Pending == null);
+                box.Add(play);
+                panel.Add(box);
+            }
+            return panel;
+        }
+
+        // Business-tab view: the pack shop plus a read-only look at the hand.
+        VisualElement BuildCardsPanel()
+        {
+            var st = E.State;
+            var panel = Ui.Box("panel");
+            var head = Ui.Row();
+            head.Add(Ui.Text("Cards & packs", "h2"));
+            var buy = Ui.Btn($"Buy pack  ({E.Config.PackCostBuzz} Buzz)", () => { E.BuyPack(); _host.RerenderWeek(); }, "btn-ghost");
+            buy.SetEnabled(E.Cards.CanBuyPack(st));
+            head.Add(buy);
+            panel.Add(head);
+
+            panel.Add(Ui.Wrapping(
+                $"Hand: {st.Hand.Count}/{E.Config.CardHandLimit}. You play cards on This Week, up to {E.Config.CardPlaysPerWeek} a week. " +
+                "Cards come from milestones or a 3-card pack for Buzz.", "body", "dim"));
+
+            if (st.Hand.Count == 0)
+            {
+                panel.Add(Ui.Wrapping("No cards in hand.", "body", "dim"));
+                return panel;
+            }
+            foreach (var id in st.Hand.ToArray())
+            {
+                var card = CardManager.Get(id);
+                if (card == null) continue;
+                string cid = id;
+                var box = Ui.Box("topiccard");
+                box.Add(Ui.Text(card.Name + (card.Kind == CardKind.Permanent ? "   · permanent" : ""), "topiccard-title"));
+                box.Add(Ui.Wrapping(card.Text, "body", "dim"));
+                var play = Ui.Btn("Play now", () => { E.PlayCard(cid); _host.RerenderWeek(); }, "btn-ghost");
+                play.style.marginTop = 4;
+                play.SetEnabled(E.Cards.CanPlay(st) && E.Events.Pending == null && E.Scoops.Pending == null);
                 box.Add(play);
                 panel.Add(box);
             }
@@ -583,10 +617,12 @@ namespace PodcastTycoon.Game
             week.Add(Ui.Text("THE WEEK", "eyebrow"));
             week.Add(Ui.Wrapping(
                 "Every week your club plays. You see the result and how surprising it was, then you make one episode about it.\n" +
-                "1. Pick a topic. Each has a \"draw\" (how many people it pulls in this week) and a \"prep needed\".\n" +
-                "2. Split your prep points between the topic and three levers — research, audio, promo.\n" +
-                "3. Release it. The result is a surprise until it's out.\n" +
-                "Spend what you earn on gear and a co-host. Keep money above water. Grow the audience.", "body"));
+                "1. Deal with anything waiting — an interrupt event, a scoop, a big decision.\n" +
+                "2. Pick a topic. Each has a \"draw\" (how many people it pulls in this week) and a \"prep needed\".\n" +
+                "3. Optionally play a card or two to shape the episode.\n" +
+                "4. Split your prep points between the topic and three levers — research, audio, promo.\n" +
+                "5. Release it. The result is a surprise until it's out.\n" +
+                "Spend what you earn on gear, crew and a co-host. Keep money above water. Grow the audience.", "body"));
             root.Add(week);
 
             var numbers = Ui.Box("panel");

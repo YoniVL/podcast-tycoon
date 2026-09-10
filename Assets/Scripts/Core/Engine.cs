@@ -119,6 +119,7 @@ namespace PodcastTycoon.Core
         public WeekContext BeginWeek()
         {
             HasRedrawnThisWeek = false;
+            State.CardsPlayedThisWeek = 0;
             State.CardReachMultThisWeek = 1f;
             State.CardPrepBonusThisWeek = 0;
             State.CardQualityBonusThisWeek = 0f;
