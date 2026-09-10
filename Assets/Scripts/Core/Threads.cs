@@ -130,14 +130,16 @@ namespace PodcastTycoon.Core
             }
         }
 
-        /// <summary>Called from Engine.Publish when the player covered a thread topic.</summary>
+        /// <summary>
+        /// Called from Engine.Publish when the player covered a thread topic.
+        /// The result of the story is driven by the football; your coverage is a small nudge, and
+        /// mostly it decides whether you're on the story when it pays off.
+        /// </summary>
         public void MarkCovered(StoryThread t, float quality)
         {
             t.WeeksSinceCovered = 0;
             t.TimesCovered++;
-            // Doing it well pushes toward the positive outcome; a weak episode barely moves it.
-            float delta = 0.04f + MathX.Clamp((quality - 0.9f) * 0.30f, -0.15f, 0.20f);
-            t.Momentum = MathX.Clamp(t.Momentum + delta, -1f, 1f);
+            t.Momentum = MathX.Clamp(t.Momentum + MathX.Clamp((quality - 1.0f) * 0.10f, -0.04f, 0.06f), -1f, 1f);
         }
 
         int Losses(int lastN)
@@ -230,9 +232,6 @@ namespace PodcastTycoon.Core
             if (ctx.Match != null)
                 t.Momentum = MathX.Clamp(t.Momentum + ResultMomentum(t.Kind, ctx.Match.Outcome), -1f, 1f);
 
-            if (t.WeeksSinceCovered >= 3 && t.WeeksInStage > 1)
-                t.Momentum = MathX.Clamp(t.Momentum - 0.05f, -1f, 1f);
-
             switch (t.Kind)
             {
                 case ThreadKind.ManagerPressure: AdvanceManager(engine, ctx, t); break;
@@ -283,7 +282,7 @@ namespace PodcastTycoon.Core
             t.Resolved = true;
             t.OutcomeText = body;
             _cooldown = 3;
-            _kindCooldown[t.Kind] = t.Kind == ThreadKind.ManagerPressure ? 8 : 6;
+            _kindCooldown[t.Kind] = t.Kind == ThreadKind.ManagerPressure ? 13 : 8;
             var e = new ThreadEvent { Kind = t.Kind, Headline = headline, Body = body, IsResolution = true };
             _ctx?.ThreadEvents.Add(e);
             ThreadResolved?.Invoke(e);
@@ -297,11 +296,11 @@ namespace PodcastTycoon.Core
 
             if (t.Momentum > 0.42f || (timeout && t.Momentum > -0.05f))
             {
-                st.Reputation = MathX.Clamp(st.Reputation + (t.TimesCovered > 0 ? 3f : 1f), 0f, 100f);
-                st.Buzz += 6;
+                st.Reputation = MathX.Clamp(st.Reputation + (t.TimesCovered > 0 ? 3f : -2f), 0f, 100f);
+                st.Buzz += t.TimesCovered > 0 ? 6 : 0;
                 Resolve(t, $"{t.Subject} keeps his job",
                     $"The results turned and the board has backed {t.Subject}. " +
-                    (t.TimesCovered > 0 ? "You read it right on air." : "You barely mentioned it."));
+                    (t.TimesCovered > 0 ? "You were across it all week." : "Your listeners lived through that one without you."));
                 return;
             }
 
