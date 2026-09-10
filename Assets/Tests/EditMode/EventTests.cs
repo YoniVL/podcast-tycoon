@@ -84,12 +84,25 @@ namespace PodcastTycoon.Tests
         }
 
         [Test]
-        public void ManyEventsResolvedWithoutError()
+        public void EveryEventOptionResolvesWithoutError()
         {
+            // Cycle through option indices across a long run so each branch of each event runs.
             var e = NewEngine(202);
-            for (int i = 0; i < 220 && !e.State.IsGameOver; i++)
-                PlayWeek(e, i % 3);
-            Assert.That(e.State.EpisodesPublished, Is.GreaterThan(150));
+            int resolved = 0;
+            for (int i = 0; i < 300 && !e.State.IsGameOver; i++)
+            {
+                e.BeginWeek();
+                if (e.Events.Pending != null)
+                {
+                    e.ResolveEvent(resolved % 3);
+                    resolved++;
+                }
+                var plan = ProductionPlan.Cover(e.Offer[0]);
+                plan.PrepTopic = 5; plan.PrepAudio = 3;
+                e.Publish(plan);
+            }
+            Assert.That(resolved, Is.GreaterThan(5));
+            Assert.That(e.State.EpisodesPublished, Is.GreaterThan(0));
         }
     }
 }

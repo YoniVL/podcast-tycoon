@@ -19,11 +19,18 @@ namespace PodcastTycoon.Tests
             for (int i = 0; i < weeks && !e.State.IsGameOver; i++)
             {
                 e.BeginWeek();
+                if (e.Events.Pending != null) e.ResolveEvent(e.Events.Pending.Options.Count - 1); // safe option
+
                 Topic pick = e.Offer[0];
                 if (coverThreads)
                     pick = e.Offer.FirstOrDefault(t => t.SourceThread != null) ?? e.Offer[0];
 
-                var plan = ProductionPlan.Cover(pick);
+                // When covering, argue whichever way the story is already trending (read the room).
+                int stance = pick.SourceThread != null
+                    ? (pick.SourceThread.Momentum >= 0f ? 1 : -1)
+                    : 0;
+
+                var plan = ProductionPlan.Cover(pick, stance);
                 plan.PrepTopic = 6; plan.PrepResearch = 2; plan.PrepAudio = 3;
                 e.Publish(plan);
             }

@@ -52,7 +52,8 @@ namespace PodcastTycoon.EditorTools
                 {
                     events++;
                     int n = engine.Events.Pending.Options.Count;
-                    engine.ResolveEvent(greedy ? 0 : n - 1); // greedy: the bold option; balanced: the safe one
+                    // greedy leans toward the middle option, balanced toward the last (usually the safe one)
+                    engine.ResolveEvent(greedy ? Math.Min(1, n - 1) : n - 1);
                 }
 
                 // Buy gear when comfortably in the black.
