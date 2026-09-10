@@ -51,13 +51,19 @@ namespace PodcastTycoon.Game
             return b;
         }
 
-        public static VisualElement Stat(string label, string value, string valueClass = null)
+        public static VisualElement Stat(string label, string value, string valueClass = null, string note = null)
         {
             var box = Box("stat");
             box.Add(Text(label.ToUpperInvariant(), "stat-label"));
             var v = Text(value, "stat-value");
             if (valueClass != null) v.AddToClassList(valueClass);
             box.Add(v);
+            if (!string.IsNullOrEmpty(note))
+            {
+                var n = Text(note, "stat-note");
+                n.style.whiteSpace = WhiteSpace.Normal;
+                box.Add(n);
+            }
             box.userData = v; // so callers can update it
             return box;
         }

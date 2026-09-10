@@ -95,7 +95,7 @@
     padding: 8px 12px;
     margin-right: 8px;
     margin-bottom: 8px;
-    min-width: 92px;
+    width: 148px;
 }
 
 .stat-label {
@@ -109,6 +109,13 @@
     font-size: 18px;
     -unity-font-style: bold;
     color: rgb(240, 238, 248);
+}
+
+.stat-note {
+    font-size: 10px;
+    color: rgb(150, 144, 165);
+    margin-top: 3px;
+    white-space: normal;
 }
 
 /* ---- buttons ---- */

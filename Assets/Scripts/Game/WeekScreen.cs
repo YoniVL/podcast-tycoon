@@ -60,25 +60,38 @@ namespace PodcastTycoon.Game
 
             // --- resource strip ---
             var strip = Ui.Box("statstrip");
-            strip.Add(Tip(Ui.Stat("Money", Ui.Money(st.Money), st.Money < 0 ? "bad" : null),
-                "Weekly overhead eats into this. Run three weeks below -€200 and the show is over."));
-            strip.Add(Tip(Ui.Stat("Listeners", st.Listeners.ToString("N0")),
-                "Your audience, and the score. A bigger audience reaches further next week — but growth slows as you near what the fanbase can support."));
-            strip.Add(Tip(Ui.Stat("Reputation", Mathf.RoundToInt(st.Reputation).ToString()),
-                "0-100. Built by well-made, thoughtful episodes; spent by lazy takes and cheap drama. High reputation raises the ceiling on how big the show can get."));
-            strip.Add(Tip(Ui.Stat("Buzz", st.Buzz.ToString()),
-                "Earned when an episode over-performs. For now it just pays for topic redraws; it matters more later."));
+            strip.Add(Ui.Stat("Money", Ui.Money(st.Money), st.Money < 0 ? "bad" : null,
+                "Cash. Overhead bleeds it every week."));
+            strip.Add(Ui.Stat("Listeners", st.Listeners.ToString("N0"), null,
+                "Your audience — and your score."));
+            strip.Add(Ui.Stat("Reputation", Mathf.RoundToInt(st.Reputation).ToString(), null,
+                "How respected the show is. Raises your growth ceiling."));
+            strip.Add(Ui.Stat("Buzz", st.Buzz.ToString(), null,
+                "Hype from breakout episodes. Spends on redraws."));
             scroll.Add(strip);
 
             // --- how it works (open on the very first week) ---
-            var help = new Foldout { text = "How a week works", value = st.GlobalWeek == 1 };
+            var help = new Foldout { text = "How it works", value = st.GlobalWeek == 1 };
             help.AddToClassList("help-foldout");
+            help.Add(Ui.Text("THE WEEK", "eyebrow"));
             help.Add(Ui.Wrapping(
-                "Every week your club plays. You see the result and how surprising it was, then you make one episode about it.\n\n" +
+                "Every week your club plays. You see the result and how surprising it was, then you make one episode about it.\n" +
                 "1. Pick a topic. Each has a \"draw\" (how many people it pulls in this week) and a \"prep needed\".\n" +
                 "2. Split your prep points between the topic and three levers — research, audio, promo.\n" +
-                "3. Release it. Listeners, reputation, buzz and money all move — and you won't know exactly how until it's out.\n\n" +
+                "3. Release it. The result is a surprise until it's out.\n" +
                 "Spend what you earn on gear and a co-host. Keep money above water. Grow the audience.", "body"));
+            help.Add(Ui.Divider());
+            help.Add(Ui.Text("THE NUMBERS", "eyebrow"));
+            help.Add(Ui.Wrapping(
+                "Listeners — your audience and your score. A bigger audience means every episode reaches further, " +
+                "so growth compounds — but it slows down as you approach the size the fanbase can realistically support.\n\n" +
+                "Reputation (0–100) — how seriously the show is taken. Thoughtful, well-made episodes and measured takes build it; " +
+                "lazy episodes and cheap drama burn it. It matters because a well-regarded show can grow much bigger — high reputation " +
+                "lifts the ceiling on your audience. Some topics also need a minimum reputation before you can cover them.\n\n" +
+                "Money — ad income barely covers the weekly overhead on its own, so the budget is tight until the audience is large. " +
+                "Three straight weeks more than €200 in the red and the show folds.\n\n" +
+                "Buzz — earned when an episode punches above its weight. Right now it only pays to redraw the topic offer; " +
+                "it unlocks more later.", "body"));
             scroll.Add(help);
 
             // --- the week ---
@@ -445,12 +458,6 @@ namespace PodcastTycoon.Game
                 _previewBlock.Add(Ui.Wrapping("You've allocated more prep points than you have this week.", "body", "bad"));
             else if (used < cap)
                 _previewBlock.Add(Ui.Wrapping($"{cap - used} point(s) still unspent.", "body", "dim"));
-        }
-
-        static VisualElement Tip(VisualElement el, string tip)
-        {
-            el.tooltip = tip;
-            return el;
         }
 
         static string DrawLabel(float effectiveAppeal)
