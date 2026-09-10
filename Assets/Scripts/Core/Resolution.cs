@@ -91,12 +91,19 @@ namespace PodcastTycoon.Core
             float appeal = topic.BaseAppeal * contextMult + crewAppeal;
             float reach = st.Listeners * appeal * (1f + cfg.PromoReachPerPoint * plan.PrepPromo) * ctx.ReachMult;
 
-            float passiveGain = st.Listeners * ctx.PassiveGainRate;
+            // Market saturation: growth tails off as the audience nears the addressable
+            // market, which grows with reputation and across seasons.
+            float market = (cfg.MarketBase + cfg.MarketSeasonBonus * (st.Season - 1))
+                           * (cfg.MarketRepFloor + cfg.MarketRepPerPoint * st.Reputation)
+                           * d.MarketFactor;
+            float growthRoom = MathX.Clamp01(1f - st.Listeners / Math.Max(1f, market));
+
+            float passiveGain = st.Listeners * ctx.PassiveGainRate * growthRoom;
 
             int Delta(float roll)
             {
-                float gross = reach * (quality - cfg.QualityBreakeven) * roll * cfg.DeltaScale;
-                float wom = quality > 1f ? st.Listeners * cfg.WordOfMouthRate * (quality - 1f) : 0f;
+                float gross = reach * (quality - cfg.QualityBreakeven) * roll * cfg.DeltaScale * growthRoom;
+                float wom = quality > 1f ? st.Listeners * cfg.WordOfMouthRate * (quality - 1f) * growthRoom : 0f;
                 float churn = st.Listeners * cfg.ChurnRate * MathX.Clamp(1.40f - quality, 0f, 1.40f);
                 float moodChurn = st.Listeners * ctx.MoodChurnRate * Math.Max(0f, 1.15f - quality);
                 return MathX.RoundToInt(gross + wom - churn + passiveGain - moodChurn);

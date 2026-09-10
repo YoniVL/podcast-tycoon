@@ -148,7 +148,9 @@ namespace PodcastTycoon.Core
         {
             var result = _resolution.Resolve(State, CurrentWeek, plan, _rng);
 
-            State.Listeners = Math.Max(0, State.Listeners + result.ListenerDeltaActual);
+            long listeners = (long)State.Listeners + result.ListenerDeltaActual;
+            listeners = Math.Max(0L, Math.Min(Config.MaxListeners, listeners));
+            State.Listeners = (int)listeners;
             State.Reputation = MathX.Clamp(State.Reputation + result.ReputationDelta, 0f, 100f);
             State.Buzz += result.BuzzGained;
             State.Money += result.MoneyDelta;
@@ -156,7 +158,7 @@ namespace PodcastTycoon.Core
             State.PeakListeners = Math.Max(State.PeakListeners, State.Listeners);
             State.ListenerHistory.Add(State.Listeners);
 
-            CheckBankruptcy();
+            CheckFailStates();
             CheckMilestones();
             CheckGoal();
 
@@ -164,19 +166,31 @@ namespace PodcastTycoon.Core
             return result;
         }
 
-        void CheckBankruptcy()
+        void CheckFailStates()
         {
+            if (State.IsGameOver) return;
+
             if (State.Money < Config.BankruptcyFloor)
                 State.ConsecutiveWeeksInDebt++;
             else
                 State.ConsecutiveWeeksInDebt = 0;
 
-            if (!State.IsGameOver && State.ConsecutiveWeeksInDebt >= Config.BankruptcyGraceWeeks)
-            {
-                State.IsGameOver = true;
-                State.GameOverReason = $"The podcast ran out of money. {State.ClubName} will have to find another show.";
-                GameOver?.Invoke(State.GameOverReason);
-            }
+            if (State.Listeners == 0)
+                State.ConsecutiveWeeksNoAudience++;
+            else
+                State.ConsecutiveWeeksNoAudience = 0;
+
+            if (State.ConsecutiveWeeksInDebt >= Config.BankruptcyGraceWeeks)
+                EndRun($"The podcast ran out of money. {State.ClubName} will have to find another show.");
+            else if (State.ConsecutiveWeeksNoAudience >= Config.ZeroAudienceGraceWeeks)
+                EndRun("Nobody is listening any more. Time to call it.");
+        }
+
+        void EndRun(string reason)
+        {
+            State.IsGameOver = true;
+            State.GameOverReason = reason;
+            GameOver?.Invoke(reason);
         }
 
         void CheckMilestones()

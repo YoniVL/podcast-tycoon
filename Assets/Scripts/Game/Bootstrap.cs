@@ -105,5 +105,21 @@ namespace PodcastTycoon.Game
             Engine = null;
             ShowSetup();
         }
+
+        // --- hooks used by the headless screenshot capture tool ---
+        public void DebugStartRun()
+        {
+            StartRun(new RunSetup
+            {
+                PodcastName = "The Back Post",
+                ClubName = "Fenwick Rovers",
+                ColourPrimary = "#C0433F",
+                ColourSecondary = "#F2C14E",
+                Difficulty = Difficulty.Regular
+            });
+        }
+
+        public void DebugPickFirstTopic() => _weekScreen?.DebugPickFirst();
+        public void DebugPublish() => _weekScreen?.DebugPublish();
     }
 }

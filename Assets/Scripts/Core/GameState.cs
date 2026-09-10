@@ -42,6 +42,7 @@ namespace PodcastTycoon.Core
 
         // --- progress / fail ---
         public int ConsecutiveWeeksInDebt = 0;
+        public int ConsecutiveWeeksNoAudience = 0;
         public bool IsGameOver = false;
         public string GameOverReason = "";
         public bool GoalReached = false;

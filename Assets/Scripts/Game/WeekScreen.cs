@@ -334,6 +334,17 @@ namespace PodcastTycoon.Game
             _host.Publish(_plan.Clone());
         }
 
+        // --- headless capture hooks ---
+        public void DebugPickFirst()
+        {
+            if (E.Offer.Count > 0) Pick(E.Offer[0].Id);
+        }
+
+        public void DebugPublish()
+        {
+            if (_picked.HasValue) _host.Publish(_plan.Clone());
+        }
+
         // ------------------------------------------------------------------
         static string SurpriseLabel(Surprise s)
         {

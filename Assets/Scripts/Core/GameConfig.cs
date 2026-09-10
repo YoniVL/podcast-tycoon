@@ -16,8 +16,17 @@ namespace PodcastTycoon.Core
         // --- listener model ---
         public float ChurnRate = 0.045f;
         public float QualityBreakeven = 0.70f;
-        public float DeltaScale = 0.42f;
+        public float DeltaScale = 0.26f;
         public float WordOfMouthRate = 0.03f;
+
+        // Market saturation — growth slows to zero as the audience approaches the
+        // addressable market, which itself grows with reputation and over seasons.
+        public float MarketBase = 60000f;
+        public float MarketSeasonBonus = 6000f;      // per season after the first
+        public float MarketRepFloor = 0.45f;         // market multiplier at 0 reputation
+        public float MarketRepPerPoint = 0.012f;     // extra multiplier per reputation point
+        public int MaxListeners = 20_000_000;        // hard ceiling, overflow guard
+        public int ZeroAudienceGraceWeeks = 4;       // weeks at 0 listeners before the run ends
 
         // --- quality model ---
         public float QualityFloor = 0.35f;
