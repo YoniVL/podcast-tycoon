@@ -23,6 +23,7 @@ namespace PodcastTycoon.Game
 
         readonly Queue<MilestoneEvent> _pendingMilestones = new Queue<MilestoneEvent>();
         bool _goalJustReached;
+        WeekScreen _weekScreen;
 
         void Start()
         {
@@ -67,7 +68,15 @@ namespace PodcastTycoon.Game
         public void ShowWeek()
         {
             Engine.BeginWeek();
-            Swap(new WeekScreen(this).Build());
+            _weekScreen = new WeekScreen(this);
+            Swap(_weekScreen.Build());
+        }
+
+        /// <summary>Re-render the current week without re-simulating it (after a studio purchase).</summary>
+        public void RerenderWeek()
+        {
+            if (_weekScreen == null) { ShowWeek(); return; }
+            Swap(_weekScreen.Build());
         }
 
         public void Publish(ProductionPlan plan)

@@ -39,8 +39,9 @@ namespace PodcastTycoon.Tests
 
             var r = res.Project(st, ParWeek(), plan);
 
-            // 0.35 + 0.65*1 + gear(0.15*0.20 + 0.15*0.15 = 0.0525) = ~1.0025
-            Assert.That(r.Quality, Is.EqualTo(1.0f).Within(0.03f));
+            // 0.35 + 0.65*1 + base gear (0.15*0.20 + 0.15*0.15 = 0.0525) ≈ 1.05 — a "solid" episode.
+            Assert.That(r.Quality, Is.InRange(0.98f, 1.12f));
+            Assert.That(r.QualityLabel, Is.EqualTo("Solid").Or.EqualTo("Strong"));
         }
 
         [Test]

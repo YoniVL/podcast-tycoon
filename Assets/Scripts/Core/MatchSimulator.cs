@@ -67,25 +67,25 @@ namespace PodcastTycoon.Core
             float forExpected = MathX.Clamp(1.3f + d * 1.4f, 0.3f, 3.6f);
             float againstExpected = MathX.Clamp(1.3f - d * 1.4f, 0.3f, 3.6f);
 
-            int gf = Poissonish(forExpected, rng);
-            int ga = Poissonish(againstExpected, rng);
+            int gf = Math.Min(5, Poissonish(forExpected, rng));
+            int ga = Math.Min(5, Poissonish(againstExpected, rng));
 
             // Nudge the scoreline to agree with the outcome we already rolled.
             switch (outcome)
             {
                 case MatchOutcome.Win:
-                    if (gf <= ga) { gf = ga + 1; }
+                    if (gf <= ga) gf = ga + 1;
                     break;
                 case MatchOutcome.Loss:
-                    if (ga <= gf) { ga = gf + 1; }
+                    if (ga <= gf) ga = gf + 1;
                     break;
                 case MatchOutcome.Draw:
                     ga = gf;
                     break;
             }
 
-            result.GoalsFor = Math.Min(gf, 6);
-            result.GoalsAgainst = Math.Min(ga, 6);
+            result.GoalsFor = gf;
+            result.GoalsAgainst = ga;
         }
 
         static int Poissonish(float mean, IRng rng)

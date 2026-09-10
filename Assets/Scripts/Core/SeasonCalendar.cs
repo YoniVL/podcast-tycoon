@@ -50,7 +50,6 @@ namespace PodcastTycoon.Core
         readonly GameConfig _cfg;
         readonly List<(int home, int away)[]> _rounds = new List<(int, int)[]>();
         readonly List<Fixture> _turns = new List<Fixture>();  // index 0 => turn 1
-        int _nextRound;
 
         static readonly string[] NamePool =
         {
@@ -82,7 +81,6 @@ namespace PodcastTycoon.Core
             Clubs.Clear();
             _rounds.Clear();
             _turns.Clear();
-            _nextRound = 0;
 
             // --- clubs ---
             PlayerIndex = rng.Range(0, ClubCount);

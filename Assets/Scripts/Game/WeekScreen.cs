@@ -35,6 +35,7 @@ namespace PodcastTycoon.Game
         {
             var ctx = E.CurrentWeek;
             var st = E.State;
+            _prep.Clear();
 
             var screen = Ui.Box("screen");
             var col = Ui.Box("column");
@@ -107,6 +108,15 @@ namespace PodcastTycoon.Game
             _publish.SetEnabled(false);
             scroll.Add(_publish);
 
+            // Restore selection if this is a re-render (e.g. after buying gear).
+            if (_picked.HasValue)
+            {
+                _plan.Topic = _picked.Value;
+                _prepBlock.style.display = DisplayStyle.Flex;
+                SyncSliders();
+                RefreshPreview();
+            }
+
             return screen;
         }
 
@@ -162,7 +172,7 @@ namespace PodcastTycoon.Game
                 row.Add(left);
                 if (!st.HasGear(g))
                 {
-                    var buy = Ui.Btn(Ui.Money(E.GearCost(g)), () => { E.BuyGear(g); _host.ShowWeek(); }, "btn-ghost");
+                    var buy = Ui.Btn(Ui.Money(E.GearCost(g)), () => { E.BuyGear(g); _host.RerenderWeek(); }, "btn-ghost");
                     buy.SetEnabled(E.CanBuy(g));
                     row.Add(buy);
                 }
@@ -182,7 +192,7 @@ namespace PodcastTycoon.Game
             coRow.Add(coLeft);
             if (!st.HasCoHost)
             {
-                var hire = Ui.Btn("Hire", () => { E.HireCoHost(); _host.ShowWeek(); }, "btn-ghost");
+                var hire = Ui.Btn("Hire", () => { E.HireCoHost(); _host.RerenderWeek(); }, "btn-ghost");
                 hire.SetEnabled(E.CanHireCoHost());
                 coRow.Add(hire);
             }
@@ -307,12 +317,12 @@ namespace PodcastTycoon.Game
             {
                 _picked = null;
                 _plan.PrepTopic = _plan.PrepResearch = _plan.PrepAudio = _plan.PrepPromo = 0;
-                _prepBlock.style.display = DisplayStyle.None;
-                _publish.SetEnabled(false);
-                RenderTopics();
+                _host.RerenderWeek();
             }
-            _redraw.text = RedrawLabel();
-            _redraw.SetEnabled(false);
+            else
+            {
+                _redraw.SetEnabled(false);
+            }
         }
 
         string RedrawLabel()
