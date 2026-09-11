@@ -17,15 +17,6 @@ namespace PodcastTycoon.Core
         public float SocialGained;
     }
 
-    [Flags]
-    public enum Gear
-    {
-        None = 0,
-        XlrMic = 1 << 0,
-        AcousticPanels = 1 << 1,
-        EditingSoftware = 1 << 2
-    }
-
     /// <summary>Mutable state of a single run.</summary>
     public sealed class GameState
     {
@@ -76,13 +67,18 @@ namespace PodcastTycoon.Core
         public int BestLeagueFinish = 20;
 
         // --- assets ---
-        public Gear Gear = Gear.None;
         public bool HasCoHost = false;
         public int CoHostWageBump;               // added to the co-host's monthly wage (from events)
         public Crew Crew = Crew.None;
         public int CrewWageBump;
         public bool HasSecondSponsorSlot;
-        public bool HasStudioSpace;
+
+        // --- upgrade tracks (slice 6, spec §20): 0 = not bought, 1-4 = tier owned ---
+        public int SetTier;
+        public int AudioTier;
+        public int PostTier;
+        public int StudioTier;
+        public int DistributionTier;
 
         // --- audience-as-leverage (slice 3, spec §14) ---
         public int AccessTier;                   // 0..3, recomputed each week from the rolling average
@@ -154,14 +150,13 @@ namespace PodcastTycoon.Core
         public int PeakListeners = 40;
         public int EpisodesPublished = 0;
 
-        public bool HasGear(Gear g) => (Gear & g) == g;
         public bool HasCrew(Crew c) => (Crew & c) == c;
 
         public int PrepCapacity(GameConfig cfg)
             => Math.Max(4, cfg.PrepBase
                            + (HasCoHost ? cfg.CoHostPrepBonus : 0)
                            + CrewCatalog.PrepBonus(Crew)
-                           + (HasStudioSpace ? 2 : 0)
+                           + UpgradeCatalog.Current(this, UpgradeTrack.Studio).PrepBonus
                            + (Modifiers.ExtraPrep ? 1 : 0)
                            + CardPrepBonusThisWeek
                            + CardPermanentPrepBonus

@@ -73,7 +73,7 @@ namespace PodcastTycoon.Core
                     Id = "audio_glitch",
                     Prompt = "The audio glitches on the best ten minutes",
                     Detail = "The recording hiccupped right through your strongest stretch.",
-                    CanFire = (e, p, c) => !e.State.HasGear(Gear.XlrMic),
+                    CanFire = (e, p, c) => !UpgradeCatalog.Current(e.State, UpgradeTrack.Audio).AudioGlitchProof,
                     Options =
                     {
                         new BeatOption { Label = "Re-record it", Outcome = "You did it again. Took the edge off, but it's clean.",

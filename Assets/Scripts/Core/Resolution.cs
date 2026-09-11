@@ -194,14 +194,20 @@ namespace PodcastTycoon.Core
             var d = DifficultyProfile.For(st.Difficulty);
             var crew = st.Crew;
 
-            float micQ = st.HasGear(Gear.XlrMic) ? cfg.MicQualityUpgraded : cfg.MicQualityBase;
-            float editSkill = st.HasGear(Gear.EditingSoftware) ? cfg.EditSkillUpgraded : cfg.EditSkillBase;
-            float qualityFloorBonus = st.HasGear(Gear.AcousticPanels) ? cfg.PanelsQualityFloorBonus : 0f;
+            var setTier = UpgradeCatalog.Current(st, UpgradeTrack.Set);
+            var audioTier = UpgradeCatalog.Current(st, UpgradeTrack.Audio);
+            var postTier = UpgradeCatalog.Current(st, UpgradeTrack.Post);
+            var studioTier = UpgradeCatalog.Current(st, UpgradeTrack.Studio);
+            var distTier = UpgradeCatalog.Current(st, UpgradeTrack.Distribution);
+
+            float micQ = audioTier.MicQuality;
+            float editSkill = postTier.EditSkill;
+            float qualityFloorBonus = setTier.QualityFloorBonus;
             float crewAppeal = st.HasCoHost ? cfg.CoHostAppealBonus : 0f;
             float gear = cfg.QualityGearWeight * micQ + cfg.QualityGearWeight * editSkill;
             int effortRelief = CrewCatalog.EffortRelief(crew);
             float researchMult = CrewCatalog.ResearchMultiplier(crew);
-            float studioReach = st.HasStudioSpace ? 1.08f : 1f;
+            float studioReach = studioTier.ReachMult;
 
             var filled = plan.FilledSlots.ToList();
             if (filled.Count == 0) filled.Add(plan.Main);   // guard: never a zero-slot episode
@@ -261,11 +267,12 @@ namespace PodcastTycoon.Core
                 float angleMult = ang.AppealMult;
                 if (seg.Angle == Angle.Emotional) angleMult *= 1f + 0.20f * bigSurprise;      // lands on a big result
                 if (seg.Angle == Angle.Comedy && sawCrisisEarlier) angleMult *= 0.5f;          // bombs after a crisis
+                if (seg.Angle == Angle.Comedy) angleMult += setTier.ComedyAppealBonus;         // a set worth filming
                 if (isRecurring && st.RecurringStreak >= 3) angleMult *= 0.6f;                 // overexposed bit
                 float appeal = Math.Max(0.05f,
                     topic.BaseAppeal * contextMult * angleMult + crewAppeal + st.SponsorAppealPenalty + momentBonus);
                 if (seg.Guest) appeal += cfg.GuestAppealBonus;
-                appeal *= freshnessMult * (1f + cfg.PushAppealPerStep * (plan.Push - 2));
+                appeal *= freshnessMult * setTier.AppealMult * (1f + cfg.PushAppealPerStep * (plan.Push - 2));
 
                 float segReach = st.Listeners * appeal * w
                     * (1f + cfg.PromoReachPerPoint * plan.PrepPromo)
@@ -410,16 +417,17 @@ namespace PodcastTycoon.Core
                 {
                     casual += gross;   // a weak episode sheds the casual audience
                 }
-                followers += st.Listeners * (st.SocialReach / 100f) * 0.012f * growthRoom + clipsPassive;
+                followers += st.Listeners * (st.SocialReach / 100f) * 0.012f * growthRoom + clipsPassive
+                           + st.Listeners * postTier.FollowerPassivePct * growthRoom;
 
                 if (quality > 1f) core += st.Listeners * cfg.WordOfMouthRate * (quality - 1f) * growthRoom * 1.3f;
-                core += passiveGain * 0.40f;
+                core += passiveGain * 0.40f + st.Listeners * distTier.CorePassivePct * growthRoom;
                 casual += passiveGain * 0.60f;
                 // A slice of every episode's new casual audience sticks straight away.
                 if (gross > 0f) core += gross * 0.12f;
 
-                core      -= core      * cfg.CoreChurn     * poolChurnMult * MathX.Clamp(1.30f - quality, 0f, 1f) * (2f - credFactor);
-                casual    -= casual    * cfg.CasualChurn   * poolChurnMult * MathX.Clamp(1.45f - quality, 0f, 1.45f);
+                core      -= core      * cfg.CoreChurn     * poolChurnMult * audioTier.ChurnMult * MathX.Clamp(1.30f - quality, 0f, 1f) * (2f - credFactor);
+                casual    -= casual    * cfg.CasualChurn   * poolChurnMult * audioTier.ChurnMult * MathX.Clamp(1.45f - quality, 0f, 1.45f);
                 followers -= followers * cfg.FollowerChurn * poolChurnMult;
                 casual    -= (core + casual) * ctx.MoodChurnRate * Math.Max(0f, 1.15f - quality) * moodChurnMult;
 
@@ -510,7 +518,7 @@ namespace PodcastTycoon.Core
             result.SocialGained = Math.Max(0f, social);
 
             // --- economy (segmented: Core pays best, Followers barely at all — spec §17) ---
-            float adRate = d.AdRate * (st.Modifiers.SponsorFree ? 1.7f : 1f);
+            float adRate = d.AdRate * (st.Modifiers.SponsorFree ? 1.7f : 1f) * distTier.AdRateMult;
             float paidAudience = coreA + casualA * cfg.CasualAdFraction + followersA * cfg.FollowerAdFraction;
             result.AdRevenue = paidAudience * adRate * (cfg.AdReputationFloor + cfg.AdReputationRange * st.Reputation / 100f);
             float reachAudience = coreA + casualA + followersA;
@@ -522,7 +530,7 @@ namespace PodcastTycoon.Core
             {
                 if (st.HasCoHost) wages += cfg.CoHostMonthlyWage + st.CoHostWageBump;
                 wages += CrewCatalog.MonthlyWageBill(st.Crew, cfg);
-                if (st.HasStudioSpace) wages += cfg.StudioSpaceMonthly;
+                wages += UpgradeCatalog.TotalMonthlyUpkeep(st);
             }
             result.MonthlyWagesCharged = wages;
 

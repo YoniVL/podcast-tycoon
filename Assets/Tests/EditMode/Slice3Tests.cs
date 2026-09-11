@@ -20,8 +20,8 @@ namespace PodcastTycoon.Tests
             if (e.State.BuyoutPending) e.DeclineBuyout();
 
             // The basics any player does: buy gear, hire, take a sponsor when it's affordable.
-            if (e.State.Money > 400 && e.CanBuy(Gear.XlrMic)) e.BuyGear(Gear.XlrMic);
-            if (e.State.Money > 400 && e.CanBuy(Gear.EditingSoftware)) e.BuyGear(Gear.EditingSoftware);
+            if (e.State.Money > 400 && e.CanBuyUpgrade(UpgradeTrack.Audio)) e.BuyUpgrade(UpgradeTrack.Audio);
+            if (e.State.Money > 400 && e.CanBuyUpgrade(UpgradeTrack.Post)) e.BuyUpgrade(UpgradeTrack.Post);
             if (e.State.Money > 700 && e.CanHireCoHost()) e.HireCoHost();
             if (e.State.Money > 900 && e.CanHireCrew(Crew.Producer)) e.HireCrew(Crew.Producer);
             if (e.State.Money > 1100 && e.CanHireCrew(Crew.Researcher)) e.HireCrew(Crew.Researcher);

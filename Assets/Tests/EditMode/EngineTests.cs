@@ -104,14 +104,19 @@ namespace PodcastTycoon.Tests
         }
 
         [Test]
-        public void BuyingGearDeductsMoneyAndSticks()
+        public void BuyingAnUpgradeDeductsMoneyAndSticks()
         {
             var e = NewEngine();
             e.State.Money = 1000;
-            Assert.That(e.BuyGear(Gear.XlrMic), Is.True);
-            Assert.That(e.State.Money, Is.EqualTo(850f));
-            Assert.That(e.State.HasGear(Gear.XlrMic), Is.True);
-            Assert.That(e.BuyGear(Gear.XlrMic), Is.False, "can't buy it twice");
+            int cost = e.NextUpgrade(UpgradeTrack.Audio).Cost;
+            Assert.That(e.BuyUpgrade(UpgradeTrack.Audio), Is.True);
+            Assert.That(e.State.Money, Is.EqualTo(1000f - cost));
+            Assert.That(e.State.AudioTier, Is.EqualTo(1));
+
+            int cost2 = e.NextUpgrade(UpgradeTrack.Audio).Cost;
+            Assert.That(e.BuyUpgrade(UpgradeTrack.Audio), Is.True, "should be able to buy the next tier up");
+            Assert.That(e.State.AudioTier, Is.EqualTo(2));
+            Assert.That(e.State.Money, Is.EqualTo(1000f - cost - cost2));
         }
 
         [Test]

@@ -246,7 +246,7 @@ namespace PodcastTycoon.Core
                         {
                             Label = "Replace it straight away",
                             Outcome = "Sorted. An unplanned expense, but the show sounds right.",
-                            Apply = e => Money(e, e.State.HasGear(Gear.XlrMic) ? -60f : -120f)
+                            Apply = e => Money(e, e.State.AudioTier > 0 ? -60f : -120f)
                         },
                         new EventOption
                         {

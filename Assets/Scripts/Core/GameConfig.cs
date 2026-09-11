@@ -110,18 +110,6 @@ namespace PodcastTycoon.Core
         public float OffseasonChurn = 0.15f;
         public float TeamStrengthSeasonDrift = 0.01f; // per season, toward 0.50
 
-        // --- gear upgrades (one-time) ---
-        public int MicCost = 150;
-        public float MicQualityBase = 0.20f;
-        public float MicQualityUpgraded = 0.60f;
-
-        public int PanelsCost = 120;
-        public float PanelsQualityFloorBonus = 0.08f;
-
-        public int EditingCost = 200;
-        public float EditSkillBase = 0.15f;
-        public float EditSkillUpgraded = 0.45f;
-
         // --- co-host (monthly) ---
         public int CoHostHireCost = 0;                // no signing fee in slice 1
         public int CoHostMonthlyWage = 180;
@@ -165,8 +153,6 @@ namespace PodcastTycoon.Core
 
         // --- extra gear (slice 3) ---
         public int SecondSponsorSlotCost = 600;
-        public int StudioSpaceCost = 900;
-        public int StudioSpaceMonthly = 30;
 
         // --- endless milestones / buyout ---
         public int BuyoutListeners = 1_000_000;

@@ -142,7 +142,8 @@ namespace PodcastTycoon.Core
             State.CardGuaranteeGoodRoll = false;
 
             // Social reach fades if you're not being talked about (spec §5).
-            State.SocialReach = Math.Max(0f, State.SocialReach - Config.SocialDecayPerWeek);
+            float decayMult = UpgradeCatalog.Current(State, UpgradeTrack.Post).SocialDecayMult;
+            State.SocialReach = Math.Max(0f, State.SocialReach - Config.SocialDecayPerWeek * decayMult);
 
             // A correction opportunity is a carrot, not a stick — it quietly expires (spec §11).
             if (State.PendingCorrection && --State.PendingCorrectionWeeks <= 0)
@@ -640,25 +641,25 @@ namespace PodcastTycoon.Core
         }
 
         // ------------------------------------------------------------------
-        // Studio / crew / gear
+        // Studio / crew / upgrade tracks (spec §20)
         // ------------------------------------------------------------------
-        public bool CanBuy(Gear gear) => !State.HasGear(gear) && State.Money >= GearCost(gear);
+        public UpgradeTier CurrentUpgrade(UpgradeTrack track) => UpgradeCatalog.Current(State, track);
+        public UpgradeTier NextUpgrade(UpgradeTrack track) => UpgradeCatalog.Next(State, track);
 
-        public bool BuyGear(Gear gear)
+        public bool CanBuyUpgrade(UpgradeTrack track)
         {
-            if (!CanBuy(gear)) return false;
-            State.Money -= GearCost(gear);
-            State.Gear |= gear;
-            return true;
+            var next = NextUpgrade(track);
+            return next != null && State.Money >= next.Cost;
         }
 
-        public int GearCost(Gear gear) => gear switch
+        public bool BuyUpgrade(UpgradeTrack track)
         {
-            Gear.XlrMic => Config.MicCost,
-            Gear.AcousticPanels => Config.PanelsCost,
-            Gear.EditingSoftware => Config.EditingCost,
-            _ => int.MaxValue
-        };
+            if (!CanBuyUpgrade(track)) return false;
+            var next = NextUpgrade(track);
+            State.Money -= next.Cost;
+            UpgradeCatalog.SetTierOf(State, track, next.Level);
+            return true;
+        }
 
         public bool CanHireCoHost() => !State.HasCoHost && State.Money >= Config.CoHostHireCost;
 
@@ -688,15 +689,6 @@ namespace PodcastTycoon.Core
             if (!CanBuySecondSponsorSlot()) return false;
             State.Money -= Config.SecondSponsorSlotCost;
             State.HasSecondSponsorSlot = true;
-            return true;
-        }
-
-        public bool CanBuyStudioSpace() => !State.HasStudioSpace && State.Money >= Config.StudioSpaceCost;
-        public bool BuyStudioSpace()
-        {
-            if (!CanBuyStudioSpace()) return false;
-            State.Money -= Config.StudioSpaceCost;
-            State.HasStudioSpace = true;
             return true;
         }
 

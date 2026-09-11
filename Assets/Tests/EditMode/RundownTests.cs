@@ -259,6 +259,35 @@ namespace PodcastTycoon.Tests
         }
 
         [Test]
+        public void UpgradingTheAudioTrackLiftsQuality()
+        {
+            var (st, cfg) = Fresh();
+            var res = new Resolution(cfg);
+
+            var plan = new ProductionPlan();
+            plan.Main.Set(TopicCatalog.Get(TopicId.Recap));
+            plan.Main.Angle = Angle.Analysis; plan.Main.Prep = 3;
+
+            var before = res.Project(st, ParWeek(), plan);
+            st.AudioTier = 2;
+            var after = res.Project(st, ParWeek(), plan);
+
+            Assert.That(after.Quality, Is.GreaterThan(before.Quality));
+        }
+
+        [Test]
+        public void EveryUpgradeLadderStepsUpInCost()
+        {
+            foreach (UpgradeTrack track in System.Enum.GetValues(typeof(UpgradeTrack)))
+            {
+                var ladder = UpgradeCatalog.Ladder(track);
+                Assert.That(ladder.Count, Is.GreaterThanOrEqualTo(3), $"{track} should have a real ladder");
+                for (int i = 1; i < ladder.Count; i++)
+                    Assert.That(ladder[i].Cost, Is.GreaterThan(ladder[i - 1].Cost), $"{track} tier {i + 1} should cost more than tier {i}");
+            }
+        }
+
+        [Test]
         public void GuestLiftsAppealWhenBooked()
         {
             var (st, cfg) = Fresh();

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using PodcastTycoon.Core;
 using UnityEngine;
@@ -713,6 +714,7 @@ namespace PodcastTycoon.Game
             Term("Access tier", "Set by your rolling-average listeners. Tier 2 unlocks scoops and the Big interview; tier 3 lets your takes move the club, and may bring a partnership offer.");
             Term("Scoops", "Advance word on a club decision. Break it now for a huge episode and a real risk it's wrong (which costs access); verify & hold to build trust; or trade it for cash.");
             Term("Crew", "Producer, Researcher, Clips manager, Booker — monthly wages, each changing how the week works. Hire them once ad and sponsor money can carry the bill.");
+            Term("Upgrade tracks", "Five ladders — Set, Audio chain, Post/editing, Studio space, Distribution — each 3-4 tiers. Buy in order; each tier replaces the one below it and usually adds a bit to the monthly bill.");
             Term("Cards", "One-shot buffs on the current episode, or permanent lifts to the club/show. From milestones, or a 3-card pack for cash. Hand holds five.");
             Term("Custom run", "Modifiers set at the start (extra prep, gentler churn, sandbox, chaos…). Flags the run as Custom; the endless chase still works.");
             root.Add(gloss);
@@ -984,33 +986,45 @@ namespace PodcastTycoon.Game
         static bool TermGood(SponsorTerm term) =>
             (term.Kind == SponsorTermKind.Growth || term.Kind == SponsorTermKind.Ask) && term.Met;
 
+        static readonly string[] TrackLabels =
+        {
+            "Set", "Audio chain", "Post / editing", "Studio space", "Distribution"
+        };
+
         VisualElement BuildStudioPanel()
         {
             var panel = Ui.Box("panel");
-            panel.Add(Ui.Text("Studio — gear, crew & upgrades", "h2"));
+            panel.Add(Ui.Text("Studio — upgrade tracks, gear & crew", "h2"));
+            panel.Add(Ui.Wrapping(
+                "Five tracks, each a ladder of tiers. Buy in order — each tier replaces the one below it.",
+                "body", "dim"));
             var st = E.State;
 
-            void GearRow(string name, Gear g, string effect)
+            void TrackRow(UpgradeTrack track)
             {
+                var current = E.CurrentUpgrade(track);
+                var next = E.NextUpgrade(track);
                 var row = Ui.Row();
                 var left = Ui.Box();
                 left.style.flexGrow = 1;
-                left.Add(Ui.Text(name + (st.HasGear(g) ? "  ✓" : ""), "topiccard-title"));
-                left.Add(Ui.Wrapping(effect, "body", "dim"));
+                left.Add(Ui.Text($"{TrackLabels[(int)track]} — {current.Name}", "topiccard-title"));
+                left.Add(Ui.Wrapping(current.Level == 0 ? "Not upgraded yet." : current.Effect, "body", "dim"));
                 row.Add(left);
-                if (!st.HasGear(g))
+                if (next != null)
                 {
-                    var buy = Ui.Btn(Ui.Money(E.GearCost(g)), () => { E.BuyGear(g); _host.RerenderWeek(); }, "btn-ghost");
-                    buy.SetEnabled(E.CanBuy(g));
+                    string cost = next.Monthly > 0 ? $"{Ui.Money(next.Cost)} + €{next.Monthly}/mo" : Ui.Money(next.Cost);
+                    var buy = Ui.Btn($"{next.Name}  ({cost})", () => { E.BuyUpgrade(track); _host.RerenderWeek(); }, "btn-ghost");
+                    buy.SetEnabled(E.CanBuyUpgrade(track));
                     row.Add(buy);
                 }
                 panel.Add(row);
+                if (next != null) panel.Add(Ui.Wrapping(next.Effect, "body", "dim"));
                 panel.Add(Ui.Divider());
             }
 
-            GearRow("XLR microphone", Gear.XlrMic, "Raises the quality ceiling.");
-            GearRow("Acoustic panels", Gear.AcousticPanels, "Lifts the quality floor a little.");
-            GearRow("Editing software", Gear.EditingSoftware, "Better edit, every episode.");
+            panel.Add(Ui.Text("UPGRADE TRACKS", "eyebrow"));
+            foreach (UpgradeTrack track in Enum.GetValues(typeof(UpgradeTrack)))
+                TrackRow(track);
 
             void HireRow(string name, bool have, string effect, string cost, bool canAfford, System.Action doHire)
             {
@@ -1041,11 +1055,7 @@ namespace PodcastTycoon.Game
                     E.CanHireCrew(r.Id), () => E.HireCrew(r.Id));
             }
 
-            panel.Add(Ui.Text("UPGRADES", "eyebrow"));
-            HireRow("Faster PC / studio space", st.HasStudioSpace,
-                "+2 prep points a week and a little more reach.",
-                $"{Ui.Money(E.Config.StudioSpaceCost)} + €{E.Config.StudioSpaceMonthly}/mo",
-                E.CanBuyStudioSpace(), () => E.BuyStudioSpace());
+            panel.Add(Ui.Text("OTHER", "eyebrow"));
             HireRow("Second sponsor slot", st.HasSecondSponsorSlot,
                 "Hold two sponsor deals at once.", Ui.Money(E.Config.SecondSponsorSlotCost),
                 E.CanBuySecondSponsorSlot(), () => E.BuySecondSponsorSlot());

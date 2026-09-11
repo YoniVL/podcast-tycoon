@@ -71,7 +71,12 @@ namespace PodcastTycoon.EditorTools
                 if (engine.State.Money > 900 && engine.CanHireCrew(Crew.Researcher)) engine.HireCrew(Crew.Researcher);
                 if (engine.State.Money > 1200 && engine.CanHireCrew(Crew.Clips)) engine.HireCrew(Crew.Clips);
                 if (engine.State.Money > 1500 && engine.CanHireCrew(Crew.Booker)) engine.HireCrew(Crew.Booker);
-                if (engine.State.Money > 2000 && engine.CanBuyStudioSpace()) engine.BuyStudioSpace();
+                {
+                    var studioNext = engine.NextUpgrade(UpgradeTrack.Studio);
+                    if (studioNext != null && engine.State.Money > studioNext.Cost + studioNext.Monthly * 12f
+                        && engine.CanBuyUpgrade(UpgradeTrack.Studio))
+                        engine.BuyUpgrade(UpgradeTrack.Studio);
+                }
                 if (engine.State.Money > 2000 && engine.CanBuySecondSponsorSlot()) engine.BuySecondSponsorSlot();
 
                 // Play any one-shot cards that clearly help; keep permanents.
@@ -92,10 +97,19 @@ namespace PodcastTycoon.EditorTools
                     engine.SignSponsor(best);
                 }
 
-                // Buy gear when comfortably in the black.
-                if (engine.State.Money > 450 && engine.CanBuy(Gear.XlrMic)) engine.BuyGear(Gear.XlrMic);
-                if (engine.State.Money > 450 && engine.CanBuy(Gear.EditingSoftware)) engine.BuyGear(Gear.EditingSoftware);
-                if (engine.State.Money > 350 && engine.CanBuy(Gear.AcousticPanels)) engine.BuyGear(Gear.AcousticPanels);
+                // Buy the first rung of each track when comfortably affordable; only push past tier 1
+                // once there's a real cash buffer, since every tier past the first adds to the bill.
+                bool CanAffordUpgrade(UpgradeTrack t, float minMoney)
+                {
+                    var next = engine.NextUpgrade(t);
+                    if (next == null) return false;
+                    float buffer = next.Level == 1 ? minMoney : Math.Max(minMoney, next.Cost + next.Monthly * 20f);
+                    return engine.State.Money > buffer && engine.CanBuyUpgrade(t);
+                }
+                if (CanAffordUpgrade(UpgradeTrack.Set, 350f)) engine.BuyUpgrade(UpgradeTrack.Set);
+                if (CanAffordUpgrade(UpgradeTrack.Audio, 450f)) engine.BuyUpgrade(UpgradeTrack.Audio);
+                if (CanAffordUpgrade(UpgradeTrack.Post, 450f)) engine.BuyUpgrade(UpgradeTrack.Post);
+                if (CanAffordUpgrade(UpgradeTrack.Distribution, 800f)) engine.BuyUpgrade(UpgradeTrack.Distribution);
                 if (engine.State.Money > 650 && engine.CanHireCoHost()) engine.HireCoHost();
 
                 var plan = BuildRundown(engine, ctx, greedy, out Topic pick);
