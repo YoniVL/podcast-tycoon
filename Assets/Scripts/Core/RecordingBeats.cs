@@ -168,6 +168,7 @@ namespace PodcastTycoon.Core
             int target = rng.Range(0, 4);   // 0..3, leaning toward a couple of beats most weeks
             if (e.State.Modifiers.ChaosCycle) target = Math.Min(target + 2, eligible.Count);
             if (plan.Push >= 4) target += 1;
+            if (CrewCatalog.AnyEmployeeHasTrait(e.State, "loose_cannon")) target += 1;   // more happens when they're in the room
             target = Math.Min(target, eligible.Count);
 
             return eligible.Take(target).ToList();

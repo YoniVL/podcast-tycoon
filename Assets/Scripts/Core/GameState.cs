@@ -69,9 +69,14 @@ namespace PodcastTycoon.Core
         // --- assets ---
         public bool HasCoHost = false;
         public int CoHostWageBump;               // added to the co-host's monthly wage (from events)
-        public Crew Crew = Crew.None;
+        public Crew Crew = Crew.None;             // which roles are currently filled
         public int CrewWageBump;
         public bool HasSecondSponsorSlot;
+
+        // --- crew roster (slice 6, spec §19) ---
+        public readonly Dictionary<Crew, CrewCandidate> Employed = new Dictionary<Crew, CrewCandidate>();
+        public readonly Dictionary<Crew, List<CrewCandidate>> CandidatePool = new Dictionary<Crew, List<CrewCandidate>>();
+        public int CandidatePoolRefreshWeeks = 1;
 
         // --- upgrade tracks (slice 6, spec §20): 0 = not bought, 1-4 = tier owned ---
         public int SetTier;
@@ -155,12 +160,13 @@ namespace PodcastTycoon.Core
         public int PrepCapacity(GameConfig cfg)
             => Math.Max(4, cfg.PrepBase
                            + (HasCoHost ? cfg.CoHostPrepBonus : 0)
-                           + CrewCatalog.PrepBonus(Crew)
+                           + CrewCatalog.PrepBonus(this)
                            + UpgradeCatalog.Current(this, UpgradeTrack.Studio).PrepBonus
                            + (Modifiers.ExtraPrep ? 1 : 0)
                            + CardPrepBonusThisWeek
                            + CardPermanentPrepBonus
-                           - PrepPenaltyThisWeek);
+                           - PrepPenaltyThisWeek
+                           - (CrewCatalog.AnyEmployeeHasTrait(this, "perfectionist") ? 1 : 0));
 
         /// <summary>Rolling average of recent episodes (used for milestones / later, access tiers).</summary>
         public int AverageListeners(int window)

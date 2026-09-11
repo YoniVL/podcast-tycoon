@@ -121,6 +121,8 @@ namespace PodcastTycoon.Core
             // A card in hand from the start, so the mechanic is visible in week one.
             State.Hand.Add("all_nighter");
 
+            RefreshCandidatePools();
+
             _seasonStartListeners = State.Listeners;
             _seasonStartRep = State.Reputation;
         }
@@ -148,6 +150,17 @@ namespace PodcastTycoon.Core
             // A correction opportunity is a carrot, not a stick — it quietly expires (spec §11).
             if (State.PendingCorrection && --State.PendingCorrectionWeeks <= 0)
                 State.PendingCorrection = false;
+
+            // Crew: contracts tick down, a grafter keeps morale up, and the candidate pool refreshes.
+            foreach (var c in State.Employed.Values)
+                if (c.ContractWeeksLeft > 0) c.ContractWeeksLeft--;
+            if (CrewCatalog.AnyEmployeeHasTrait(State, "grafter"))
+                State.Morale = MathX.Clamp(State.Morale + 1f, 0f, 100f);
+            if (--State.CandidatePoolRefreshWeeks <= 0)
+            {
+                RefreshCandidatePools();
+                State.CandidatePoolRefreshWeeks = 6;
+            }
 
             var fixture = Calendar.FixtureForTurn(State.SeasonTurn);
             Rivals.MarkFixture(fixture);
@@ -671,15 +684,54 @@ namespace PodcastTycoon.Core
             return true;
         }
 
-        public int CrewWage(Crew role) => CrewCatalog.Get(role).Wage(Config);
+        // --- the crew roster (spec §19): a rotating pool of 2-3 candidates per open role ---
+        public IReadOnlyList<CrewCandidate> CandidatesFor(Crew role) =>
+            State.CandidatePool.TryGetValue(role, out var list) ? list : Array.Empty<CrewCandidate>();
 
-        public bool CanHireCrew(Crew role) => !State.HasCrew(role) && State.Money >= CrewWage(role);
-
-        public bool HireCrew(Crew role)
+        void RefreshCandidatePools()
         {
-            if (!CanHireCrew(role)) return false;
-            State.Money -= CrewWage(role);   // first month up front
+            foreach (var role in new[] { Crew.Producer, Crew.Researcher, Crew.Clips, Crew.Booker })
+            {
+                if (State.HasCrew(role)) { State.CandidatePool.Remove(role); continue; }
+                int n = 2 + (_rng.NextDouble() < 0.4 ? 1 : 0);
+                var list = new List<CrewCandidate>();
+                for (int i = 0; i < n; i++) list.Add(CrewCatalog.Generate(role, Config, _rng));
+                State.CandidatePool[role] = list;
+            }
+        }
+
+        public bool CanHireCandidate(Crew role, int index)
+        {
+            var pool = CandidatesFor(role);
+            return !State.HasCrew(role) && index >= 0 && index < pool.Count && State.Money >= pool[index].Wage;
+        }
+
+        public bool HireCandidate(Crew role, int index)
+        {
+            if (!CanHireCandidate(role, index)) return false;
+            var c = CandidatesFor(role)[index];
+            State.Money -= c.Wage;   // first month up front
             State.Crew |= role;
+            State.Employed[role] = c;
+            State.CandidatePool.Remove(role);
+            return true;
+        }
+
+        /// <summary>Severance is always 4 weeks' wage; still under the minimum term costs an
+        /// 8-week buyout on top (spec §19).</summary>
+        public int FireCost(Crew role)
+        {
+            if (!State.Employed.TryGetValue(role, out var c)) return 0;
+            return c.Wage * 4 + (c.ContractWeeksLeft > 0 ? c.Wage * 8 : 0);
+        }
+
+        public bool FireCrew(Crew role)
+        {
+            if (!State.Employed.TryGetValue(role, out var c)) return false;
+            State.Money -= FireCost(role);
+            State.Morale = MathX.Clamp(State.Morale - 8f, 0f, 100f);
+            State.Crew &= ~role;
+            State.Employed.Remove(role);
             return true;
         }
 

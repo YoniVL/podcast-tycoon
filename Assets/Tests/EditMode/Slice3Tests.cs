@@ -23,8 +23,10 @@ namespace PodcastTycoon.Tests
             if (e.State.Money > 400 && e.CanBuyUpgrade(UpgradeTrack.Audio)) e.BuyUpgrade(UpgradeTrack.Audio);
             if (e.State.Money > 400 && e.CanBuyUpgrade(UpgradeTrack.Post)) e.BuyUpgrade(UpgradeTrack.Post);
             if (e.State.Money > 700 && e.CanHireCoHost()) e.HireCoHost();
-            if (e.State.Money > 900 && e.CanHireCrew(Crew.Producer)) e.HireCrew(Crew.Producer);
-            if (e.State.Money > 1100 && e.CanHireCrew(Crew.Researcher)) e.HireCrew(Crew.Researcher);
+            if (e.State.Money > 900 && e.CandidatesFor(Crew.Producer).Count > 0 && e.CanHireCandidate(Crew.Producer, 0))
+                e.HireCandidate(Crew.Producer, 0);
+            if (e.State.Money > 1100 && e.CandidatesFor(Crew.Researcher).Count > 0 && e.CanHireCandidate(Crew.Researcher, 0))
+                e.HireCandidate(Crew.Researcher, 0);
             if (e.Sponsors.Active == null && e.Sponsors.Inbox.Count > 0) e.SignSponsor(0);
 
             // A varied two/three-segment rundown — rotate angles so freshness doesn't crater.
@@ -168,15 +170,24 @@ namespace PodcastTycoon.Tests
         }
 
         [Test]
-        public void CrewCanBeHiredAndChangesPrepCapacity()
+        public void CrewCanBeHiredFiredAndChangesPrepCapacity()
         {
             var e = NewEngine(5);
             e.BeginWeek();
             e.State.Money = 5000;
             int before = e.State.PrepCapacity(e.Config);
-            Assert.That(e.HireCrew(Crew.Producer), Is.True);
-            Assert.That(e.State.PrepCapacity(e.Config), Is.EqualTo(before + 2));
-            Assert.That(e.HireCrew(Crew.Producer), Is.False, "can't hire the same role twice");
+
+            Assert.That(e.CandidatesFor(Crew.Producer).Count, Is.GreaterThan(0), "a fresh run should have candidates to pick from");
+            float skill = e.CandidatesFor(Crew.Producer)[0].Skill;
+            Assert.That(e.HireCandidate(Crew.Producer, 0), Is.True);
+            Assert.That(e.State.PrepCapacity(e.Config), Is.EqualTo(before + MathX.RoundToInt(2f * skill)));
+            Assert.That(e.HireCandidate(Crew.Producer, 0), Is.False, "can't hire into a filled role");
+
+            float moneyBeforeFiring = e.State.Money;
+            Assert.That(e.FireCrew(Crew.Producer), Is.True);
+            Assert.That(e.State.Money, Is.LessThan(moneyBeforeFiring), "firing costs severance");
+            Assert.That(e.State.PrepCapacity(e.Config), Is.EqualTo(before));
+            Assert.That(e.State.HasCrew(Crew.Producer), Is.False);
         }
 
         [Test]

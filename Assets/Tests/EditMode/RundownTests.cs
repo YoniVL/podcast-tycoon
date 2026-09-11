@@ -288,6 +288,44 @@ namespace PodcastTycoon.Tests
         }
 
         [Test]
+        public void HigherSkillCandidateGivesABiggerEffect()
+        {
+            var e = new Engine(new RunSetup { ClubName = "Testford" }, new GameConfig(), new SystemRng(3));
+            e.State.Money = 5000;
+            var candidates = e.CandidatesFor(Crew.Producer);
+            Assert.That(candidates.Count, Is.GreaterThan(0));
+
+            // Compare a low-skill and a high-skill candidate's effect on prep capacity directly.
+            var low = new CrewCandidate { Role = Crew.Producer, Name = "Low", Skill = 0.3f, Wage = 100 };
+            var high = new CrewCandidate { Role = Crew.Producer, Name = "High", Skill = 1.0f, Wage = 100 };
+
+            e.State.Employed[Crew.Producer] = low;
+            e.State.Crew |= Crew.Producer;
+            int lowBonus = e.State.PrepCapacity(e.Config);
+
+            e.State.Employed[Crew.Producer] = high;
+            int highBonus = e.State.PrepCapacity(e.Config);
+
+            Assert.That(highBonus, Is.GreaterThan(lowBonus));
+        }
+
+        [Test]
+        public void FiringUnderContractCostsABuyoutOnTopOfSeverance()
+        {
+            var e = new Engine(new RunSetup { ClubName = "Testford" }, new GameConfig(), new SystemRng(4));
+            e.State.Money = 5000;
+            Assert.That(e.CandidatesFor(Crew.Researcher).Count, Is.GreaterThan(0));
+            Assert.That(e.HireCandidate(Crew.Researcher, 0), Is.True);
+
+            int wage = e.State.Employed[Crew.Researcher].Wage;
+            int costUnderContract = e.FireCost(Crew.Researcher);
+            Assert.That(costUnderContract, Is.EqualTo(wage * 12), "severance (4wk) + buyout (8wk) while still under the minimum term");
+
+            e.State.Employed[Crew.Researcher].ContractWeeksLeft = 0;
+            Assert.That(e.FireCost(Crew.Researcher), Is.EqualTo(wage * 4), "just severance once the term is up");
+        }
+
+        [Test]
         public void GuestLiftsAppealWhenBooked()
         {
             var (st, cfg) = Fresh();

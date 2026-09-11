@@ -713,7 +713,7 @@ namespace PodcastTycoon.Game
             Term("Cup & Europe", "Extra midweek fixtures alongside the league. Win the cup or finish high enough and you play in Europe next season — bigger nights, more reach.");
             Term("Access tier", "Set by your rolling-average listeners. Tier 2 unlocks scoops and the Big interview; tier 3 lets your takes move the club, and may bring a partnership offer.");
             Term("Scoops", "Advance word on a club decision. Break it now for a huge episode and a real risk it's wrong (which costs access); verify & hold to build trust; or trade it for cash.");
-            Term("Crew", "Producer, Researcher, Clips manager, Booker — monthly wages, each changing how the week works. Hire them once ad and sponsor money can carry the bill.");
+            Term("Crew", "Producer, Researcher, Clips manager, Booker. Each role is filled from 2-3 candidates who refresh every few weeks — skill scales the role's effect, and traits give a real upside and a real downside. Firing someone costs severance, more if they're still under contract.");
             Term("Upgrade tracks", "Five ladders — Set, Audio chain, Post/editing, Studio space, Distribution — each 3-4 tiers. Buy in order; each tier replaces the one below it and usually adds a bit to the monthly bill.");
             Term("Cards", "One-shot buffs on the current episode, or permanent lifts to the club/show. From milestones, or a 3-card pack for cash. Hand holds five.");
             Term("Custom run", "Modifiers set at the start (extra prep, gentler churn, sandbox, chaos…). Flags the run as Custom; the endless chase still works.");
@@ -1048,12 +1048,9 @@ namespace PodcastTycoon.Game
                 $"+{E.Config.CoHostPrepBonus} prep a week and a little appeal.",
                 $"€{E.Config.CoHostMonthlyWage}/mo", E.CanHireCoHost(), () => E.HireCoHost());
 
+            panel.Add(Ui.Text("CREW", "eyebrow"));
             foreach (var role in CrewCatalog.All)
-            {
-                var r = role;
-                HireRow(r.Name, st.HasCrew(r.Id), r.Effect, $"€{E.CrewWage(r.Id)}/mo",
-                    E.CanHireCrew(r.Id), () => E.HireCrew(r.Id));
-            }
+                panel.Add(BuildCrewRoleBlock(role));
 
             panel.Add(Ui.Text("OTHER", "eyebrow"));
             HireRow("Second sponsor slot", st.HasSecondSponsorSlot,
@@ -1061,6 +1058,58 @@ namespace PodcastTycoon.Game
                 E.CanBuySecondSponsorSlot(), () => E.BuySecondSponsorSlot());
 
             return panel;
+        }
+
+        VisualElement BuildCrewRoleBlock(CrewRole role)
+        {
+            var st = E.State;
+            var box = Ui.Box();
+            box.style.marginBottom = 6;
+            box.Add(Ui.Text($"{role.Name}  ({role.Effect})", "topiccard-title"));
+
+            if (st.Employed.TryGetValue(role.Id, out var emp))
+            {
+                var row = Ui.Row();
+                var left = Ui.Box();
+                left.style.flexGrow = 1;
+                string traits = emp.TraitText;
+                left.Add(Ui.Wrapping(
+                    $"{emp.Name} — skill {emp.Skill:0.0}, €{emp.Wage:N0}/mo" + (traits.Length > 0 ? $"  ·  {traits}" : ""),
+                    "body"));
+                if (emp.ContractWeeksLeft > 0)
+                    left.Add(Ui.Wrapping($"Under contract for {emp.ContractWeeksLeft} more week(s) — firing early costs a buyout.", "body", "dim"));
+                row.Add(left);
+                var fire = Ui.Btn($"Fire  ({Ui.Money(E.FireCost(role.Id))})", () => { E.FireCrew(role.Id); _host.RerenderWeek(); }, "btn-ghost");
+                row.Add(fire);
+                box.Add(row);
+            }
+            else
+            {
+                var candidates = E.CandidatesFor(role.Id);
+                if (candidates.Count == 0)
+                {
+                    box.Add(Ui.Wrapping("No candidates on the market right now — check back in a few weeks.", "body", "dim"));
+                }
+                for (int i = 0; i < candidates.Count; i++)
+                {
+                    var c = candidates[i];
+                    int idx = i;
+                    var row = Ui.Row();
+                    var left = Ui.Box();
+                    left.style.flexGrow = 1;
+                    string traits = c.TraitText;
+                    left.Add(Ui.Wrapping(
+                        $"{c.Name} — skill {c.Skill:0.0}, €{c.Wage:N0}/mo" + (traits.Length > 0 ? $"  ·  {traits}" : ""),
+                        "body", "dim"));
+                    row.Add(left);
+                    var hire = Ui.Btn("Hire", () => { E.HireCandidate(role.Id, idx); _host.RerenderWeek(); }, "btn-ghost");
+                    hire.SetEnabled(E.CanHireCandidate(role.Id, idx));
+                    row.Add(hire);
+                    box.Add(row);
+                }
+            }
+            box.Add(Ui.Divider());
+            return box;
         }
 
         // ================================================================
@@ -1184,7 +1233,7 @@ namespace PodcastTycoon.Game
             var ang = AngleCatalog.Get(seg.Angle);
             float ctxMult = ContextResolver.AppealMultiplier(chosen.Response, ctx) * ctx.ImportanceAppealMult;
             float draw = chosen.BaseAppeal * ctxMult * ang.AppealMult;
-            int effort = Mathf.Max(1, chosen.Effort - CrewCatalog.EffortRelief(st.Crew));
+            int effort = Mathf.Max(1, chosen.Effort - CrewCatalog.EffortRelief(st));
             var chips = Ui.Box("row-wrap");
             chips.Add(Ui.Chip("Draw: " + DrawLabel(draw)));
             chips.Add(Ui.Chip($"Prep needed: {effort}"));
@@ -1218,7 +1267,7 @@ namespace PodcastTycoon.Game
             seg.Set(topic, topic.SourceThread != null ? (topic.SourceThread.Momentum >= 0f ? 1 : -1) : 0);
             if (changed && seg.Prep == 0)
             {
-                int effort = Mathf.Max(1, topic.Effort - CrewCatalog.EffortRelief(E.State.Crew));
+                int effort = Mathf.Max(1, topic.Effort - CrewCatalog.EffortRelief(E.State));
                 int room = Mathf.Max(0, E.State.PrepCapacity(E.Config) - _plan.TotalPrep);
                 seg.Prep = Mathf.Min(effort, room);
             }

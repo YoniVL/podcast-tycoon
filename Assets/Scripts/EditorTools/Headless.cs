@@ -66,14 +66,42 @@ namespace PodcastTycoon.EditorTools
                     if (greedy) engine.AcceptBuyout(); else engine.DeclineBuyout();
                 }
 
-                // Hire crew and buy the big upgrades once the money is comfortable.
-                if (engine.State.Money > 900 && engine.CanHireCrew(Crew.Producer)) engine.HireCrew(Crew.Producer);
-                if (engine.State.Money > 900 && engine.CanHireCrew(Crew.Researcher)) engine.HireCrew(Crew.Researcher);
-                if (engine.State.Money > 1200 && engine.CanHireCrew(Crew.Clips)) engine.HireCrew(Crew.Clips);
-                if (engine.State.Money > 1500 && engine.CanHireCrew(Crew.Booker)) engine.HireCrew(Crew.Booker);
+                // A single, global brake on every recurring commitment: don't take on more monthly
+                // burden than ~6 months of current cash can carry. Monthly wages/upkeep land in one
+                // lump every 4 weeks, so over-committing across several tracks/crew at once is what
+                // actually causes a bankruptcy, not any one purchase in isolation.
+                float CurrentMonthlyTotal()
+                {
+                    var st2 = engine.State;
+                    float total = st2.HasCoHost ? engine.Config.CoHostMonthlyWage + st2.CoHostWageBump : 0f;
+                    foreach (var c in st2.Employed.Values) total += c.Wage;
+                    total += UpgradeCatalog.TotalMonthlyUpkeep(st2);
+                    return total;
+                }
+                bool RoomForMoreMonthly(float extraMonthly) => engine.State.Money > (CurrentMonthlyTotal() + extraMonthly) * 6f;
+
+                // Hire crew (pick the most cost-effective affordable candidate) once there's room.
+                void HireBest(Crew role, float minMoney)
+                {
+                    if (engine.State.HasCrew(role) || engine.State.Money <= minMoney) return;
+                    var pool = engine.CandidatesFor(role);
+                    int best = -1; float bestValue = -1f;
+                    for (int k = 0; k < pool.Count; k++)
+                    {
+                        var c = pool[k];
+                        if (!engine.CanHireCandidate(role, k) || !RoomForMoreMonthly(c.Wage)) continue;
+                        float value = c.Skill / Math.Max(1, c.Wage);   // skill per euro
+                        if (value > bestValue) { best = k; bestValue = value; }
+                    }
+                    if (best >= 0) engine.HireCandidate(role, best);
+                }
+                HireBest(Crew.Producer, 900f);
+                HireBest(Crew.Researcher, 900f);
+                HireBest(Crew.Clips, 1200f);
+                HireBest(Crew.Booker, 1500f);
                 {
                     var studioNext = engine.NextUpgrade(UpgradeTrack.Studio);
-                    if (studioNext != null && engine.State.Money > studioNext.Cost + studioNext.Monthly * 12f
+                    if (studioNext != null && engine.State.Money > studioNext.Cost && RoomForMoreMonthly(studioNext.Monthly)
                         && engine.CanBuyUpgrade(UpgradeTrack.Studio))
                         engine.BuyUpgrade(UpgradeTrack.Studio);
                 }
@@ -103,14 +131,14 @@ namespace PodcastTycoon.EditorTools
                 {
                     var next = engine.NextUpgrade(t);
                     if (next == null) return false;
-                    float buffer = next.Level == 1 ? minMoney : Math.Max(minMoney, next.Cost + next.Monthly * 20f);
-                    return engine.State.Money > buffer && engine.CanBuyUpgrade(t);
+                    return engine.State.Money > minMoney && RoomForMoreMonthly(next.Monthly) && engine.CanBuyUpgrade(t);
                 }
                 if (CanAffordUpgrade(UpgradeTrack.Set, 350f)) engine.BuyUpgrade(UpgradeTrack.Set);
                 if (CanAffordUpgrade(UpgradeTrack.Audio, 450f)) engine.BuyUpgrade(UpgradeTrack.Audio);
                 if (CanAffordUpgrade(UpgradeTrack.Post, 450f)) engine.BuyUpgrade(UpgradeTrack.Post);
                 if (CanAffordUpgrade(UpgradeTrack.Distribution, 800f)) engine.BuyUpgrade(UpgradeTrack.Distribution);
-                if (engine.State.Money > 650 && engine.CanHireCoHost()) engine.HireCoHost();
+                if (engine.State.Money > 650 && RoomForMoreMonthly(engine.Config.CoHostMonthlyWage) && engine.CanHireCoHost())
+                    engine.HireCoHost();
 
                 var plan = BuildRundown(engine, ctx, greedy, out Topic pick);
 
@@ -206,7 +234,7 @@ namespace PodcastTycoon.EditorTools
             }
 
             // Meet each segment's effort, then spread whatever's left across the levers.
-            int relief = CrewCatalog.EffortRelief(st.Crew);
+            int relief = CrewCatalog.EffortRelief(st);
             foreach (var seg in plan.FilledSlots)
                 seg.Prep = Math.Max(1, seg.Resolved.Effort - relief);
             int left = cap - plan.TopicPrep;

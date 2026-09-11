@@ -192,7 +192,6 @@ namespace PodcastTycoon.Core
         {
             var cfg = _cfg;
             var d = DifficultyProfile.For(st.Difficulty);
-            var crew = st.Crew;
 
             var setTier = UpgradeCatalog.Current(st, UpgradeTrack.Set);
             var audioTier = UpgradeCatalog.Current(st, UpgradeTrack.Audio);
@@ -202,11 +201,12 @@ namespace PodcastTycoon.Core
 
             float micQ = audioTier.MicQuality;
             float editSkill = postTier.EditSkill;
-            float qualityFloorBonus = setTier.QualityFloorBonus;
+            float qualityFloorBonus = setTier.QualityFloorBonus
+                + (CrewCatalog.AnyEmployeeHasTrait(st, "perfectionist") ? 0.05f : 0f);
             float crewAppeal = st.HasCoHost ? cfg.CoHostAppealBonus : 0f;
             float gear = cfg.QualityGearWeight * micQ + cfg.QualityGearWeight * editSkill;
-            int effortRelief = CrewCatalog.EffortRelief(crew);
-            float researchMult = CrewCatalog.ResearchMultiplier(crew);
+            int effortRelief = CrewCatalog.EffortRelief(st);
+            float researchMult = CrewCatalog.ResearchMultiplier(st);
             float studioReach = studioTier.ReachMult;
 
             var filled = plan.FilledSlots.ToList();
@@ -285,7 +285,7 @@ namespace PodcastTycoon.Core
                 angleAppealW += ang.AppealMult * w;
 
                 float analysisRep = topic.Response == TopicResponse.Evergreen && topic.RepEarn > 0f
-                    ? CrewCatalog.AnalysisRepBonus(crew) : 0f;
+                    ? CrewCatalog.AnalysisRepBonus(st) : 0f;
                 repDelta += (topic.RepEarn * q + analysisRep + ang.RepDelta) * w;
                 credDelta += (topic.CredHook * MathX.Clamp(q, 0.4f, 1.5f) + ang.CredDelta) * w;
                 socialFlat += topic.SocialHook * ctx.SocialMultiplier + ang.SocialAdd + (seg.Guest ? cfg.GuestSocialBonus : 0);
@@ -381,7 +381,7 @@ namespace PodcastTycoon.Core
             float growthRoom = MathX.Clamp01(1f - st.Listeners / Math.Max(1f, market));
 
             float passiveGain = st.Listeners * ctx.PassiveGainRate * growthRoom;
-            float clipsPassive = st.Listeners * CrewCatalog.PassiveReachPerWeek(crew) * growthRoom;
+            float clipsPassive = st.Listeners * CrewCatalog.PassiveReachPerWeek(st) * growthRoom;
             float poolChurnMult = (st.Modifiers.GentleChurn ? 0.8f : 1f) * (st.SlumpWeeks > 0 ? cfg.SlumpChurnMult : 1f);
             float moodChurnMult = whiplash ? 1.5f : 1f;
             float appealShare = MathX.Clamp01(angleAppealW - 1f);      // how "spicy" the week was
@@ -514,7 +514,7 @@ namespace PodcastTycoon.Core
                 ? (perf - cfg.SocialHotThreshold) * cfg.SocialHotScale * (float)Math.Sqrt(Math.Max(0.1f, appealC))
                 : 0f;
             float social = socialFlat + hotEpisode + st.CardSocialBonusThisWeek;
-            social *= CrewCatalog.SocialMultiplier(crew);
+            social *= CrewCatalog.SocialMultiplier(st);
             result.SocialGained = Math.Max(0f, social);
 
             // --- economy (segmented: Core pays best, Followers barely at all — spec §17) ---
@@ -529,7 +529,7 @@ namespace PodcastTycoon.Core
             if (payday)
             {
                 if (st.HasCoHost) wages += cfg.CoHostMonthlyWage + st.CoHostWageBump;
-                wages += CrewCatalog.MonthlyWageBill(st.Crew, cfg);
+                wages += CrewCatalog.MonthlyWageBill(st);
                 wages += UpgradeCatalog.TotalMonthlyUpkeep(st);
             }
             result.MonthlyWagesCharged = wages;
