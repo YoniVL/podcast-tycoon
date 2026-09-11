@@ -43,7 +43,7 @@ namespace PodcastTycoon.Game
             var st = E.State;
 
             // An unresolved interrupt has to be dealt with on This Week before anything else.
-            if (E.Events.Pending != null || E.Scoops.Pending != null || E.State.BuyoutPending) _activeTab = 0;
+            if (E.Events.Pending != null || E.Scoops.Pending != null || E.State.BuyoutPending || E.IsRecording) _activeTab = 0;
 
             var screen = Ui.Box("screen");
             var col = Ui.Box("column");
@@ -58,6 +58,14 @@ namespace PodcastTycoon.Game
                 var banner = Ui.Box("toast", "toast-bad");
                 banner.Add(Ui.Wrapping(
                     "There's a decision waiting on This Week — sort it before you can release.", "body"));
+                col.Add(banner);
+            }
+            else if (E.IsRecording)
+            {
+                var banner = Ui.Box("toast", "toast-story");
+                banner.Add(Ui.Wrapping(
+                    E.CurrentBeat != null ? "You're recording — something's come up." : "Recording's done — ready to release.",
+                    "body"));
                 col.Add(banner);
             }
 
@@ -114,6 +122,9 @@ namespace PodcastTycoon.Game
             strip.Add(Ui.Stat("Freshness", Mathf.RoundToInt(st.Freshness).ToString(),
                 st.Freshness < 45f ? "bad" : null,
                 "Falls when you repeat yourself — same angle, same bit. Vary the show or take a lighter week to recover."));
+            strip.Add(Ui.Stat("Morale", Mathf.RoundToInt(st.Morale).ToString(),
+                st.Morale < 40f ? "bad" : null,
+                "The team's energy. Pushing hard costs it; a light week or a win restores it. Low morale caps episode quality."));
             return strip;
         }
 
@@ -301,8 +312,19 @@ namespace PodcastTycoon.Game
                 root.Add(note);
             }
 
+            // The recording phase (spec §10): once you hit Record, the rundown is locked in and
+            // a few quick beats can arise before the episode actually goes out.
+            if (E.IsRecording)
+            {
+                root.Add(BuildRecordingPanel());
+                return;
+            }
+
             // the rundown — three segment slots
             root.Add(BuildRundownPanel());
+
+            // the weekly gamble (spec §11)
+            root.Add(BuildPushPanel());
 
             // cards — a step in the weekly loop: play up to a couple to shape this episode
             root.Add(BuildWeeklyCardsPanel());
@@ -310,7 +332,7 @@ namespace PodcastTycoon.Game
             // production levers
             root.Add(BuildLeversPanel());
 
-            _publish = Ui.Btn("Record & release", Publish, "btn-primary");
+            _publish = Ui.Btn("Record & release", StartRecording, "btn-primary");
             _host.Theme.PaintPrimaryButton(_publish);
             _publish.style.marginTop = 6;
             _publish.SetEnabled(false);
@@ -318,6 +340,48 @@ namespace PodcastTycoon.Game
 
             SyncSliders();
             RefreshPreview();
+        }
+
+        VisualElement BuildRecordingPanel()
+        {
+            var box = Ui.Box();
+            if (!string.IsNullOrEmpty(E.LastBeatOutcome))
+            {
+                var toast = Ui.Box("toast");
+                toast.Add(Ui.Wrapping(E.LastBeatOutcome, "body"));
+                box.Add(toast);
+            }
+
+            var panel = Ui.Box("panel", "event-card");
+            var beat = E.CurrentBeat;
+            if (beat != null)
+            {
+                panel.Add(Ui.Text("RECORDING", "eyebrow"));
+                panel.Add(Ui.Text(beat.Prompt, "h2"));
+                panel.Add(Ui.Wrapping(beat.Detail, "body"));
+                for (int i = 0; i < beat.Options.Count; i++)
+                {
+                    int idx = i;
+                    var b = Ui.Btn(beat.Options[i].Label, () => { E.ResolveBeat(idx); _host.RerenderWeek(); }, "btn-ghost");
+                    b.style.marginTop = 4;
+                    panel.Add(b);
+                }
+            }
+            else
+            {
+                panel.Add(Ui.Text("RECORDING", "eyebrow"));
+                panel.Add(Ui.Text("That's a wrap", "h2"));
+                panel.Add(Ui.Wrapping(
+                    string.IsNullOrEmpty(E.LastBeatOutcome)
+                        ? "A clean recording — nothing went sideways."
+                        : "Ready to release.", "body", "dim"));
+                var release = Ui.Btn("Release it", () => _host.Publish(E.PendingPlan), "btn-primary");
+                _host.Theme.PaintPrimaryButton(release);
+                release.style.marginTop = 6;
+                panel.Add(release);
+            }
+            box.Add(panel);
+            return box;
         }
 
         // ================================================================
@@ -592,9 +656,10 @@ namespace PodcastTycoon.Game
                 "1. Deal with anything waiting — an interrupt event, a scoop, a big decision.\n" +
                 "2. Build the rundown: a main story, a second segment and a small recurring bit. Second and recurring can be left empty for a lighter week.\n" +
                 "3. For each segment, pick a topic and an angle. The angle — analysis, hot take, emotional, comedy, investigation — decides how it lands: reach, risk, and what it does to your reputation and credibility.\n" +
-                "4. Optionally play a card or two.\n" +
-                "5. Split your prep points across the segments and the three levers — research, audio, promo.\n" +
-                "6. Release it. The result is a surprise until it's out.\n" +
+                "4. Set the push dial — how hard you're going this week. Louder means more reach and chatter, and a real chance it backfires.\n" +
+                "5. Optionally play a card or two.\n" +
+                "6. Split your prep points across the segments and the three levers — research, audio, promo.\n" +
+                "7. Hit Record. A few quick things can come up during recording — your call on each. Then release it. The result is a surprise until it's out.\n" +
                 "Spend what you earn on gear, crew and a co-host. Keep money above water. Grow the audience.", "body"));
             root.Add(week);
 
@@ -614,7 +679,9 @@ namespace PodcastTycoon.Game
                 "Credibility (0–100) — how much people trust what you say. Analysis and verified scoops build it; hot takes that miss burn it. " +
                 "Trust is what turns casual listeners into a loyal core, and the club won't grant real access without it.\n\n" +
                 "Social reach (0–100) — how loudly the show is talked about online. A breakout episode, a clip, a spicy take all raise it; " +
-                "go quiet and it fades. It brings new listeners in fast — and makes a bad week travel further too.", "body"));
+                "go quiet and it fades. It brings new listeners in fast — and makes a bad week travel further too.\n\n" +
+                "Morale (0–100) — the team's energy. Pushing hard, back to back, wears it down; a light week or a win brings it back. " +
+                "Below 40 the episode is capped, and there's a real chance it comes out sounding phoned in.", "body"));
             root.Add(numbers);
 
             var gloss = Ui.Box("panel");
@@ -629,6 +696,10 @@ namespace PodcastTycoon.Game
             Term("Credibility", "How much people trust what you say (0–100). Analysis and verified scoops build it; hot takes and missed scoops burn it. Low credibility loses you insider access and bleeds your core audience.");
             Term("Freshness", "Falls when you repeat yourself — same angle, same recurring bit, same subject week after week. Drags down how far every segment reaches. Vary the show, or take a lighter week, to recover.");
             Term("Slump", "Two weak episodes in a row, or a tonal-whiplash clash, and listeners start leaving faster than usual. Two strong episodes back to back pulls you out.");
+            Term("Push", "How hard you're going this week, 1-5. Higher push means more appeal and more social reach — and raises the chance the week's take backfires.");
+            Term("Backfire", "The gamble not paying off. Costs reputation and credibility, and the casual audience thins out for the week. A correction opportunity appears on next week's offer — cover it well and the credibility comes back.");
+            Term("Recording", "After you hit Record, the plan is locked in and a few quick things can come up — your co-host goes off script, the audio glitches, a great bit happens. Your call on each shapes the episode.");
+            Term("Morale", "The team's energy (0-100). Pushing hard costs it; a light week or a win restores it. Low morale caps how good the episode can be.");
             Term("Rundown", "The three segments that make up the episode — main story, second segment, recurring bit. The main carries most of the reach; the recurring bit is small but it builds the show's identity over time.");
             Term("Angle", "How a segment covers its topic. Analysis is safe and builds credibility. Hot take is loud — big reach, but it burns credibility. Emotional lands on a big result. Comedy drives clips. Investigation digs in (needs a Researcher or insider access).");
             Term("Draw", "How many listeners a topic pulls in this week, before quality. Shifts with the result, the fixture, the angle and story context.");
@@ -995,6 +1066,27 @@ namespace PodcastTycoon.Game
             return panel;
         }
 
+        static readonly string[] PushLabels = { "1 · Head down", "2 · Normal", "3 · Bold", "4 · Loud", "5 · Full send" };
+
+        VisualElement BuildPushPanel()
+        {
+            var panel = Ui.Box("panel");
+            panel.Add(Ui.Text("How hard are you pushing it?", "h2"));
+            panel.Add(Ui.Wrapping(
+                "The editorial line for the whole episode. Louder means more reach and more chatter — and a real chance " +
+                "a take lands badly. Keep your head down to lie low for a week.", "body", "dim"));
+            var row = Ui.Box("row-wrap");
+            for (int i = 1; i <= 5; i++)
+            {
+                int val = i;
+                var b = Ui.Btn(PushLabels[i - 1], () => { _plan.Push = val; _host.RerenderWeek(); }, "btn-ghost");
+                if (_plan.Push == val) b.AddToClassList("btn-primary");
+                row.Add(b);
+            }
+            panel.Add(row);
+            return panel;
+        }
+
         VisualElement BuildSlotCard(Segment seg, string label, bool canBeEmpty)
         {
             var st = E.State;
@@ -1197,8 +1289,18 @@ namespace PodcastTycoon.Game
                 foreach (var note in preview.Notes)
                 {
                     bool bad = note == "just ranting" || note == "tonal whiplash" || note == "one-note"
-                               || note == "same bit again" || note == "overhyped";
+                               || note == "same bit again" || note == "overhyped" || note == "phoned-in"
+                               || note == "backfired" || note == "main character of the day";
                     _previewBlock.Add(Ui.Wrapping((bad ? "⚠ " : "✓ ") + NoteLabel(note), "body", bad ? "bad" : "good"));
+                }
+
+                if (preview.BackfireChance >= 0.01f)
+                {
+                    string odds = preview.BackfireChance < 0.08f ? "low" : preview.BackfireChance < 0.20f ? "moderate"
+                        : preview.BackfireChance < 0.40f ? "high" : "very high";
+                    _previewBlock.Add(Ui.Wrapping(
+                        $"Backfire risk this week: {odds} ({preview.BackfireChance * 100f:0}%).",
+                        "body", preview.BackfireChance >= 0.25f ? "bad" : "dim"));
                 }
             }
 
@@ -1225,6 +1327,9 @@ namespace PodcastTycoon.Game
             "palate cleanser" => "A light bit after a heavy main gives listeners a breather.",
             "deep dive" => "Two analytical segments on one subject — a real deep dive. Credibility up.",
             "range" => "Something serious and something funny — range. More clips.",
+            "phoned-in" => "Morale's low and it showed — the episode sounded phoned in.",
+            "backfired" => "The push backfired — a take landed badly. Reputation and credibility took a hit.",
+            "main character of the day" => "It really backfired — you're the main character today. A pile-on, and a real dent in trust.",
             _ => note
         };
 
@@ -1261,10 +1366,11 @@ namespace PodcastTycoon.Game
 
         string RedrawLabel() => $"Redraw  ({Ui.Money(E.Config.RedrawCost)})";
 
-        void Publish()
+        void StartRecording()
         {
             if (_plan.Main.IsEmpty) return;
-            _host.Publish(_plan.Clone());
+            E.StartRecording(_plan.Clone());
+            _host.RerenderWeek();
         }
 
         // --- headless capture hooks ---
@@ -1276,7 +1382,17 @@ namespace PodcastTycoon.Game
 
         public void DebugPublish()
         {
-            if (!_plan.Main.IsEmpty) _host.Publish(_plan.Clone());
+            if (E.IsRecording)
+            {
+                while (E.CurrentBeat != null) E.ResolveBeat(0);
+                _host.Publish(E.PendingPlan);
+            }
+            else if (!_plan.Main.IsEmpty)
+            {
+                E.StartRecording(_plan.Clone());
+                while (E.CurrentBeat != null) E.ResolveBeat(0);
+                _host.Publish(E.PendingPlan);
+            }
         }
 
         // ------------------------------------------------------------------

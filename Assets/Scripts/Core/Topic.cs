@@ -53,6 +53,7 @@ namespace PodcastTycoon.Core
         public float CredHook;      // effect on credibility when covered (can be negative)
         public TopicResponse Response;
         public TopicFamily Family = TopicFamily.Meta;
+        public bool IsCorrectionOpportunity;   // covering this fully restores credibility after a backfire (spec §11)
 
         /// <summary>Whether this topic is on the table given the week's context.</summary>
         public Func<WeekContext, GameState, bool> IsAvailable;

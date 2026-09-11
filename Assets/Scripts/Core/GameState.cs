@@ -99,6 +99,11 @@ namespace PodcastTycoon.Core
         // --- season review (slice 3D) ---
         public SeasonSummary LastSeason;
 
+        // --- morale, backfire correction (slice 5, spec §5, §11) ---
+        public float Morale = 70f;
+        public bool PendingCorrection;
+        public int PendingCorrectionWeeks;
+
         // --- freshness / slumps / overreach (slice 4B, spec §12) ---
         public float Freshness = 80f;
         public int SlumpWeeks;                    // > 0 while the show is in a slump

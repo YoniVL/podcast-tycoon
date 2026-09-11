@@ -53,6 +53,9 @@ namespace PodcastTycoon.Core
         public int PrepAudio;
         public int PrepPromo;
 
+        /// <summary>The weekly gamble (spec §11): 1 (keep your head down) .. 5 (go loud). Default 2.</summary>
+        public int Push = 2;
+
         public IEnumerable<Segment> Slots
         {
             get { yield return Main; yield return Second; yield return Recurring; }
@@ -91,7 +94,7 @@ namespace PodcastTycoon.Core
         {
             var p = new ProductionPlan
             {
-                PrepResearch = PrepResearch, PrepAudio = PrepAudio, PrepPromo = PrepPromo
+                PrepResearch = PrepResearch, PrepAudio = PrepAudio, PrepPromo = PrepPromo, Push = Push
             };
             CopySlot(Main, p.Main); CopySlot(Second, p.Second); CopySlot(Recurring, p.Recurring);
             return p;
@@ -146,6 +149,12 @@ namespace PodcastTycoon.Core
         public float CasualDelta;
         public float FollowersDelta;
         public string LoyaltyAfter = "New";
+
+        // --- the push dial & backfire, morale (spec §11, §5) ---
+        public float BackfireChance;
+        public bool Backfired;
+        public bool SevereBackfire;
+        public float MoraleDelta;
 
         public string QualityLabel =>
             Quality >= 1.35f ? "Outstanding" :
@@ -256,7 +265,7 @@ namespace PodcastTycoon.Core
                 float appeal = Math.Max(0.05f,
                     topic.BaseAppeal * contextMult * angleMult + crewAppeal + st.SponsorAppealPenalty + momentBonus);
                 if (seg.Guest) appeal += cfg.GuestAppealBonus;
-                appeal *= freshnessMult;
+                appeal *= freshnessMult * (1f + cfg.PushAppealPerStep * (plan.Push - 2));
 
                 float segReach = st.Listeners * appeal * w
                     * (1f + cfg.PromoReachPerPoint * plan.PrepPromo)
@@ -320,9 +329,43 @@ namespace PodcastTycoon.Core
             {
                 socialFlat += 4f; notes.Add("range");
             }
+            socialFlat += cfg.PushSocialPerStep * (plan.Push - 2);
 
             reach *= reachMod;
             quality = MathX.Clamp(quality + qualityMod, cfg.QualityMin, cfg.QualityMax);
+
+            // Low morale caps how good an episode can be, with a real chance it's phoned in (spec §5).
+            float moraleDelta = 0f;
+            if (st.Morale < cfg.MoraleQualityCap)
+            {
+                quality = Math.Min(quality, 1.05f);
+                if (rng.NextDouble() < cfg.PhonedInChance) { quality *= 0.8f; notes.Add("phoned-in"); }
+            }
+            if (distinctAngles == filled.Count && filled.Count == 3 && !anyClash) moraleDelta += cfg.MoraleWellProducedGain;
+            if (plan.Push >= 4) moraleDelta -= (plan.Push - 3) * cfg.MoralePushCostPerStep;
+
+            // ---- the push dial & backfire (spec §11) ----
+            float backfireChance = MathX.Clamp01(cfg.BackfireBase
+                + cfg.BackfireHotTakeStep * hotTakes
+                + cfg.BackfirePushStep * (plan.Push - 2)
+                + cfg.BackfireCredWeight * (1f - MathX.Clamp01(st.Credibility / 60f))
+                + cfg.BackfireSocialWeight * (st.SocialReach / 100f));
+            bool backfired = rng.NextDouble() < backfireChance;
+
+            float actualRoll = st.CardGuaranteeGoodRoll
+                ? 1f + spreadC
+                : (float)(1.0 + (rng.NextDouble() * 2.0 - 1.0) * spreadC);
+
+            bool severeBackfire = backfired && plan.Push >= 4 && st.SocialReach >= 60f && actualRoll < 1f;
+
+            if (backfired)
+            {
+                repDelta -= cfg.BackfireRepHit;
+                credDelta -= cfg.BackfireCredHit;
+                moraleDelta -= cfg.MoraleBackfireHit;
+                notes.Add(severeBackfire ? "main character of the day" : "backfired");
+                anyClash = true;   // a backfire never counts as a "clean" recovery episode out of a slump
+            }
 
             // Market saturation: growth tails off as the audience nears the addressable market.
             float market = (cfg.MarketBase + cfg.MarketSeasonBonus * (st.Season - 1))
@@ -380,6 +423,14 @@ namespace PodcastTycoon.Core
                 followers -= followers * cfg.FollowerChurn * poolChurnMult;
                 casual    -= (core + casual) * ctx.MoodChurnRate * Math.Max(0f, 1.15f - quality) * moodChurnMult;
 
+                // The push backfired — a one-off hit to the casual audience, this episode only (spec §11).
+                if (backfired) casual -= casual * cfg.BackfireCasualChurn;
+                if (severeBackfire)
+                {
+                    casual -= casual * cfg.SevereBackfireCasualChurn;
+                    followers -= followers * cfg.SevereBackfireFollowerChurn;
+                }
+
                 if (st.SlumpWeeks == 0)
                 {
                     float toCore = casual * cfg.CasualToCoreRate * (st.Freshness / 100f) * MathX.Clamp(credFactor, 0f, 1.5f);
@@ -397,10 +448,6 @@ namespace PodcastTycoon.Core
                 var (c, ca, _) = Pools(roll);
                 return MathX.RoundToInt(c + ca) - startListeners;
             }
-
-            float actualRoll = st.CardGuaranteeGoodRoll
-                ? 1f + spreadC
-                : (float)(1.0 + (rng.NextDouble() * 2.0 - 1.0) * spreadC);
 
             var (coreA, casualA, followersA) = Pools(actualRoll);
 
@@ -423,6 +470,9 @@ namespace PodcastTycoon.Core
                 CasualDelta = casualA - startCasual,
                 FollowersDelta = followersA - startFollowers,
                 LoyaltyAfter = LoyaltyOf(coreA, casualA),
+                BackfireChance = backfireChance,
+                Backfired = backfired,
+                SevereBackfire = severeBackfire,
                 ListenerDeltaExpected = ListenerDelta(1f),
                 ListenerDeltaLow = ListenerDelta(1f - spreadC),
                 ListenerDeltaHigh = ListenerDelta(1f + spreadC),
@@ -446,6 +496,9 @@ namespace PodcastTycoon.Core
 
             // --- credibility ---
             result.CredibilityDelta = credDelta;
+
+            // --- morale ---
+            result.MoraleDelta = moraleDelta;
 
             // --- social reach (a hot episode gets talked about) ---
             float perf = quality * actualRoll;

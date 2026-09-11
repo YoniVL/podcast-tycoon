@@ -175,5 +175,31 @@ namespace PodcastTycoon.Core
         public int PackCostMoney = 150;
         public int CardHandLimit = 5;
         public int CardPlaysPerWeek = 2;
+
+        // --- the push dial & backfire (slice 5, spec §11) ---
+        public float PushAppealPerStep = 0.06f;   // per step away from push 2
+        public float PushSocialPerStep = 2f;
+        public float BackfireBase = 0.04f;
+        public float BackfireHotTakeStep = 0.05f;
+        public float BackfirePushStep = 0.04f;
+        public float BackfireCredWeight = 0.06f;  // low credibility → takes land worse
+        public float BackfireSocialWeight = 0.03f;
+        public float BackfireRepHit = 3f;
+        public float BackfireCredHit = 4f;
+        public float BackfireCasualChurn = 0.20f;    // one-off, this episode only (middle-road)
+        public float SevereBackfireCasualChurn = 0.15f;
+        public float SevereBackfireFollowerChurn = 0.15f;
+        public int CorrectionWeeks = 4;              // the opportunity stays on the offer this long
+        public float CorrectionCredRestore = 8f;
+        public float CorrectionRepBump = 2f;
+
+        // --- morale (slice 5, spec §5, §19) ---
+        public float StartMorale = 70f;
+        public float MoraleQualityCap = 40f;         // below this, quality is capped + a "phoned-in" risk
+        public float PhonedInChance = 0.10f;
+        public float MoralePushCostPerStep = 4f;     // for push >= 4: (push-3) * this
+        public float MoraleBackfireHit = 4f;
+        public float MoraleWellProducedGain = 2f;
+        public float MoraleLightWeekGain = 6f;
     }
 }

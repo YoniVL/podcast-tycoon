@@ -39,10 +39,24 @@ namespace PodcastTycoon.Game
             foreach (var note in _result.Notes)
             {
                 bool bad = note == "just ranting" || note == "tonal whiplash" || note == "one-note"
-                           || note == "same bit again" || note == "overhyped";
+                           || note == "same bit again" || note == "overhyped" || note == "phoned-in"
+                           || note == "backfired" || note == "main character of the day";
                 var toast = Ui.Box("toast");
                 if (bad) toast.AddToClassList("toast-bad");
-                toast.Add(Ui.Wrapping((bad ? "That didn't sit right — " : "That worked — ") + note + ".", "body"));
+                string line = note switch
+                {
+                    "backfired" => "The push backfired — a take landed badly this week.",
+                    "main character of the day" => "It really backfired — you're the main character today. A pile-on, and a real dent in trust.",
+                    "phoned-in" => "Morale was low and it showed — the episode sounded phoned in.",
+                    _ => (bad ? "That didn't sit right — " : "That worked — ") + note + "."
+                };
+                toast.Add(Ui.Wrapping(line, "body"));
+                scroll.Add(toast);
+            }
+            if (_result.Backfired)
+            {
+                var toast = Ui.Box("toast");
+                toast.Add(Ui.Wrapping("A correction opportunity will be on the offer for a few weeks — cover it well and your credibility comes all the way back.", "body", "dim"));
                 scroll.Add(toast);
             }
             if (st.SlumpWeeks == 1 && _result.Whiplash)
@@ -115,6 +129,7 @@ namespace PodcastTycoon.Game
             grid.Add(Ui.Stat("Reputation", Ui.Signed(_result.ReputationDelta, "0.0")));
             grid.Add(Ui.Stat("Credibility", Ui.Signed(_result.CredibilityDelta, "0.0")));
             grid.Add(Ui.Stat("Social reach", _result.SocialGained >= 0.1f ? "+" + _result.SocialGained.ToString("0.0") : "0"));
+            grid.Add(Ui.Stat("Morale", Ui.Signed(_result.MoraleDelta, "0.0")));
             grid.Add(Ui.Stat("Ad revenue", Ui.Money(_result.AdRevenue), "good"));
             if (_result.SponsorRevenue > 0)
                 grid.Add(Ui.Stat("Sponsor", Ui.Money(_result.SponsorRevenue), "good"));
@@ -144,6 +159,7 @@ namespace PodcastTycoon.Game
             tgrid.Add(Ui.Stat("Reputation", Mathf.RoundToInt(st.Reputation).ToString()));
             tgrid.Add(Ui.Stat("Credibility", Mathf.RoundToInt(st.Credibility).ToString()));
             tgrid.Add(Ui.Stat("Social reach", Mathf.RoundToInt(st.SocialReach).ToString()));
+            tgrid.Add(Ui.Stat("Morale", Mathf.RoundToInt(st.Morale).ToString(), st.Morale < 40f ? "bad" : null));
             totals.Add(tgrid);
 
             var next = _host.Engine.Calendar.FixtureForTurn(st.SeasonTurn);

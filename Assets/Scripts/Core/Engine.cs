@@ -48,6 +48,14 @@ namespace PodcastTycoon.Core
         public IReadOnlyList<Topic> Offer { get; private set; } = Array.Empty<Topic>();
         public bool HasRedrawnThisWeek { get; private set; }
 
+        // --- the recording phase (spec §10): a few quick beats before the episode is final ---
+        public ProductionPlan PendingPlan { get; private set; }
+        public List<RecordingBeat> PendingBeats { get; private set; } = new List<RecordingBeat>();
+        public RecordingBeat CurrentBeat => PendingBeats.Count > 0 ? PendingBeats[0] : null;
+        public string LastBeatOutcome { get; private set; }
+        public bool IsRecording => PendingPlan != null;
+        public bool RecordingReady => PendingPlan != null && PendingBeats.Count == 0;
+
         int _seasonStartListeners;
         float _seasonStartRep;
 
@@ -83,6 +91,7 @@ namespace PodcastTycoon.Core
                 Reputation = Config.StartReputation,
                 Credibility = Config.StartCredibility,
                 SocialReach = Config.StartSocialReach,
+                Morale = Config.StartMorale,
                 TeamStrength = profile.TeamStrength,
                 PeakListeners = Config.StartListeners,
                 Modifiers = mods,
@@ -122,6 +131,9 @@ namespace PodcastTycoon.Core
         public WeekContext BeginWeek()
         {
             HasRedrawnThisWeek = false;
+            PendingPlan = null;
+            PendingBeats = new List<RecordingBeat>();
+            LastBeatOutcome = null;
             State.CardsPlayedThisWeek = 0;
             State.CardReachMultThisWeek = 1f;
             State.CardPrepBonusThisWeek = 0;
@@ -131,6 +143,10 @@ namespace PodcastTycoon.Core
 
             // Social reach fades if you're not being talked about (spec §5).
             State.SocialReach = Math.Max(0f, State.SocialReach - Config.SocialDecayPerWeek);
+
+            // A correction opportunity is a carrot, not a stick — it quietly expires (spec §11).
+            if (State.PendingCorrection && --State.PendingCorrectionWeeks <= 0)
+                State.PendingCorrection = false;
 
             var fixture = Calendar.FixtureForTurn(State.SeasonTurn);
             Rivals.MarkFixture(fixture);
@@ -208,9 +224,28 @@ namespace PodcastTycoon.Core
             }
         }
 
+        static Topic MakeCorrectionTopic() => new Topic
+        {
+            Id = TopicId.Explainer,
+            Name = "Setting the record straight",
+            Blurb = "Own the take that aged badly. Handle it properly and the trust comes back.",
+            BaseAppeal = 1.30f,
+            Effort = 3,
+            Swing = 0.15f,
+            RepEarn = 1f,
+            SocialHook = 1,
+            CredHook = 0f,   // the restoration is a flat bonus on being covered, not a per-quality hook
+            Response = TopicResponse.Evergreen,
+            Family = TopicFamily.Drama,
+            IsAvailable = (c, s) => true,
+            IsCorrectionOpportunity = true
+        };
+
         IReadOnlyList<Topic> BuildOffer(WeekContext ctx)
         {
             var offer = new List<Topic>();
+
+            if (State.PendingCorrection) offer.Add(MakeCorrectionTopic());
 
             var broken = Scoops.BrokenTopic;
             if (broken != null) offer.Add(broken);
@@ -263,6 +298,34 @@ namespace PodcastTycoon.Core
         // ------------------------------------------------------------------
         public EpisodeResult Preview(ProductionPlan plan) => _resolution.Project(State, CurrentWeek, plan);
 
+        /// <summary>Begin the recording phase (spec §10): pick 0-3 beats that arise from this
+        /// rundown, in this context. A clean show (nothing fires) gets a small quality bonus.</summary>
+        public void StartRecording(ProductionPlan plan)
+        {
+            PendingPlan = plan;
+            PendingBeats = RecordingBeats.Select(this, plan, CurrentWeek, _rng);
+            LastBeatOutcome = null;
+            if (PendingBeats.Count == 0) State.CardQualityBonusThisWeek += 0.04f;
+        }
+
+        public bool ResolveBeat(int optionIndex)
+        {
+            var beat = CurrentBeat;
+            if (beat == null || optionIndex < 0 || optionIndex >= beat.Options.Count) return false;
+            var opt = beat.Options[optionIndex];
+            opt.Apply?.Invoke(this, PendingPlan);
+            LastBeatOutcome = opt.Outcome;
+            PendingBeats.RemoveAt(0);
+            return true;
+        }
+
+        public void CancelRecording()
+        {
+            PendingPlan = null;
+            PendingBeats = new List<RecordingBeat>();
+            LastBeatOutcome = null;
+        }
+
         public EpisodeResult Publish(ProductionPlan plan)
         {
             int oldListeners = State.Listeners;
@@ -304,7 +367,18 @@ namespace PodcastTycoon.Core
             State.Reputation = MathX.Clamp(State.Reputation + result.ReputationDelta, 0f, 100f);
             State.Credibility = MathX.Clamp(State.Credibility + result.CredibilityDelta, 0f, 100f);
             State.SocialReach = MathX.Clamp(State.SocialReach + result.SocialGained, 0f, 100f);
+            State.Morale = MathX.Clamp(State.Morale + result.MoraleDelta, 0f, 100f);
             State.Money += result.MoneyDelta;
+
+            // A backfire opens a correction opportunity next week — a carrot, not a stick (spec §11).
+            if (result.Backfired) { State.PendingCorrection = true; State.PendingCorrectionWeeks = Config.CorrectionWeeks; }
+            if (plan.FilledSlots.Any(s => s.Resolved.IsCorrectionOpportunity))
+            {
+                State.Credibility = MathX.Clamp(State.Credibility + Config.CorrectionCredRestore, 0f, 100f);
+                State.Reputation = MathX.Clamp(State.Reputation + Config.CorrectionRepBump, 0f, 100f);
+                State.PendingCorrection = false;
+            }
+
             State.EpisodesPublished++;
             State.PeakListeners = Math.Max(State.PeakListeners, State.Listeners);
             State.ListenerHistory.Add(State.Listeners);
@@ -340,6 +414,7 @@ namespace PodcastTycoon.Core
             bool sameRecurring = !plan.Recurring.IsEmpty && st.LastHadRecurring
                                  && plan.Recurring.Topic == st.LastRecurringTopic;
             bool lightWeek = plan.TotalPrep <= Config.PrepBase / 2;
+            if (lightWeek) st.Morale = MathX.Clamp(st.Morale + Config.MoraleLightWeekGain, 0f, 100f);
 
             float f = st.Freshness;
             if (st.HadEpisodeLastWeek)
