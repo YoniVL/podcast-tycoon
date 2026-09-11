@@ -25,7 +25,7 @@ namespace PodcastTycoon.Tests
         public void StartsWithConfiguredResources()
         {
             var e = NewEngine();
-            Assert.That(e.State.Money, Is.EqualTo(500f));
+            Assert.That(e.State.Money, Is.EqualTo(e.Config.StartMoney));
             Assert.That(e.State.Listeners, Is.EqualTo(40));
             Assert.That(e.State.Reputation, Is.EqualTo(10f));
             Assert.That(e.State.Season, Is.EqualTo(1));

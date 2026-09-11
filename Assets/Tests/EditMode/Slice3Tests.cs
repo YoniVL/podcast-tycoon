@@ -12,6 +12,24 @@ namespace PodcastTycoon.Tests
 
         static int _wk;
 
+        // A sensible player won't take on more monthly burden than their cash reserves can
+        // carry for a while — mirrors the same runway check the headless AI uses.
+        static float CurrentMonthlyTotal(Engine e)
+        {
+            var st = e.State;
+            float total = st.HasCoHost ? e.Config.CoHostMonthlyWage + st.CoHostWageBump : 0f;
+            foreach (var c in st.Employed.Values) total += c.Wage;
+            total += UpgradeCatalog.TotalMonthlyUpkeep(st);
+            return total;
+        }
+        static bool RoomFor(Engine e, float extraMonthly) => e.State.Money > (CurrentMonthlyTotal(e) + extraMonthly) * 6f;
+
+        // A sensible player also doesn't spend down to the wire on a one-time purchase —
+        // keep a cash cushion on top of the monthly-runway check above.
+        const float CashReserve = 300f;
+        static bool CanAfford(Engine e, int cost, float extraMonthly) =>
+            e.State.Money - cost > CashReserve && RoomFor(e, extraMonthly);
+
         static void PlayWeek(Engine e)
         {
             e.BeginWeek();
@@ -19,13 +37,19 @@ namespace PodcastTycoon.Tests
             if (e.Scoops.Pending != null) e.ResolveScoop(ScoopChoice.VerifyHold);
             if (e.State.BuyoutPending) e.DeclineBuyout();
 
-            // The basics any player does: buy gear, hire, take a sponsor when it's affordable.
-            if (e.State.Money > 400 && e.CanBuyUpgrade(UpgradeTrack.Audio)) e.BuyUpgrade(UpgradeTrack.Audio);
-            if (e.State.Money > 400 && e.CanBuyUpgrade(UpgradeTrack.Post)) e.BuyUpgrade(UpgradeTrack.Post);
-            if (e.State.Money > 700 && e.CanHireCoHost()) e.HireCoHost();
-            if (e.State.Money > 900 && e.CandidatesFor(Crew.Producer).Count > 0 && e.CanHireCandidate(Crew.Producer, 0))
+            // The basics any player does: buy gear, hire, take a sponsor when it's affordable
+            // — and keeps a cash cushion plus enough runway to cover the new recurring cost.
+            if (e.CanBuyUpgrade(UpgradeTrack.Audio) && CanAfford(e, e.NextUpgrade(UpgradeTrack.Audio).Cost, e.NextUpgrade(UpgradeTrack.Audio).Monthly))
+                e.BuyUpgrade(UpgradeTrack.Audio);
+            if (e.CanBuyUpgrade(UpgradeTrack.Post) && CanAfford(e, e.NextUpgrade(UpgradeTrack.Post).Cost, e.NextUpgrade(UpgradeTrack.Post).Monthly))
+                e.BuyUpgrade(UpgradeTrack.Post);
+            if (e.CanHireCoHost() && CanAfford(e, 0, e.Config.CoHostMonthlyWage))
+                e.HireCoHost();
+            if (e.CandidatesFor(Crew.Producer).Count > 0 && e.CanHireCandidate(Crew.Producer, 0)
+                && CanAfford(e, 0, e.CandidatesFor(Crew.Producer)[0].Wage))
                 e.HireCandidate(Crew.Producer, 0);
-            if (e.State.Money > 1100 && e.CandidatesFor(Crew.Researcher).Count > 0 && e.CanHireCandidate(Crew.Researcher, 0))
+            if (e.CandidatesFor(Crew.Researcher).Count > 0 && e.CanHireCandidate(Crew.Researcher, 0)
+                && CanAfford(e, 0, e.CandidatesFor(Crew.Researcher)[0].Wage))
                 e.HireCandidate(Crew.Researcher, 0);
             if (e.Sponsors.Active == null && e.Sponsors.Inbox.Count > 0) e.SignSponsor(0);
 

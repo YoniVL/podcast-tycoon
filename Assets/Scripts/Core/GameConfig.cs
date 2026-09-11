@@ -8,7 +8,7 @@ namespace PodcastTycoon.Core
     public sealed class GameConfig
     {
         // --- starting state ---
-        public int StartMoney = 500;
+        public int StartMoney = 800;
         public int StartListeners = 40;
         public float StartReputation = 10f;
         public float StartCredibility = 50f;
@@ -89,7 +89,7 @@ namespace PodcastTycoon.Core
 
         // --- fail state ---
         public float BankruptcyFloor = -200f;
-        public int BankruptcyGraceWeeks = 3;
+        public int BankruptcyGraceWeeks = 4;
 
         // --- goal ---
         public int GoalListeners = 50000;
