@@ -78,6 +78,7 @@ namespace PodcastTycoon.Core
             void Money(Engine e, float d) => e.State.Money += d;
             void Rep(Engine e, float d) => e.State.Reputation = MathX.Clamp(e.State.Reputation + d, 0f, 100f);
             void Social(Engine e, float d) => e.State.SocialReach = MathX.Clamp(e.State.SocialReach + d, 0f, 100f);
+            void Cred(Engine e, float d) => e.State.Credibility = MathX.Clamp(e.State.Credibility + d, 0f, 100f);
             void ListenersPct(Engine e, float pct) =>
                 e.State.Listeners = Math.Max(0, (int)Math.Round(e.State.Listeners * (1f + pct)));
             void Drift(Engine e, float perWeek, int weeks)
@@ -274,6 +275,103 @@ namespace PodcastTycoon.Core
                             Label = "Not yet — keep it clean",
                             Outcome = "You're not ready to run ads. The purists respected it.",
                             Apply = e => Rep(e, 1f)
+                        }
+                    }
+                },
+
+                // --- discourse & beef (spec §13) ---
+                new GameEvent
+                {
+                    Id = "beef",
+                    Prompt = "A rival podcast keeps taking shots at you",
+                    Detail = "They've been digging at you for weeks — on air, in their socials. Everyone's noticed.",
+                    CanFire = e => e.State.SocialReach >= 20f,
+                    Options =
+                    {
+                        new EventOption
+                        {
+                            Label = "Call a truce, cross-promote instead",
+                            Outcome = "You reached out. A joint episode did both audiences good.",
+                            Apply = e => { Social(e, 3f); ListenersPct(e, 0.02f); Money(e, 40f); }
+                        },
+                        new EventOption
+                        {
+                            Label = "Escalate — go after them on air",
+                            Outcome = "You leaned all the way in. Huge numbers this week — but some of what showed up isn't the audience you wanted.",
+                            Apply = e =>
+                            {
+                                Social(e, 10f); Cred(e, -3f); ListenersPct(e, 0.03f);
+                                Drift(e, -0.015f, 3);   // a bad-faith audience that churns hard for a few weeks
+                            }
+                        },
+                        new EventOption
+                        {
+                            Label = "Ignore it and let it burn out",
+                            Outcome = "You said nothing. Mostly it worked.",
+                            Apply = e => { if (r.NextDouble() < 0.3) Social(e, -3f); }
+                        }
+                    }
+                },
+
+                new GameEvent
+                {
+                    Id = "libel",
+                    Prompt = "A guest says something legally dicey, live",
+                    Detail = "An unverified, pretty serious claim about a manager, said flat-out on air. It's already clipped and spreading.",
+                    CanFire = e => e.State.AccessTier >= 2 || e.State.HasCrew(Crew.Booker),
+                    Options =
+                    {
+                        new EventOption
+                        {
+                            Label = "Retract and apologise",
+                            Outcome = "You cut it, apologised, moved on. Costs you a little credibility, but it's done.",
+                            Apply = e => Cred(e, -2f)
+                        },
+                        new EventOption
+                        {
+                            Label = "Stand by it",
+                            Outcome = "You didn't back down. Could go either way.",
+                            Apply = e =>
+                            {
+                                if (r.NextDouble() < 0.45)
+                                {
+                                    Money(e, -Math.Max(80f, e.State.Money * 0.08f));
+                                    Cred(e, -6f);
+                                }
+                                else
+                                {
+                                    Social(e, 6f); Rep(e, 1f);
+                                }
+                            }
+                        }
+                    }
+                },
+
+                new GameEvent
+                {
+                    Id = "discourse",
+                    Prompt = "Something you said is going viral — for the wrong reasons",
+                    Detail = "A clip's been taken out of context and it's everywhere today.",
+                    CanFire = e => e.State.SocialReach >= 55f,
+                    Options =
+                    {
+                        new EventOption
+                        {
+                            Label = "Address it head-on, next episode",
+                            Outcome = "You explained yourself properly. It settled down.",
+                            Apply = e => { Cred(e, 2f); Social(e, -2f); }
+                        },
+                        new EventOption
+                        {
+                            Label = "Say nothing and let it pass",
+                            Outcome = "You rode it out.",
+                            Apply = e => { if (r.NextDouble() < 0.4) { Cred(e, -3f); ListenersPct(e, -0.01f); } }
+                        },
+                        new EventOption
+                        {
+                            Label = "Lean into the chaos",
+                            Outcome = "You made it worse on purpose. It's doing huge numbers now.",
+                            Apply = e => { Social(e, 8f); Cred(e, -4f); Money(e, 30f); }
                         }
                     }
                 }
