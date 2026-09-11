@@ -77,7 +77,7 @@ namespace PodcastTycoon.Tests
             Assert.That(e.Sponsors.Active, Is.Not.Null);
 
             // Jump listeners well past the target and run the deal out.
-            e.State.Listeners = e.Sponsors.Active.Offer.Target.Value * 3;
+            e.State.Listeners = e.Sponsors.Active.Offer.PrimaryGrowth.Value * 3;
             for (int i = 0; i < e.Config.AvgListenerWindow; i++) e.State.ListenerHistory.Add(e.State.Listeners);
 
             float moneyBefore = e.State.Money;
@@ -120,6 +120,36 @@ namespace PodcastTycoon.Tests
 
             Assert.That(bad, Is.True);
             Assert.That(e.State.Reputation, Is.LessThan(repBefore));
+        }
+
+        [Test]
+        public void EveryDealCarriesAtLeastOneGrowthTerm()
+        {
+            var e = Grown(6, 90000);   // tier 3 — should carry standing/conduct terms too
+            for (int i = 0; i < 20 && e.Sponsors.Inbox.Count == 0; i++) Week(e);
+            Assert.That(e.Sponsors.Inbox, Is.Not.Empty);
+            foreach (var o in e.Sponsors.Inbox)
+                Assert.That(o.PrimaryGrowth, Is.Not.Null, $"{o.Name} has no GROWTH term");
+        }
+
+        [Test]
+        public void AConductTermBreaksTheDealOnABackfire()
+        {
+            var e = Grown(7, 90000);
+            for (int i = 0; i < 30 && e.Sponsors.Active == null; i++) Week(e, sign: true);
+            Assert.That(e.Sponsors.Active, Is.Not.Null);
+
+            var conduct = e.Sponsors.Active.Offer.Terms.FirstOrDefault(t => t.Kind == SponsorTermKind.Conduct);
+            if (conduct == null) { Assert.Ignore("this deal didn't carry a conduct term"); return; }
+
+            bool bad = false;
+            e.SponsorResolved += n => bad = !n.Good;
+
+            e.State.LastEpisodeBackfired = true;
+            e.BeginWeek();
+
+            Assert.That(bad, Is.True);
+            Assert.That(e.Sponsors.Active, Is.Null);
         }
     }
 }

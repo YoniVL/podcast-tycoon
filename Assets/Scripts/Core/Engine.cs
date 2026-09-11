@@ -371,6 +371,7 @@ namespace PodcastTycoon.Core
             State.Money += result.MoneyDelta;
 
             // A backfire opens a correction opportunity next week — a carrot, not a stick (spec §11).
+            State.LastEpisodeBackfired = result.Backfired;
             if (result.Backfired) { State.PendingCorrection = true; State.PendingCorrectionWeeks = Config.CorrectionWeeks; }
             if (plan.FilledSlots.Any(s => s.Resolved.IsCorrectionOpportunity))
             {

@@ -708,7 +708,7 @@ namespace PodcastTycoon.Game
             Term("Surprise", "How far the match result landed from what was expected. Drives the mood you're reacting to and which topics land.");
             Term("Topic prep / Research / Audio / Promo", "Topic prep = the homework. Research = less variance. Audio = a better episode and less churn. Promo = a one-week reach bump only.");
             Term("Running stories", "Ongoing club storylines. Pick the STORY topic to take a side; match the eventual outcome and you gain reputation, call it wrong and it costs you.");
-            Term("Sponsors", "A deal pays weekly but sets a growth target and a deadline. Hit it for a bonus and a better renewal; miss it and the deal ends badly.");
+            Term("Sponsors", "A deal pays weekly for 1-3 terms — a growth target, an ongoing constraint (an appeal hit, a credibility floor), a one-off ask, or a conduct clause. Meet every term by the deadline for a bonus and a better renewal; miss one, or break a standing/conduct term along the way, and the deal ends badly.");
             Term("Cup & Europe", "Extra midweek fixtures alongside the league. Win the cup or finish high enough and you play in Europe next season — bigger nights, more reach.");
             Term("Access tier", "Set by your rolling-average listeners. Tier 2 unlocks scoops and the Big interview; tier 3 lets your takes move the club, and may bring a partnership offer.");
             Term("Scoops", "Advance word on a club decision. Break it now for a huge episode and a real risk it's wrong (which costs access); verify & hold to build trust; or trade it for cash.");
@@ -922,15 +922,14 @@ namespace PodcastTycoon.Game
                 var deal = Ui.Box();
                 deal.style.marginBottom = 6;
                 deal.Add(Ui.Text(o.Name, "topiccard-title"));
-                deal.Add(Ui.Wrapping($"€{o.Weekly:N0} a week. Target: {o.Target.Describe()}.", "body"));
-                int have = o.Target.Metric == "reputation"
-                    ? Mathf.RoundToInt(E.State.Reputation)
-                    : E.State.AverageListeners(E.Config.AvgListenerWindow);
+                deal.Add(Ui.Wrapping($"€{o.Weekly:N0} a week. {active.WeeksLeft} week(s) left on the deal.", "body"));
+                foreach (var term in o.Terms)
+                    deal.Add(Ui.Wrapping("• " + TermStatusLine(term), "body", TermGood(term) ? "good" : "dim"));
                 deal.Add(Ui.Wrapping(
-                    active.TargetMet
-                        ? $"Target hit — the bonus lands when the term ends in {active.WeeksLeft} week(s)."
-                        : $"Currently at {have:N0}. {active.WeeksLeft} week(s) left to reach {o.Target.Value:N0}.",
-                    "body", active.TargetMet ? "good" : "dim"));
+                    active.AllMet
+                        ? "Every growth term is met — the bonus lands when the deal ends."
+                        : "Miss any growth term by the deadline, or break a standing/conduct term, and the deal ends badly.",
+                    "body", active.AllMet ? "good" : "dim"));
                 panel.Add(deal);
             }
 
@@ -952,9 +951,8 @@ namespace PodcastTycoon.Game
                     if (o.SigningBonus > 0) chips.Add(Ui.Chip($"€{o.SigningBonus:N0} to sign"));
                     chips.Add(Ui.Chip($"Bonus €{o.HitBonus:N0} if hit"));
                     card.Add(chips);
-                    card.Add(Ui.Wrapping($"Target: {o.Target.Describe()}.", "body"));
-                    if (!string.IsNullOrEmpty(o.Demand))
-                        card.Add(Ui.Wrapping("Catch: " + o.Demand, "body", "bad"));
+                    foreach (var term in o.Terms)
+                        card.Add(Ui.Wrapping("• " + term.Text, "body", term.Kind == SponsorTermKind.Growth ? null : "bad"));
                     int idx = i;
                     var sign = Ui.Btn("Sign", () => { E.SignSponsor(idx); _host.RerenderWeek(); }, "btn-ghost");
                     sign.style.marginTop = 4;
@@ -973,6 +971,18 @@ namespace PodcastTycoon.Game
                 panel.Add(Ui.Wrapping("All your sponsor slots are full.", "body", "dim"));
             return panel;
         }
+
+        static string TermStatusLine(SponsorTerm term) => term.Kind switch
+        {
+            SponsorTermKind.Growth => term.Met ? $"{term.Text} — hit" : term.Text,
+            SponsorTermKind.Ask => term.Met ? $"{term.Text} — done" : term.Text,
+            SponsorTermKind.Standing => term.Text + " — holding",
+            SponsorTermKind.Conduct => term.Text + " — clean so far",
+            _ => term.Text
+        };
+
+        static bool TermGood(SponsorTerm term) =>
+            (term.Kind == SponsorTermKind.Growth || term.Kind == SponsorTermKind.Ask) && term.Met;
 
         VisualElement BuildStudioPanel()
         {

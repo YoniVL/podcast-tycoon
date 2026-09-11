@@ -103,6 +103,7 @@ namespace PodcastTycoon.Core
         public float Morale = 70f;
         public bool PendingCorrection;
         public int PendingCorrectionWeeks;
+        public bool LastEpisodeBackfired;        // read by sponsor CONDUCT terms the following week
 
         // --- freshness / slumps / overreach (slice 4B, spec §12) ---
         public float Freshness = 80f;
