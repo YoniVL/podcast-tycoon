@@ -117,8 +117,9 @@ namespace PodcastTycoon.Core
         public bool LastHadRecurring;
         public float OverreachChurnNextWeek;     // fraction of listeners that churn next week
 
-        // --- cards (slice 3E) ---
+        // --- cards (slice 3E, reworked slice 6 §21) ---
         public readonly List<string> Hand = new List<string>();
+        public readonly List<string> Contacts = new List<string>();
         public int CardsPlayedThisWeek;
         public float CardReachMultThisWeek = 1f;
         public int CardPrepBonusThisWeek;

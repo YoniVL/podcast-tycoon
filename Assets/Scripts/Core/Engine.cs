@@ -129,6 +129,10 @@ namespace PodcastTycoon.Core
 
         int GraceWeeks => State.Modifiers.LongRunway ? 5 : Config.BankruptcyGraceWeeks;
 
+        /// <summary>A uniform double in [0,1) from the run's own RNG — for card/event effects
+        /// that need a roll but live in a static catalog without their own generator.</summary>
+        public double Roll() => _rng.NextDouble();
+
         // ------------------------------------------------------------------
         public WeekContext BeginWeek()
         {
@@ -748,7 +752,10 @@ namespace PodcastTycoon.Core
         public void DeclinePartnership() => Access.DeclinePartnership();
 
         public bool PlayCard(string cardId) => Cards.Play(this, cardId);
-        public bool BuyPack() => Cards.BuyPack(this);
+        public bool DrawRandomCard() => Cards.DrawRandomCard(this);
+        public bool BuySpecificCard(string cardId) => Cards.BuySpecificCard(this, cardId);
+        public bool SlotContact(string contactId) => Cards.SlotContact(this, contactId);
+        public bool UnslotContact(string contactId) => Cards.UnslotContact(this, contactId);
 
         // ------------------------------------------------------------------
         void Shuffle<T>(IList<T> list)

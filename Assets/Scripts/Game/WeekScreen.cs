@@ -510,17 +510,17 @@ namespace PodcastTycoon.Game
             var panel = Ui.Box("panel");
             var head = Ui.Row();
             head.Add(Ui.Text("Cards", "h2"));
-            if (E.Cards.CanBuyPack(st))
+            if (E.Cards.CanDrawRandomCard(st))
             {
-                var buy = Ui.Btn($"Buy pack  ({Ui.Money(E.Config.PackCostMoney)})", () => { E.BuyPack(); _host.RerenderWeek(); }, "btn-ghost");
-                head.Add(buy);
+                var draw = Ui.Btn($"Chase a lead  ({Ui.Money(E.Config.CardDrawCost)})", () => { E.DrawRandomCard(); _host.RerenderWeek(); }, "btn-ghost");
+                head.Add(draw);
             }
             panel.Add(head);
 
             if (st.Hand.Count == 0)
             {
                 panel.Add(Ui.Wrapping(
-                    "No cards right now. You get one at every listener milestone, or buy a 3-card pack for cash.", "body", "dim"));
+                    "No cards right now. You get one at every listener milestone, resolving a thread, or from Business.", "body", "dim"));
                 return panel;
             }
 
@@ -546,27 +546,25 @@ namespace PodcastTycoon.Game
             return panel;
         }
 
-        // Business-tab view: the pack shop plus a read-only look at the hand.
+        // Business-tab view: hand + shop (spec §21 — deterministic pick, or a cheap random draw)
+        // plus the three contact slots.
         VisualElement BuildCardsPanel()
         {
             var st = E.State;
             var panel = Ui.Box("panel");
             var head = Ui.Row();
-            head.Add(Ui.Text("Cards & packs", "h2"));
-            var buy = Ui.Btn($"Buy pack  ({Ui.Money(E.Config.PackCostMoney)})", () => { E.BuyPack(); _host.RerenderWeek(); }, "btn-ghost");
-            buy.SetEnabled(E.Cards.CanBuyPack(st));
-            head.Add(buy);
+            head.Add(Ui.Text("Cards", "h2"));
+            var draw = Ui.Btn($"Chase a lead  ({Ui.Money(E.Config.CardDrawCost)})", () => { E.DrawRandomCard(); _host.RerenderWeek(); }, "btn-ghost");
+            draw.SetEnabled(E.Cards.CanDrawRandomCard(st));
+            head.Add(draw);
             panel.Add(head);
-
             panel.Add(Ui.Wrapping(
-                $"Hand: {st.Hand.Count}/{E.Config.CardHandLimit}. You play cards on This Week, up to {E.Config.CardPlaysPerWeek} a week. " +
-                "Cards come from milestones or a 3-card pack for cash.", "body", "dim"));
+                $"Hand: {st.Hand.Count}/{E.Config.CardHandLimit}. Play up to {E.Config.CardPlaysPerWeek} a week, on This Week. " +
+                "Most come from resolving threads and hitting milestones; chase a lead for a random one, or book something specific below.",
+                "body", "dim"));
 
             if (st.Hand.Count == 0)
-            {
                 panel.Add(Ui.Wrapping("No cards in hand.", "body", "dim"));
-                return panel;
-            }
             foreach (var id in st.Hand.ToArray())
             {
                 var card = CardManager.Get(id);
@@ -579,6 +577,48 @@ namespace PodcastTycoon.Game
                 play.style.marginTop = 4;
                 play.SetEnabled(E.Cards.CanPlay(st) && E.Events.Pending == null && E.Scoops.Pending == null);
                 box.Add(play);
+                panel.Add(box);
+            }
+
+            panel.Add(Ui.Divider());
+            panel.Add(Ui.Text("BOOK SOMETHING", "eyebrow"));
+            panel.Add(Ui.Wrapping($"Pick exactly the card you want for {Ui.Money(E.Config.CardPickCost)}.", "body", "dim"));
+            var shopRow = Ui.Box("row-wrap");
+            foreach (var card in CardManager.Catalog.Values)
+            {
+                string cid = card.Id;
+                var b = Ui.Btn(card.Name, () => { E.BuySpecificCard(cid); _host.RerenderWeek(); }, "btn-ghost");
+                b.SetEnabled(E.Cards.CanBuySpecificCard(st, cid));
+                shopRow.Add(b);
+            }
+            panel.Add(shopRow);
+
+            panel.Add(Ui.Divider());
+            panel.Add(Ui.Text("CONTACTS", "eyebrow"));
+            panel.Add(Ui.Wrapping(
+                $"{st.Contacts.Count}/{E.Config.ContactSlots} slots. Each is a passive weekly effect — a real upside, a real downside. " +
+                "Swap freely as the run changes.", "body", "dim"));
+            foreach (var contact in CardManager.Contacts)
+            {
+                bool slotted = st.Contacts.Contains(contact.Id);
+                var box = Ui.Box("topiccard");
+                if (slotted) box.AddToClassList("selected");
+                box.Add(Ui.Text(contact.Name, "topiccard-title"));
+                box.Add(Ui.Wrapping("+ " + contact.Upside, "body", "good"));
+                box.Add(Ui.Wrapping("− " + contact.Downside, "body", "bad"));
+                if (slotted)
+                {
+                    var unslot = Ui.Btn("Drop", () => { E.UnslotContact(contact.Id); _host.RerenderWeek(); }, "btn-ghost");
+                    unslot.style.marginTop = 4;
+                    box.Add(unslot);
+                }
+                else
+                {
+                    var slot = Ui.Btn($"Slot in  ({Ui.Money(E.Config.ContactSlotCost)})", () => { E.SlotContact(contact.Id); _host.RerenderWeek(); }, "btn-ghost");
+                    slot.style.marginTop = 4;
+                    slot.SetEnabled(E.Cards.CanSlotContact(st, contact.Id));
+                    box.Add(slot);
+                }
                 panel.Add(box);
             }
             return panel;
@@ -715,7 +755,8 @@ namespace PodcastTycoon.Game
             Term("Scoops", "Advance word on a club decision. Break it now for a huge episode and a real risk it's wrong (which costs access); verify & hold to build trust; or trade it for cash.");
             Term("Crew", "Producer, Researcher, Clips manager, Booker. Each role is filled from 2-3 candidates who refresh every few weeks — skill scales the role's effect, and traits give a real upside and a real downside. Firing someone costs severance, more if they're still under contract.");
             Term("Upgrade tracks", "Five ladders — Set, Audio chain, Post/editing, Studio space, Distribution — each 3-4 tiers. Buy in order; each tier replaces the one below it and usually adds a bit to the monthly bill.");
-            Term("Cards", "One-shot buffs on the current episode, or permanent lifts to the club/show. From milestones, or a 3-card pack for cash. Hand holds five.");
+            Term("Cards", "Plays — one-shot buffs or permanent lifts, hand of five, up to two a week. Mostly earned from milestones and threads; chase a lead for a random one or book an exact one for more.");
+            Term("Contacts", "Up to three passive slots, each a fixed weekly upside and downside. Cheap to swap — worth re-evaluating as the show changes size.");
             Term("Custom run", "Modifiers set at the start (extra prep, gentler churn, sandbox, chaos…). Flags the run as Custom; the endless chase still works.");
             root.Add(gloss);
         }

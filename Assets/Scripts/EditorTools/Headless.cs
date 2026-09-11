@@ -113,7 +113,9 @@ namespace PodcastTycoon.EditorTools
                     var card = CardManager.Get(id);
                     if (card != null && card.Kind == CardKind.Permanent) engine.PlayCard(id);
                 }
-                if (engine.Cards.CanBuyPack(engine.State) && engine.State.Money > 900) engine.BuyPack();
+                if (engine.Cards.CanDrawRandomCard(engine.State) && engine.State.Money > 900) engine.DrawRandomCard();
+                foreach (var contact in CardManager.Contacts)
+                    if (engine.Cards.CanSlotContact(engine.State, contact.Id) && engine.State.Money > 1500) { engine.SlotContact(contact.Id); break; }
 
                 if (engine.Sponsors.Active == null && engine.Sponsors.Inbox.Count > 0)
                 {

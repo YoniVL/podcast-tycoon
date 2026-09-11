@@ -157,10 +157,13 @@ namespace PodcastTycoon.Core
         // --- endless milestones / buyout ---
         public int BuyoutListeners = 1_000_000;
 
-        // --- cards & packs (slice 3E; bought with cash since v0.4) ---
-        public int PackCostMoney = 150;
+        // --- cards (slice 3E; reworked slice 6, spec §21) ---
         public int CardHandLimit = 5;
         public int CardPlaysPerWeek = 2;
+        public int CardDrawCost = 120;     // a random draw, weighted by reputation
+        public int CardPickCost = 300;     // choose an exact card
+        public int ContactSlots = 3;
+        public int ContactSlotCost = 250;
 
         // --- the push dial & backfire (slice 5, spec §11) ---
         public float PushAppealPerStep = 0.06f;   // per step away from push 2
