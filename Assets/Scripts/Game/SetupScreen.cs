@@ -27,51 +27,56 @@ namespace PodcastTycoon.Game
         public VisualElement Build()
         {
             var screen = Ui.Box("screen");
-            var col = Ui.Box("column");
+            var col = Ui.Box("column-wide");
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.AddToClassList("scroll");
             col.Add(scroll);
             screen.Add(col);
 
             scroll.Add(Ui.Text("NEW PODCAST", "eyebrow"));
-            scroll.Add(Ui.Text("Podcast Tycoon", "h1"));
-            scroll.Add(Ui.Wrapping(
-                "Name your show and the club you support, pick your colours, and choose how hard you want it. " +
-                "Difficulty sets how good your club is — a weaker club means more crisis weeks.", "body"));
-            scroll.Add(Ui.Box("divider"));
+            var h1 = Ui.Text("Podcast Tycoon", "h1");
+            h1.tooltip = "Name your show and the club you support, pick your colours, and choose how hard you want it.";
+            scroll.Add(h1);
+
+            var columns = Ui.Box("week-columns");
+            var left = Ui.Box("week-col-left");
+            var right = Ui.Box("week-col-right");
+            columns.Add(left);
+            columns.Add(right);
+            scroll.Add(columns);
 
             var panel = Ui.Box("panel");
-
             panel.Add(Field("Podcast name", _podcast, v => _podcast = v));
             panel.Add(Field("Club you support", _club, v => _club = v));
-
             panel.Add(SwatchField("Primary colour", () => _primary, v => _primary = v));
             panel.Add(SwatchField("Secondary colour", () => _secondary, v => _secondary = v));
+            left.Add(panel);
 
-            scroll.Add(panel);
-
-            scroll.Add(Ui.Text("DIFFICULTY", "eyebrow"));
-            scroll.Add(Ui.Wrapping(
-                "A stronger club wins more, so more of your weeks are feel-good content and the money comes a little easier. " +
-                "A weaker club loses more — more crisis weeks, a tighter budget, but the drama makes for compelling episodes.",
-                "body", "dim"));
+            var diffPanel = Ui.Box("panel");
+            var diffTitle = Ui.Text("Difficulty", "h2");
+            diffTitle.tooltip = "Difficulty sets how good your club is. A stronger club wins more — more feel-good " +
+                "weeks and easier money. A weaker club loses more — tighter budget, but better drama.";
+            diffPanel.Add(diffTitle);
+            var diffGrid = Ui.Box("row-wrap");
             foreach (Difficulty d in System.Enum.GetValues(typeof(Difficulty)))
-                scroll.Add(DifficultyCard(d));
+                diffGrid.Add(DifficultyCard(d));
+            diffPanel.Add(diffGrid);
+            left.Add(diffPanel);
 
-            scroll.Add(Ui.Text("CUSTOM MODIFIERS", "eyebrow"));
-            scroll.Add(Ui.Wrapping(
-                "Optional tweaks to the run. Turning any on flags the run as Custom — the endless chase still works, it just sits on its own board.",
-                "body", "dim"));
-            var mods = Ui.Box("panel");
-            mods.Add(ModToggle("+1 prep point every week", () => _mods.ExtraPrep, v => _mods.ExtraPrep = v));
-            mods.Add(ModToggle("Churn −20% (listeners leave more slowly)", () => _mods.GentleChurn, v => _mods.GentleChurn = v));
-            mods.Add(ModToggle("Start with +€300", () => _mods.NestEgg, v => _mods.NestEgg = v));
-            mods.Add(ModToggle("Longer runway (5 weeks in the red before folding)", () => _mods.LongRunway, v => _mods.LongRunway = v));
-            mods.Add(ModToggle("No international breaks", () => _mods.NoInternationalBreaks, v => _mods.NoInternationalBreaks = v));
-            mods.Add(ModToggle("Sponsor-free (no deals, higher ad rate)", () => _mods.SponsorFree, v => _mods.SponsorFree = v));
-            mods.Add(ModToggle("Chaos cycle (more events, wilder results)", () => _mods.ChaosCycle, v => _mods.ChaosCycle = v));
-            mods.Add(ModToggle("Sandbox (no bankruptcy)", () => _mods.Sandbox, v => _mods.Sandbox = v));
-            scroll.Add(mods);
+            var modsPanel = Ui.Box("panel");
+            var modsTitle = Ui.Text("Custom modifiers", "h2");
+            modsTitle.tooltip = "Optional tweaks to the run. Turning any on flags the run as Custom — the endless " +
+                "chase still works, it just sits on its own board.";
+            modsPanel.Add(modsTitle);
+            modsPanel.Add(ModToggle("+1 prep point every week", () => _mods.ExtraPrep, v => _mods.ExtraPrep = v));
+            modsPanel.Add(ModToggle("Churn −20% (listeners leave more slowly)", () => _mods.GentleChurn, v => _mods.GentleChurn = v));
+            modsPanel.Add(ModToggle("Start with +€300", () => _mods.NestEgg, v => _mods.NestEgg = v));
+            modsPanel.Add(ModToggle("Longer runway (5 weeks in the red before folding)", () => _mods.LongRunway, v => _mods.LongRunway = v));
+            modsPanel.Add(ModToggle("No international breaks", () => _mods.NoInternationalBreaks, v => _mods.NoInternationalBreaks = v));
+            modsPanel.Add(ModToggle("Sponsor-free (no deals, higher ad rate)", () => _mods.SponsorFree, v => _mods.SponsorFree = v));
+            modsPanel.Add(ModToggle("Chaos cycle (more events, wilder results)", () => _mods.ChaosCycle, v => _mods.ChaosCycle = v));
+            modsPanel.Add(ModToggle("Sandbox (no bankruptcy)", () => _mods.Sandbox, v => _mods.Sandbox = v));
+            right.Add(modsPanel);
 
             var start = Ui.Btn("Start the podcast", () =>
             {

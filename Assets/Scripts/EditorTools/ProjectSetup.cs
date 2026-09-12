@@ -71,7 +71,10 @@ namespace PodcastTycoon.EditorTools
             ps.name = "PodcastTycoonPanelSettings";
             ps.scaleMode = PanelScaleMode.ScaleWithScreenSize;
             ps.referenceResolution = new Vector2Int(1280, 800);
-            ps.match = 0.5f;
+            // Match height, not a width/height blend: landscape phones (rotated portrait
+            // screens) commonly run far wider than 16:9 (2:1+), and matching width on those
+            // would starve the vertical layout budget below what This Week etc. assume.
+            ps.match = 1f;
 
             var tss = AssetDatabase.LoadAssetAtPath<ThemeStyleSheet>(ThemePath);
             if (tss == null)

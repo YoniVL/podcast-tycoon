@@ -24,7 +24,7 @@ namespace PodcastTycoon.Game
         {
             var st = _host.Engine.State;
             var screen = Ui.Box("screen");
-            var col = Ui.Box("column");
+            var col = Ui.Box("column-wide");
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.AddToClassList("scroll");
             col.Add(scroll);
@@ -35,6 +35,12 @@ namespace PodcastTycoon.Game
             scroll.Add(Ui.Wrapping(
                 $"{_result.QualityLabel} episode — quality {_result.Quality:0.00}" +
                 (_result.SegmentCount > 1 ? $", {_result.SegmentCount} segments." : "."), "body"));
+
+            var columns = Ui.Box("week-columns");
+            var left = Ui.Box("week-col-left");
+            var right = Ui.Box("week-col-right");
+            columns.Add(left);
+            columns.Add(right);
 
             foreach (var note in _result.Notes)
             {
@@ -98,6 +104,8 @@ namespace PodcastTycoon.Game
                 scroll.Add(toast);
             }
 
+            scroll.Add(columns);
+
             // --- how it landed ---
             var landed = Ui.Box("panel");
             landed.Add(Ui.Text("How it landed", "h2"));
@@ -118,23 +126,25 @@ namespace PodcastTycoon.Game
             landed.Add(Ui.Wrapping(landLine, "body"));
             landed.Add(Ui.Wrapping($"Audience: {_result.LoyaltyAfter}." +
                 (dFoll >= 50 ? $"  {Ui.Signed(dFoll)} clip followers." : ""), "body", "dim"));
-            scroll.Add(landed);
+            left.Add(landed);
 
             // --- what changed ---
             var deltas = Ui.Box("panel");
             deltas.Add(Ui.Text("What changed", "h2"));
             var grid = Ui.Box("statstrip");
-            grid.Add(Ui.Stat("Listeners", Ui.Signed(_result.ListenerDeltaActual),
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Listeners), Ui.Signed(_result.ListenerDeltaActual), "Listeners",
                 _result.ListenerDeltaActual >= 0 ? "good" : "bad"));
-            grid.Add(Ui.Stat("Reputation", Ui.Signed(_result.ReputationDelta, "0.0")));
-            grid.Add(Ui.Stat("Credibility", Ui.Signed(_result.CredibilityDelta, "0.0")));
-            grid.Add(Ui.Stat("Social reach", _result.SocialGained >= 0.1f ? "+" + _result.SocialGained.ToString("0.0") : "0"));
-            grid.Add(Ui.Stat("Morale", Ui.Signed(_result.MoraleDelta, "0.0")));
-            grid.Add(Ui.Stat("Ad revenue", Ui.Money(_result.AdRevenue), "good"));
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Reputation), Ui.Signed(_result.ReputationDelta, "0.0"), "Reputation"));
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Credibility), Ui.Signed(_result.CredibilityDelta, "0.0"), "Credibility"));
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.SocialReach),
+                _result.SocialGained >= 0.1f ? "+" + _result.SocialGained.ToString("0.0") : "0", "Social reach"));
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Morale), Ui.Signed(_result.MoraleDelta, "0.0"), "Morale"));
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(_result.AdRevenue), "Ad revenue", "good"));
             if (_result.SponsorRevenue > 0)
-                grid.Add(Ui.Stat("Sponsor", Ui.Money(_result.SponsorRevenue), "good"));
-            grid.Add(Ui.Stat("Costs", Ui.Money(-_result.WeeklyCosts), "bad"));
-            grid.Add(Ui.Stat("Net cash", Ui.Money(_result.MoneyDelta), _result.MoneyDelta >= 0 ? "good" : "bad"));
+                grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(_result.SponsorRevenue), "Sponsor", "good"));
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(-_result.WeeklyCosts), "Costs", "bad"));
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(_result.MoneyDelta), "Net cash",
+                _result.MoneyDelta >= 0 ? "good" : "bad"));
             deltas.Add(grid);
             if (_result.MonthlyWagesCharged > 0)
                 deltas.Add(Ui.Wrapping($"Monthly wages of {Ui.Money(_result.MonthlyWagesCharged)} came out this week.", "body", "dim"));
@@ -147,19 +157,20 @@ namespace PodcastTycoon.Game
                         : "A thin episode on a story people care about — that won't have helped.";
                 deltas.Add(Ui.Wrapping($"Story: \"{_result.Topic.Name}\". {steer}", "body", "dim"));
             }
-            scroll.Add(deltas);
+            right.Add(deltas);
 
             // --- new totals ---
             var totals = Ui.Box("panel");
             totals.Add(Ui.Text("Where things stand", "h2"));
             var tgrid = Ui.Box("statstrip");
-            tgrid.Add(Ui.Stat("Money", Ui.Money(st.Money), st.Money < 0 ? "bad" : null));
-            tgrid.Add(Ui.Stat("Listeners", st.Listeners.ToString("N0")));
-            tgrid.Add(Ui.Stat("Loyalty", st.LoyaltyLabel));
-            tgrid.Add(Ui.Stat("Reputation", Mathf.RoundToInt(st.Reputation).ToString()));
-            tgrid.Add(Ui.Stat("Credibility", Mathf.RoundToInt(st.Credibility).ToString()));
-            tgrid.Add(Ui.Stat("Social reach", Mathf.RoundToInt(st.SocialReach).ToString()));
-            tgrid.Add(Ui.Stat("Morale", Mathf.RoundToInt(st.Morale).ToString(), st.Morale < 40f ? "bad" : null));
+            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(st.Money), "Money", st.Money < 0 ? "bad" : null));
+            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.Listeners), st.Listeners.ToString("N0"), "Listeners"));
+            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.Loyalty), st.LoyaltyLabel, "Loyalty"));
+            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.Reputation), Mathf.RoundToInt(st.Reputation).ToString(), "Reputation"));
+            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.Credibility), Mathf.RoundToInt(st.Credibility).ToString(), "Credibility"));
+            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.SocialReach), Mathf.RoundToInt(st.SocialReach).ToString(), "Social reach"));
+            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.Morale), Mathf.RoundToInt(st.Morale).ToString(), "Morale",
+                st.Morale < 40f ? "bad" : null));
             totals.Add(tgrid);
 
             var next = _host.Engine.Calendar.FixtureForTurn(st.SeasonTurn);
@@ -173,7 +184,7 @@ namespace PodcastTycoon.Game
                 totals.Add(Ui.Wrapping(
                     $"You're in the red. {_host.Engine.Config.BankruptcyGraceWeeks - st.ConsecutiveWeeksInDebt} more week(s) below €{_host.Engine.Config.BankruptcyFloor:0} ends the run.",
                     "body", "bad"));
-            scroll.Add(totals);
+            right.Add(totals);
 
             var cont = Ui.Btn(st.IsGameOver ? "See how it ended" : "On to next week", _host.ContinueFromResults, "btn-primary");
             _host.Theme.PaintPrimaryButton(cont);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using PodcastTycoon.Core;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -26,6 +27,13 @@ namespace PodcastTycoon.Game
         Label _prepMeter;
         Button _publish;
         Button _redraw;
+        bool _secondExpanded;
+        bool _recurringExpanded;
+        bool _tracksExpanded;
+        bool _crewExpanded;
+        bool _cardShopExpanded;
+        bool _contactsExpanded;
+        bool _matchDetailsExpanded;
 
         sealed class PrepControl
         {
@@ -118,29 +126,31 @@ namespace PodcastTycoon.Game
 
         VisualElement BuildResourceStrip(GameState st)
         {
+            // A single thin row — icon + number. Full names and explanations live in the
+            // tooltip and in Help, not as permanently-visible labels and paragraphs.
             var strip = Ui.Box("statstrip");
-            strip.Add(Ui.Stat("Money", Ui.Money(st.Money), st.Money < 0 ? "bad" : null,
-                "Cash. Overhead bleeds it every week."));
-            strip.Add(Ui.Stat("Listeners", st.Listeners.ToString("N0"), null,
-                "Your audience and your score — the loyal core plus the casual listeners who come and go."));
-            strip.Add(Ui.Stat("Loyalty", st.LoyaltyLabel,
-                st.LoyaltyLabel == "Fragile" ? "bad" : st.LoyaltyLabel == "Devoted" ? "good" : null,
-                "How much of your audience is loyal core vs. casual. A fragile audience swings hard and can collapse; a devoted one shrugs off a bad week."));
+            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(st.Money),
+                "Money — cash. Overhead bleeds it every week.", st.Money < 0 ? "bad" : null));
+            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Listeners), st.Listeners.ToString("N0"),
+                "Listeners — your audience and your score: the loyal core plus the casual listeners who come and go."));
+            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Loyalty), st.LoyaltyLabel,
+                "Loyalty — how much of your audience is loyal core vs. casual. Fragile swings hard and can collapse; Devoted shrugs off a bad week.",
+                st.LoyaltyLabel == "Fragile" ? "bad" : st.LoyaltyLabel == "Devoted" ? "good" : null));
             if (Mathf.RoundToInt(st.Followers) >= 100)
-                strip.Add(Ui.Stat("Followers", Mathf.RoundToInt(st.Followers).ToString("N0"), null,
-                    "Clip-only followers. They never hear the show and barely pay, but they spread it and feed casual listeners."));
-            strip.Add(Ui.Stat("Reputation", Mathf.RoundToInt(st.Reputation).ToString(), null,
-                "How respected the show is. Raises your growth ceiling."));
-            strip.Add(Ui.Stat("Credibility", Mathf.RoundToInt(st.Credibility).ToString(), null,
-                "How much people trust what you say. Built by analysis and verified scoops."));
-            strip.Add(Ui.Stat("Social reach", Mathf.RoundToInt(st.SocialReach).ToString(), null,
-                "How much the show is talked about online. Fades if you go quiet."));
-            strip.Add(Ui.Stat("Freshness", Mathf.RoundToInt(st.Freshness).ToString(),
-                st.Freshness < 45f ? "bad" : null,
-                "Falls when you repeat yourself — same angle, same bit. Vary the show or take a lighter week to recover."));
-            strip.Add(Ui.Stat("Morale", Mathf.RoundToInt(st.Morale).ToString(),
-                st.Morale < 40f ? "bad" : null,
-                "The team's energy. Pushing hard costs it; a light week or a win restores it. Low morale caps episode quality."));
+                strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Followers), Mathf.RoundToInt(st.Followers).ToString("N0"),
+                    "Followers — clip-only. They never hear the show and barely pay, but they spread it and feed casual listeners."));
+            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Reputation), Mathf.RoundToInt(st.Reputation).ToString(),
+                "Reputation — how respected the show is. Raises your growth ceiling."));
+            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Credibility), Mathf.RoundToInt(st.Credibility).ToString(),
+                "Credibility — how much people trust what you say. Built by analysis and verified scoops."));
+            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.SocialReach), Mathf.RoundToInt(st.SocialReach).ToString(),
+                "Social reach — how much the show is talked about online. Fades if you go quiet."));
+            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Freshness), Mathf.RoundToInt(st.Freshness).ToString(),
+                "Freshness — falls when you repeat yourself, same angle, same bit. Vary the show or take a lighter week to recover.",
+                st.Freshness < 45f ? "bad" : null));
+            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Morale), Mathf.RoundToInt(st.Morale).ToString(),
+                "Morale — the team's energy. Pushing hard costs it; a light week or a win restores it. Low morale caps episode quality.",
+                st.Morale < 40f ? "bad" : null));
             return strip;
         }
 
@@ -336,9 +346,11 @@ namespace PodcastTycoon.Game
                 return;
             }
 
-            // Landscape's extra width goes here: the decisions on the left, their
-            // running consequence (levers + live preview) alongside on the right,
-            // instead of everything stacked in one long scroll.
+            // Landscape's extra width goes here: WHAT to cover on the left (the rundown —
+            // by far the tallest single thing once a topic's picked, so it gets its own
+            // column), HOW to produce it + review + publish on the right. Push and Cards
+            // used to stack under Rundown, making the left column taller than the right —
+            // moved them over so both columns run closer to the same height.
             var columns = Ui.Box("week-columns");
             var left = Ui.Box("week-col-left");
             var right = Ui.Box("week-col-right");
@@ -349,11 +361,11 @@ namespace PodcastTycoon.Game
             // the rundown — three segment slots
             left.Add(BuildRundownPanel());
 
-            // the weekly gamble (spec §11)
+            // the weekly gamble (spec §11) — small, stays with the rundown it modifies
             left.Add(BuildPushPanel());
 
             // cards — a step in the weekly loop: play up to a couple to shape this episode
-            left.Add(BuildWeeklyCardsPanel());
+            right.Add(BuildWeeklyCardsPanel());
 
             // production levers + the live preview of the episode you're building
             right.Add(BuildLeversPanel());
@@ -415,20 +427,27 @@ namespace PodcastTycoon.Game
         // ================================================================
         void BuildClubTab(VisualElement root, WeekContext ctx)
         {
-            root.Add(BuildCompetitionsPanel());
-            root.Add(BuildRivalsPanel());
+            var columns = Ui.Box("week-columns");
+            var left = Ui.Box("week-col-left");
+            var right = Ui.Box("week-col-right");
+            columns.Add(left);
+            columns.Add(right);
+            root.Add(columns);
+
+            left.Add(BuildCompetitionsPanel());
+            left.Add(BuildRivalsPanel());
 
             var threads = BuildThreadsPanel(ctx);
-            if (threads != null) root.Add(threads);
+            if (threads != null) left.Add(threads);
             else
             {
                 var quiet = Ui.Box("panel");
                 quiet.Add(Ui.Text("Running stories", "h2"));
                 quiet.Add(Ui.Wrapping("Nothing brewing around the club right now.", "body", "dim"));
-                root.Add(quiet);
+                left.Add(quiet);
             }
-            root.Add(BuildSquadPanel());
-            root.Add(BuildTablePanel());
+            right.Add(BuildSquadPanel());
+            right.Add(BuildTablePanel());
         }
 
         VisualElement BuildCompetitionsPanel()
@@ -496,10 +515,17 @@ namespace PodcastTycoon.Game
                 root.Add(card);
             }
 
-            root.Add(BuildAccessPanel());
-            root.Add(BuildSponsorPanel(ctx));
-            root.Add(BuildCardsPanel());
-            root.Add(BuildStudioPanel());
+            var columns = Ui.Box("week-columns");
+            var left = Ui.Box("week-col-left");
+            var right = Ui.Box("week-col-right");
+            columns.Add(left);
+            columns.Add(right);
+            root.Add(columns);
+
+            left.Add(BuildAccessPanel());
+            left.Add(BuildSponsorPanel(ctx));
+            left.Add(BuildCardsPanel());
+            right.Add(BuildStudioPanel());
         }
 
         VisualElement BuildAccessPanel()
@@ -605,9 +631,8 @@ namespace PodcastTycoon.Game
                 panel.Add(box);
             }
 
-            panel.Add(Ui.Divider());
-            panel.Add(Ui.Text("BOOK SOMETHING", "eyebrow"));
-            panel.Add(Ui.Wrapping($"Pick exactly the card you want for {Ui.Money(E.Config.CardPickCost)}.", "body", "dim"));
+            var shopBox = Ui.Box();
+            shopBox.Add(Ui.Wrapping($"Pick exactly the card you want for {Ui.Money(E.Config.CardPickCost)}.", "body", "dim"));
             var shopRow = Ui.Box("row-wrap");
             foreach (var card in CardManager.Catalog.Values)
             {
@@ -616,13 +641,14 @@ namespace PodcastTycoon.Game
                 b.SetEnabled(E.Cards.CanBuySpecificCard(st, cid));
                 shopRow.Add(b);
             }
-            panel.Add(shopRow);
+            shopBox.Add(shopRow);
+            panel.Add(Ui.Collapsible("Book something", $"{CardManager.Catalog.Count} available", shopBox,
+                _cardShopExpanded, expanded => _cardShopExpanded = expanded));
 
-            panel.Add(Ui.Divider());
-            panel.Add(Ui.Text("CONTACTS", "eyebrow"));
-            panel.Add(Ui.Wrapping(
-                $"{st.Contacts.Count}/{E.Config.ContactSlots} slots. Each is a passive weekly effect — a real upside, a real downside. " +
-                "Swap freely as the run changes.", "body", "dim"));
+            var contactsBox = Ui.Box();
+            contactsBox.Add(Ui.Wrapping(
+                "Each is a passive weekly effect — a real upside, a real downside. Swap freely as the run changes.",
+                "body", "dim"));
             foreach (var contact in CardManager.Contacts)
             {
                 bool slotted = st.Contacts.Contains(contact.Id);
@@ -644,8 +670,10 @@ namespace PodcastTycoon.Game
                     slot.SetEnabled(E.Cards.CanSlotContact(st, contact.Id));
                     box.Add(slot);
                 }
-                panel.Add(box);
+                contactsBox.Add(box);
             }
+            panel.Add(Ui.Collapsible("Contacts", $"{st.Contacts.Count}/{E.Config.ContactSlots} slotted", contactsBox,
+                _contactsExpanded, expanded => _contactsExpanded = expanded));
             return panel;
         }
 
@@ -728,6 +756,32 @@ namespace PodcastTycoon.Game
                 "7. Hit Record. A few quick things can come up during recording — your call on each. Then release it. The result is a surprise until it's out.\n" +
                 "Spend what you earn on gear, crew and a co-host. Keep money above water. Grow the audience.", "body"));
             root.Add(week);
+
+            var legend = Ui.Box("panel");
+            legend.Add(Ui.Text("ICON KEY", "eyebrow"));
+            legend.Add(Ui.Wrapping("What each icon in the resource strip up top means — hover any of them in play for the full explanation.", "body", "dim"));
+            var legendGrid = Ui.Box("row-wrap");
+            void LegendIcon(StatIcon icon, string label)
+            {
+                var row = Ui.Row();
+                row.style.alignItems = Align.Center;
+                row.style.marginRight = 18;
+                row.style.marginTop = 8;
+                row.Add(Ui.Portrait(IconCache.Get(icon), 22, "portrait-inline"));
+                row.Add(Ui.Text(label, "body"));
+                legendGrid.Add(row);
+            }
+            LegendIcon(StatIcon.Money, "Money");
+            LegendIcon(StatIcon.Listeners, "Listeners");
+            LegendIcon(StatIcon.Loyalty, "Loyalty");
+            LegendIcon(StatIcon.Followers, "Followers");
+            LegendIcon(StatIcon.Reputation, "Reputation");
+            LegendIcon(StatIcon.Credibility, "Credibility");
+            LegendIcon(StatIcon.SocialReach, "Social reach");
+            LegendIcon(StatIcon.Freshness, "Freshness");
+            LegendIcon(StatIcon.Morale, "Morale");
+            legend.Add(legendGrid);
+            root.Add(legend);
 
             var numbers = Ui.Box("panel");
             numbers.Add(Ui.Text("THE NUMBERS", "eyebrow"));
@@ -824,25 +878,26 @@ namespace PodcastTycoon.Game
                 : fx.Importance == FixtureImportance.Final ? "Final" : null;
             if (!string.IsNullOrEmpty(compChip)) meta.Add(Ui.Text(compChip, "chip"));
             panel.Add(meta);
-
             panel.Add(Ui.Wrapping(ctx.Headline, "body"));
-            if (!string.IsNullOrEmpty(ctx.Advice))
-                panel.Add(Ui.Wrapping(ctx.Advice, "body", "dim"));
 
+            var detailsBox = Ui.Box();
+            if (!string.IsNullOrEmpty(ctx.Advice))
+                detailsBox.Add(Ui.Wrapping(ctx.Advice, "body", "dim"));
             if (ctx.Moments != null && ctx.Moments.Count > 0)
             {
-                panel.Add(Ui.Divider());
-                panel.Add(Ui.Text("MOMENTS", "eyebrow"));
+                detailsBox.Add(Ui.Text("MOMENTS", "eyebrow"));
                 foreach (var mo in ctx.Moments)
-                    panel.Add(Ui.Wrapping("• " + mo, "body"));
+                    detailsBox.Add(Ui.Wrapping("• " + mo, "body"));
             }
-
             if (ctx.KeyPlayersOut > 0)
-                panel.Add(Ui.Wrapping(
+                detailsBox.Add(Ui.Wrapping(
                     $"{ctx.KeyPlayersOut} key player{(ctx.KeyPlayersOut == 1 ? "" : "s")} missing — the team was weaker for this one.",
                     "body", "dim"));
+            AppendSquadNews(detailsBox, ctx);
+            if (detailsBox.childCount > 0)
+                panel.Add(Ui.Collapsible("Match details", null, detailsBox, _matchDetailsExpanded,
+                    expanded => _matchDetailsExpanded = expanded));
 
-            AppendSquadNews(panel, ctx);
             return panel;
         }
 
@@ -918,19 +973,42 @@ namespace PodcastTycoon.Game
             panel.Add(Ui.Text("League table & fixtures", "h2"));
 
             var standings = E.Calendar.Standings();
-            int i = 1;
-            foreach (var c in standings)
+            VisualElement StandingsRow(int idx)
             {
+                var c = standings[idx];
                 var row = Ui.Row();
                 row.style.marginBottom = 2;
-                var name = Ui.Text($"{i,2}. {c.Name}", "body", c.IsPlayer ? null : "dim");
+                var name = Ui.Text($"{idx + 1,2}. {c.Name}", "body", c.IsPlayer ? null : "dim");
                 if (c.IsPlayer) name.style.color = _host.Theme.Secondary;
                 name.style.flexGrow = 1;
                 var pts = Ui.Text($"P{c.Played}  {c.Points}pts  ({(c.GoalDifference >= 0 ? "+" : "")}{c.GoalDifference})", "body", "dim");
                 row.Add(name);
                 row.Add(pts);
-                panel.Add(row);
-                i++;
+                return row;
+            }
+
+            // Compact by default: the top of the table plus a window around the player's
+            // own position — a full 20-club table every week is the single biggest scroll
+            // offender in the game. The complete table is one click away.
+            int playerIdx = Math.Max(0, standings.FindIndex(c => c.IsPlayer));
+            var shown = new SortedSet<int>();
+            for (int k = 0; k < Math.Min(3, standings.Count); k++) shown.Add(k);
+            for (int k = Math.Max(0, playerIdx - 2); k <= Math.Min(standings.Count - 1, playerIdx + 2); k++) shown.Add(k);
+            var compactBox = Ui.Box();
+            int? last = null;
+            foreach (var idx in shown)
+            {
+                if (last.HasValue && idx > last.Value + 1) compactBox.Add(Ui.Text("···", "body", "dim"));
+                compactBox.Add(StandingsRow(idx));
+                last = idx;
+            }
+            panel.Add(compactBox);
+
+            if (shown.Count < standings.Count)
+            {
+                var fullBox = Ui.Box();
+                for (int k = 0; k < standings.Count; k++) fullBox.Add(StandingsRow(k));
+                panel.Add(Ui.Collapsible("Full table", $"{standings.Count} clubs", fullBox));
             }
 
             panel.Add(Ui.Divider());
@@ -1060,12 +1138,12 @@ namespace PodcastTycoon.Game
         VisualElement BuildStudioPanel()
         {
             var panel = Ui.Box("panel");
-            panel.Add(Ui.Text("Studio — upgrade tracks, gear & crew", "h2"));
-            panel.Add(Ui.Wrapping(
-                "Five tracks, each a ladder of tiers. Buy in order — each tier replaces the one below it.",
-                "body", "dim"));
+            var title = Ui.Text("Studio — upgrade tracks, gear & crew", "h2");
+            title.tooltip = "Five tracks, each a ladder of tiers. Buy in order — each tier replaces the one below it.";
+            panel.Add(title);
             var st = E.State;
 
+            var tracksBox = Ui.Box();
             void TrackRow(UpgradeTrack track)
             {
                 var current = E.CurrentUpgrade(track);
@@ -1083,14 +1161,17 @@ namespace PodcastTycoon.Game
                     buy.SetEnabled(E.CanBuyUpgrade(track));
                     row.Add(buy);
                 }
-                panel.Add(row);
-                if (next != null) panel.Add(Ui.Wrapping(next.Effect, "body", "dim"));
-                panel.Add(Ui.Divider());
+                tracksBox.Add(row);
+                if (next != null) tracksBox.Add(Ui.Wrapping(next.Effect, "body", "dim"));
+                tracksBox.Add(Ui.Divider());
             }
 
-            panel.Add(Ui.Text("UPGRADE TRACKS", "eyebrow"));
             foreach (UpgradeTrack track in Enum.GetValues(typeof(UpgradeTrack)))
                 TrackRow(track);
+            string tracksSummary = string.Join(" · ", Enum.GetValues(typeof(UpgradeTrack)).Cast<UpgradeTrack>()
+                .Select(t => $"{TrackLabels[(int)t]} T{UpgradeCatalog.TierOf(st, t)}"));
+            panel.Add(Ui.Collapsible("Upgrade tracks", tracksSummary, tracksBox,
+                _tracksExpanded, expanded => _tracksExpanded = expanded));
 
             void HireRow(string name, bool have, string effect, string cost, bool canAfford, System.Action doHire)
             {
@@ -1114,11 +1195,13 @@ namespace PodcastTycoon.Game
                 $"+{E.Config.CoHostPrepBonus} prep a week and a little appeal.",
                 $"€{E.Config.CoHostMonthlyWage}/mo", E.CanHireCoHost(), () => E.HireCoHost());
 
-            panel.Add(Ui.Text("CREW", "eyebrow"));
+            var crewBox = Ui.Box();
             foreach (var role in CrewCatalog.All)
-                panel.Add(BuildCrewRoleBlock(role));
+                crewBox.Add(BuildCrewRoleBlock(role));
+            int hiredCount = CrewCatalog.All.Count(r => st.Employed.ContainsKey(r.Id));
+            panel.Add(Ui.Collapsible("Crew", $"{hiredCount}/{CrewCatalog.All.Count} hired", crewBox,
+                _crewExpanded, expanded => _crewExpanded = expanded));
 
-            panel.Add(Ui.Text("OTHER", "eyebrow"));
             HireRow("Second sponsor slot", st.HasSecondSponsorSlot,
                 "Hold two sponsor deals at once.", Ui.Money(E.Config.SecondSponsorSlotCost),
                 E.CanBuySecondSponsorSlot(), () => E.BuySecondSponsorSlot());
@@ -1189,31 +1272,38 @@ namespace PodcastTycoon.Game
         {
             var panel = Ui.Box("panel");
             var head = Ui.Row();
-            head.Add(Ui.Text("This week's rundown", "h2"));
+            var title = Ui.Text("This week's rundown", "h2");
+            title.tooltip = "Build the show from three segments. The main story carries most of the reach; the " +
+                "recurring bit is small but it's what gives the show its identity. Pick a topic and an angle for each.";
+            head.Add(title);
             _redraw = Ui.Btn(RedrawLabel(), Redraw, "btn-ghost");
             _redraw.SetEnabled(!E.HasRedrawnThisWeek && E.State.Money >= E.Config.RedrawCost);
             head.Add(_redraw);
             panel.Add(head);
-            panel.Add(Ui.Wrapping(
-                "Build the show from three segments. The main story carries most of the reach; the recurring bit is small " +
-                "but it's what gives the show its identity. Pick a topic and an angle for each — the angle decides how it lands.",
-                "body", "dim"));
 
             panel.Add(BuildSlotCard(_plan.Main, "MAIN STORY", canBeEmpty: false));
-            panel.Add(BuildSlotCard(_plan.Second, "SECOND SEGMENT", canBeEmpty: true));
-            panel.Add(BuildSlotCard(_plan.Recurring, "RECURRING BIT", canBeEmpty: true));
+
+            panel.Add(Ui.Collapsible("Second segment", SegSummary(_plan.Second),
+                BuildSlotCard(_plan.Second, "SECOND SEGMENT", canBeEmpty: true),
+                _secondExpanded, expanded => _secondExpanded = expanded));
+            panel.Add(Ui.Collapsible("Recurring bit", SegSummary(_plan.Recurring),
+                BuildSlotCard(_plan.Recurring, "RECURRING BIT", canBeEmpty: true),
+                _recurringExpanded, expanded => _recurringExpanded = expanded));
             return panel;
         }
+
+        static string SegSummary(Segment seg) =>
+            seg.IsEmpty ? "not used this week" : $"{seg.Resolved.Name} · {AngleCatalog.Get(seg.Angle).Name}";
 
         static readonly string[] PushLabels = { "1 · Head down", "2 · Normal", "3 · Bold", "4 · Loud", "5 · Full send" };
 
         VisualElement BuildPushPanel()
         {
             var panel = Ui.Box("panel");
-            panel.Add(Ui.Text("How hard are you pushing it?", "h2"));
-            panel.Add(Ui.Wrapping(
-                "The editorial line for the whole episode. Louder means more reach and more chatter — and a real chance " +
-                "a take lands badly. Keep your head down to lie low for a week.", "body", "dim"));
+            var title = Ui.Text("How hard are you pushing it?", "h2");
+            title.tooltip = "The editorial line for the whole episode. Louder means more reach and more chatter — " +
+                "and a real chance a take lands badly. Keep your head down to lie low for a week.";
+            panel.Add(title);
             var row = Ui.Box("row-wrap");
             for (int i = 1; i <= 5; i++)
             {
@@ -1349,10 +1439,10 @@ namespace PodcastTycoon.Game
             var st = E.State;
             _prep.Clear();
             _leversBlock = Ui.Box("panel");
-            _leversBlock.Add(Ui.Text("Production", "h2"));
-            _leversBlock.Add(Ui.Wrapping(
-                $"You have {st.PrepCapacity(E.Config)} prep points this week, shared across the segments above and the three levers below. " +
-                "Unspent points are wasted.", "body", "dim"));
+            var prodTitle = Ui.Text("Production", "h2");
+            prodTitle.tooltip = $"You have {st.PrepCapacity(E.Config)} prep points this week, shared across the " +
+                "segments above and the three levers below. Unspent points are wasted.";
+            _leversBlock.Add(prodTitle);
             _prepMeter = Ui.Text("", "prep-meter");
             _leversBlock.Add(_prepMeter);
             _leversBlock.Add(Lever("Research", "Fact-checking and depth. Narrows the swing on every segment — a gamble becomes a safer bet.",
@@ -1370,16 +1460,17 @@ namespace PodcastTycoon.Game
         VisualElement Lever(string name, string help, System.Func<int> get, System.Action<int> set)
         {
             var wrap = Ui.Box();
-            wrap.style.marginBottom = 8;
+            wrap.style.marginBottom = 4;
             var row = Ui.Box("prep-row");
-            row.Add(Ui.Text(name, "prep-name"));
+            var nameLabel = Ui.Text(name, "prep-name");
+            nameLabel.tooltip = help;
+            row.Add(nameLabel);
             var s = new SliderInt(0, 8) { value = get() };
             s.AddToClassList("prep-slider");
             var val = Ui.Text(get().ToString(), "prep-value");
             s.RegisterValueChangedCallback(e => { set(e.newValue); val.text = e.newValue.ToString(); RefreshPreview(); });
             row.Add(s); row.Add(val);
             wrap.Add(row);
-            wrap.Add(Ui.Wrapping(help, "body", "dim"));
             _prep.Add(new PrepControl { Slider = s, Value = val, Get = get });
             return wrap;
         }

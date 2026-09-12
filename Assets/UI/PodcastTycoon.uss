@@ -39,12 +39,15 @@
 .week-col-right { flex-grow: 1; flex-shrink: 1; flex-basis: 320px; min-width: 300px; }
 
 /* ---- typography ---- */
+/* A pixel display face for short, shouty text — titles, tags, tab labels, the
+   stat numbers. Never for prose: it's chunky and hard to read at length. */
 .h1 {
-    font-size: 30px;
-    -unity-font-style: bold;
+    -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
+    font-size: 26px;
     color: rgb(244, 242, 250);
-    margin-bottom: 2px;
+    margin-bottom: 6px;
     white-space: normal;
+    -unity-text-align: middle-left;
 }
 
 .h2 {
@@ -56,11 +59,11 @@
 }
 
 .eyebrow {
+    -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
     font-size: 11px;
-    -unity-font-style: bold;
     color: rgb(231, 165, 68);
-    letter-spacing: 2px;
-    margin-bottom: 6px;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
 }
 
 .muted { color: rgb(150, 144, 165); }
@@ -74,13 +77,13 @@
 .panel {
     background-color: rgb(31, 30, 40);
     border-color: rgb(48, 46, 60);
-    border-width: 1px;
+    border-width: 2px;
     border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 14px;
+    padding: 12px;
+    margin-bottom: 10px;
 }
 
-.panel-tight { padding: 12px; }
+.panel-tight { padding: 10px; }
 
 .row {
     flex-direction: row;
@@ -89,6 +92,23 @@
 }
 
 .row-wrap { flex-direction: row; flex-wrap: wrap; }
+
+/* ---- collapsible sections ---- */
+.collapsible { margin-bottom: 8px; }
+
+.collapsible-header {
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 10px;
+    background-color: rgb(26, 25, 33);
+    border-color: rgb(48, 46, 60);
+    border-width: 2px;
+    border-radius: 8px;
+}
+
+.collapsible-chevron { color: rgb(231, 165, 68); margin-right: 8px; font-size: 12px; }
+.collapsible-title { font-size: 14px; -unity-font-style: bold; color: rgb(236, 233, 242); }
+.collapsible-summary { font-size: 12px; color: rgb(150, 144, 165); }
 
 /* ---- pixel portraits ---- */
 .portrait {
@@ -106,7 +126,27 @@
 }
 
 /* ---- stat strip ---- */
-.statstrip { flex-direction: row; flex-wrap: wrap; }
+/* A single thin row: icon + number, full explanation lives in the tooltip
+   (and in Help) instead of a permanently-visible label + paragraph. */
+.statstrip { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 6px 4px; }
+
+.statchip {
+    align-items: center;
+    background-color: rgb(24, 23, 31);
+    border-color: rgb(45, 43, 56);
+    border-width: 1px;
+    border-radius: 8px;
+    padding: 4px 10px 4px 6px;
+    margin-right: 6px;
+    margin-bottom: 4px;
+}
+
+.statchip-value {
+    -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
+    font-size: 13px;
+    color: rgb(240, 238, 248);
+    margin-left: 7px;
+}
 
 .stat {
     background-color: rgb(24, 23, 31);
@@ -139,13 +179,18 @@
     white-space: normal;
 }
 
-/* ---- buttons ---- */
+/* ---- buttons ----
+   A chunkier, game-ier press: a heavier bottom edge reads as depth, and it
+   thins out on :active so the button visibly "presses" when clicked. */
 .btn {
     -unity-font-style: bold;
     font-size: 14px;
     padding: 9px 16px;
     border-radius: 8px;
-    border-width: 0;
+    border-width: 2px;
+    border-color: rgb(64, 61, 78);
+    border-bottom-width: 4px;
+    border-bottom-color: rgb(18, 17, 23);
     background-color: rgb(44, 42, 56);
     color: rgb(236, 233, 242);
     margin-right: 8px;
@@ -153,22 +198,31 @@
 }
 
 .btn:hover { background-color: rgb(56, 53, 70); }
+.btn:active { border-bottom-width: 2px; margin-top: 2px; }
 .btn:disabled { opacity: 0.4; }
 
 .btn-primary {
     background-color: rgb(231, 165, 68);
     color: rgb(22, 21, 27);
+    border-color: rgb(255, 205, 140);
+    border-bottom-color: rgb(140, 92, 24);
 }
 .btn-primary:hover { background-color: rgb(240, 184, 104); }
 
-.btn-ghost { background-color: rgba(0, 0, 0, 0); border-width: 1px; border-color: rgb(64, 61, 78); }
+.btn-ghost {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 2px;
+    border-color: rgb(64, 61, 78);
+    border-bottom-width: 4px;
+    border-bottom-color: rgb(34, 32, 42);
+}
 .btn-ghost:hover { background-color: rgb(36, 34, 45); }
 
 /* ---- topic cards ---- */
 .topiccard {
     background-color: rgb(26, 25, 33);
     border-color: rgb(48, 46, 60);
-    border-width: 1px;
+    border-width: 2px;
     border-radius: 10px;
     padding: 12px;
     margin-bottom: 8px;
@@ -194,10 +248,10 @@
 
 /* ---- surprise badge ---- */
 .badge {
-    -unity-font-style: bold;
-    font-size: 12px;
+    -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
+    font-size: 10px;
     letter-spacing: 1px;
-    padding: 4px 10px;
+    padding: 5px 10px;
     border-radius: 999px;
     background-color: rgb(44, 42, 56);
     color: rgb(236, 233, 242);
@@ -216,8 +270,8 @@
 }
 
 .score {
-    font-size: 34px;
-    -unity-font-style: bold;
+    -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
+    font-size: 28px;
     color: rgb(244, 242, 250);
     margin-left: 14px;
     margin-right: 14px;
@@ -277,6 +331,9 @@
     border-radius: 8px;
     padding: 10px;
     margin-bottom: 6px;
+    margin-right: 6px;
+    width: 47%;
+    flex-grow: 1;
 }
 .diff-card.selected { border-color: rgb(231, 165, 68); background-color: rgb(35, 31, 27); }
 .diff-name { -unity-font-style: bold; font-size: 14px; }
@@ -342,9 +399,9 @@
 }
 
 .tab {
-    -unity-font-style: bold;
-    font-size: 13px;
-    padding: 9px 14px;
+    -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
+    font-size: 11px;
+    padding: 10px 14px;
     margin-right: 2px;
     margin-bottom: 0;
     background-color: rgba(0, 0, 0, 0);

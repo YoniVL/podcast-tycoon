@@ -73,6 +73,50 @@ namespace PodcastTycoon.Game
             if (stat?.userData is Label l) l.text = value;
         }
 
+        /// <summary>A click-to-expand section — a one-line header (with an optional always-visible
+        /// summary) that shows/hides the real content below it. Used to keep secondary or optional
+        /// content out of the way without hiding it, so a screen can fit without scrolling.</summary>
+        public static VisualElement Collapsible(string title, string summary, VisualElement content,
+            bool startExpanded = false, Action<bool> onToggle = null)
+        {
+            var wrap = Box("collapsible");
+            var header = Row("collapsible-header");
+            var chevron = Text(startExpanded ? "▾" : "▸", "collapsible-chevron");
+            var titleLabel = Text(title, "collapsible-title");
+            titleLabel.style.flexGrow = 1;
+            header.Add(chevron);
+            header.Add(titleLabel);
+            if (!string.IsNullOrEmpty(summary))
+                header.Add(Text(summary, "collapsible-summary"));
+            wrap.Add(header);
+
+            content.style.display = startExpanded ? DisplayStyle.Flex : DisplayStyle.None;
+            wrap.Add(content);
+
+            header.RegisterCallback<ClickEvent>(_ =>
+            {
+                bool expanded = content.style.display == DisplayStyle.Flex;
+                content.style.display = expanded ? DisplayStyle.None : DisplayStyle.Flex;
+                chevron.text = expanded ? "▸" : "▾";
+                onToggle?.Invoke(!expanded);
+            });
+            return wrap;
+        }
+
+        /// <summary>A compact icon + value chip for the persistent resource strip — the full
+        /// name and explanation live in the tooltip instead of always-on text, so the strip
+        /// stays a single thin row (the glossary in Help still covers all of this in full).</summary>
+        public static VisualElement StatChip(Texture2D icon, string value, string tooltip, string valueClass = null)
+        {
+            var chip = Row("statchip");
+            chip.tooltip = tooltip;
+            chip.Add(Portrait(icon, 20));
+            var v = Text(value, "statchip-value");
+            if (valueClass != null) v.AddToClassList(valueClass);
+            chip.Add(v);
+            return chip;
+        }
+
         public static VisualElement Chip(string text)
         {
             var c = Text(text, "chip");
