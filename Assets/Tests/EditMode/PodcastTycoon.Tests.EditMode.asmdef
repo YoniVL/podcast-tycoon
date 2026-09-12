@@ -3,6 +3,7 @@
   "rootNamespace": "PodcastTycoon.Tests",
   "references": [
     "PodcastTycoon.Core",
+    "PodcastTycoon.Game",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],

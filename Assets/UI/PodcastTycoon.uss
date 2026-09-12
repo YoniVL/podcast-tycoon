@@ -15,8 +15,15 @@
 }
 
 .column {
-    width: 640px;
-    max-width: 100%;
+    width: 90%;
+    max-width: 860px;
+    flex-grow: 1;
+}
+
+/* The main gameplay screen gets the most benefit from landscape's extra width. */
+.column-wide {
+    width: 94%;
+    max-width: 1180px;
     flex-grow: 1;
 }
 
@@ -24,6 +31,12 @@
     flex-grow: 1;
     width: 100%;
 }
+
+/* This Week: the decision (rundown/push/cards) and its consequence (levers/preview)
+   sit side by side instead of stacking, so landscape actually buys you something. */
+.week-columns { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+.week-col-left { flex-grow: 1.6; flex-shrink: 1; flex-basis: 420px; min-width: 380px; margin-right: 18px; }
+.week-col-right { flex-grow: 1; flex-shrink: 1; flex-basis: 320px; min-width: 300px; }
 
 /* ---- typography ---- */
 .h1 {
@@ -76,6 +89,14 @@
 }
 
 .row-wrap { flex-direction: row; flex-wrap: wrap; }
+
+/* ---- pixel portraits ---- */
+.portrait {
+    -unity-background-scale-mode: scale-to-fit;
+    border-radius: 0;
+}
+
+.portrait-inline { margin-right: 8px; }
 
 .divider {
     height: 1px;

@@ -36,6 +36,30 @@ namespace PodcastTycoon.EditorTools
                 EditorApplication.Exit(0);
         }
 
+        /// <summary>
+        /// Locks the game to landscape (it can still flip between left/right) — the UI (Slice 8)
+        /// is now laid out assuming landscape width and would squash badly in portrait.
+        /// Run this from the menu with the Editor open. NOTE: in a raw headless batchmode
+        /// invocation (no live Editor), these PlayerSettings writes reproducibly applied
+        /// in-memory but never made it to ProjectSettings.asset on disk, even with
+        /// AssetDatabase.SaveAssets() and a delayed EditorApplication.Exit() — the settings
+        /// module appears to need a live interactive session to flush. If you need this applied
+        /// headless, hand-edit ProjectSettings.asset's allowedAutorotateToPortrait /
+        /// allowedAutorotateToPortraitUpsideDown fields instead (0 to disallow) — that's how it
+        /// was actually applied the first time.
+        /// </summary>
+        [MenuItem("Podcast Tycoon/Lock orientation to landscape")]
+        public static void LockLandscapeOrientation()
+        {
+            PlayerSettings.defaultInterfaceOrientation = UIOrientation.AutoRotation;
+            PlayerSettings.allowedAutorotateToPortrait = false;
+            PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
+            PlayerSettings.allowedAutorotateToLandscapeLeft = true;
+            PlayerSettings.allowedAutorotateToLandscapeRight = true;
+            AssetDatabase.SaveAssets();
+            Debug.Log("[ProjectSetup] Orientation locked to landscape (left/right; portrait disallowed).");
+        }
+
         static PanelSettings EnsurePanelSettings()
         {
             var existing = AssetDatabase.LoadAssetAtPath<PanelSettings>(PanelSettingsPath);

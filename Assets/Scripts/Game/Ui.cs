@@ -84,6 +84,18 @@ namespace PodcastTycoon.Game
             return Box("divider");
         }
 
+        /// <summary>A fixed-size pixel portrait. The texture is point-filtered, so it stays crisp scaled up.</summary>
+        public static VisualElement Portrait(Texture2D tex, float size, params string[] classes)
+        {
+            var e = Box("portrait");
+            AddClasses(e, classes);
+            e.style.width = size;
+            e.style.height = size;
+            e.style.flexShrink = 0;
+            e.style.backgroundImage = new StyleBackground(tex);
+            return e;
+        }
+
         public static Color ParseColor(string hex, Color fallback)
         {
             if (!string.IsNullOrEmpty(hex) && ColorUtility.TryParseHtmlString(hex, out var c)) return c;

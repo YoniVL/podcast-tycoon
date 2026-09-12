@@ -47,7 +47,7 @@ namespace PodcastTycoon.Game
             if (E.Events.Pending != null || E.Scoops.Pending != null || E.State.BuyoutPending || E.IsRecording) _activeTab = 0;
 
             var screen = Ui.Box("screen");
-            var col = Ui.Box("column");
+            var col = Ui.Box("column-wide");
             screen.Add(col);
 
             // --- persistent chrome ---
@@ -86,9 +86,23 @@ namespace PodcastTycoon.Game
         VisualElement BuildHeaderBar(WeekContext ctx, GameState st)
         {
             var bar = Ui.Box("panel", "panel-tight");
+            bar.style.flexDirection = FlexDirection.Row;
+            bar.style.alignItems = Align.Center;
             _host.Theme.PaintBar(bar);
             var ink = _host.Theme.Ink(_host.Theme.Primary);
 
+            var portraits = Ui.Row();
+            portraits.style.marginRight = 10;
+            portraits.Add(Ui.Portrait(PortraitCache.Host(), 40));
+            if (st.HasCoHost)
+            {
+                var co = Ui.Portrait(PortraitCache.CoHost(), 40);
+                co.style.marginLeft = -14;
+                portraits.Add(co);
+            }
+            bar.Add(portraits);
+
+            var text = Ui.Box();
             var t1 = Ui.Text(st.PodcastName, "h2");
             t1.style.color = ink;
             t1.style.marginTop = 0;
@@ -96,8 +110,9 @@ namespace PodcastTycoon.Game
             var t2 = Ui.Text(
                 $"Season {st.Season} · Week {ctx.Turn} · {st.ClubName} sit {ctx.LeaguePositionLabel}", "body");
             t2.style.color = ink;
-            bar.Add(t1);
-            bar.Add(t2);
+            text.Add(t1);
+            text.Add(t2);
+            bar.Add(text);
             return bar;
         }
 
@@ -321,23 +336,33 @@ namespace PodcastTycoon.Game
                 return;
             }
 
+            // Landscape's extra width goes here: the decisions on the left, their
+            // running consequence (levers + live preview) alongside on the right,
+            // instead of everything stacked in one long scroll.
+            var columns = Ui.Box("week-columns");
+            var left = Ui.Box("week-col-left");
+            var right = Ui.Box("week-col-right");
+            columns.Add(left);
+            columns.Add(right);
+            root.Add(columns);
+
             // the rundown — three segment slots
-            root.Add(BuildRundownPanel());
+            left.Add(BuildRundownPanel());
 
             // the weekly gamble (spec §11)
-            root.Add(BuildPushPanel());
+            left.Add(BuildPushPanel());
 
             // cards — a step in the weekly loop: play up to a couple to shape this episode
-            root.Add(BuildWeeklyCardsPanel());
+            left.Add(BuildWeeklyCardsPanel());
 
-            // production levers
-            root.Add(BuildLeversPanel());
+            // production levers + the live preview of the episode you're building
+            right.Add(BuildLeversPanel());
 
             _publish = Ui.Btn("Record & release", StartRecording, "btn-primary");
             _host.Theme.PaintPrimaryButton(_publish);
             _publish.style.marginTop = 6;
             _publish.SetEnabled(false);
-            root.Add(_publish);
+            right.Add(_publish);
 
             SyncSliders();
             RefreshPreview();
@@ -1111,6 +1136,8 @@ namespace PodcastTycoon.Game
             if (st.Employed.TryGetValue(role.Id, out var emp))
             {
                 var row = Ui.Row();
+                row.style.alignItems = Align.Center;
+                row.Add(Ui.Portrait(PortraitCache.Crew(role.Id, emp.Name), 32, "portrait-inline"));
                 var left = Ui.Box();
                 left.style.flexGrow = 1;
                 string traits = emp.TraitText;
@@ -1136,6 +1163,8 @@ namespace PodcastTycoon.Game
                     var c = candidates[i];
                     int idx = i;
                     var row = Ui.Row();
+                    row.style.alignItems = Align.Center;
+                    row.Add(Ui.Portrait(PortraitCache.Crew(role.Id, c.Name), 32, "portrait-inline"));
                     var left = Ui.Box();
                     left.style.flexGrow = 1;
                     string traits = c.TraitText;
