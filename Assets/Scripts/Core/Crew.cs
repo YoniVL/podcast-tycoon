@@ -123,14 +123,46 @@ namespace PodcastTycoon.Core
             st.Employed.Values.Any(c => c.Traits.Contains(traitId));
 
         // --- skill-scaled effect accessors, read by Resolution (spec §19: skill scales the effect) ---
+        // Split into a skill->number primitive (so the UI can preview a candidate's impact
+        // before hiring them, not just the current employee's) and a GameState-reading
+        // wrapper for the sim to call — same formula either way, single source of truth.
         public static float SkillOf(GameState st, Crew role) => st.Employed.TryGetValue(role, out var c) ? c.Skill : 0f;
 
-        public static int PrepBonus(GameState st) => MathX.RoundToInt(2f * SkillOf(st, Crew.Producer));
-        public static int EffortRelief(GameState st) => MathX.RoundToInt(1f * SkillOf(st, Crew.Producer));
-        public static float ResearchMultiplier(GameState st) => 1f + 1f * SkillOf(st, Crew.Researcher);
-        public static float AnalysisRepBonus(GameState st) => 0.35f * SkillOf(st, Crew.Researcher);
-        public static float SocialMultiplier(GameState st) => 1f + 0.30f * SkillOf(st, Crew.Clips);
-        public static float PassiveReachPerWeek(GameState st) => 0.01f * SkillOf(st, Crew.Clips);
+        public static int PrepBonusForSkill(float skill) => MathX.RoundToInt(2f * skill);
+        public static int EffortReliefForSkill(float skill) => MathX.RoundToInt(1f * skill);
+        public static float ResearchMultiplierForSkill(float skill) => 1f + 1f * skill;
+        public static float AnalysisRepBonusForSkill(float skill) => 0.35f * skill;
+        public static float SocialMultiplierForSkill(float skill) => 1f + 0.30f * skill;
+        public static float PassiveReachPerWeekForSkill(float skill) => 0.01f * skill;
+
+        public static int PrepBonus(GameState st) => PrepBonusForSkill(SkillOf(st, Crew.Producer));
+        public static int EffortRelief(GameState st) => EffortReliefForSkill(SkillOf(st, Crew.Producer));
+        public static float ResearchMultiplier(GameState st) => ResearchMultiplierForSkill(SkillOf(st, Crew.Researcher));
+        public static float AnalysisRepBonus(GameState st) => AnalysisRepBonusForSkill(SkillOf(st, Crew.Researcher));
+        public static float SocialMultiplier(GameState st) => SocialMultiplierForSkill(SkillOf(st, Crew.Clips));
+        public static float PassiveReachPerWeek(GameState st) => PassiveReachPerWeekForSkill(SkillOf(st, Crew.Clips));
+
+        /// <summary>A concrete, skill-scaled readout of what a person in this role actually
+        /// does at their current skill — shown for both the employee and every candidate, so
+        /// "impact" is a real number instead of the role's generic flavour text.</summary>
+        public static string ImpactSummary(Crew role, float skill)
+        {
+            switch (role)
+            {
+                case Crew.Producer:
+                    return $"+{PrepBonusForSkill(skill)} prep point(s)/week, −{EffortReliefForSkill(skill)} effort needed per topic";
+                case Crew.Researcher:
+                    int researchPct = MathX.RoundToInt((ResearchMultiplierForSkill(skill) - 1f) * 100f);
+                    return $"Research lever +{researchPct}% effective, +{AnalysisRepBonusForSkill(skill):0.0} reputation per Analysis segment";
+                case Crew.Clips:
+                    int socialPct = MathX.RoundToInt((SocialMultiplierForSkill(skill) - 1f) * 100f);
+                    return $"+{socialPct}% social reach gains, plus a trickle of new followers every week";
+                case Crew.Booker:
+                    return "Unlocks the Big interview topic and guest bookings — a presence perk, doesn't scale with skill";
+                default:
+                    return "";
+            }
+        }
 
         public static int MonthlyWageBill(GameState st)
         {

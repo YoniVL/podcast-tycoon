@@ -93,6 +93,25 @@
 
 .row-wrap { flex-direction: row; flex-wrap: wrap; }
 
+/* ---- This Week wizard ---- */
+.step-indicator { margin-bottom: 14px; }
+.step-chip {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgb(120, 114, 132);
+    background-color: rgb(24, 23, 31);
+    border-color: rgb(45, 43, 56);
+    border-width: 2px;
+    border-radius: 6px;
+    padding: 6px 14px;
+    margin-right: 8px;
+    margin-bottom: 6px;
+}
+.step-chip.active { color: rgb(22, 21, 27); background-color: rgb(231, 165, 68); border-color: rgb(231, 165, 68); }
+.step-chip.done { color: rgb(200, 196, 210); border-color: rgb(90, 86, 104); }
+
+.step-nav { margin-top: 4px; margin-bottom: 10px; }
+
 /* ---- collapsible sections ---- */
 .collapsible { margin-bottom: 8px; }
 
@@ -104,11 +123,20 @@
     border-color: rgb(48, 46, 60);
     border-width: 2px;
     border-radius: 8px;
+    overflow: hidden;
 }
 
-.collapsible-chevron { color: rgb(231, 165, 68); margin-right: 8px; font-size: 12px; }
-.collapsible-title { font-size: 14px; -unity-font-style: bold; color: rgb(236, 233, 242); }
-.collapsible-summary { font-size: 12px; color: rgb(150, 144, 165); }
+.collapsible-chevron { color: rgb(231, 165, 68); margin-right: 8px; font-size: 12px; flex-shrink: 0; }
+.collapsible-title { font-size: 14px; -unity-font-style: bold; color: rgb(236, 233, 242); flex-shrink: 0; }
+.collapsible-summary {
+    font-size: 12px;
+    color: rgb(150, 144, 165);
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-left: 8px;
+}
 
 /* ---- pixel portraits ---- */
 .portrait {
@@ -218,6 +246,19 @@
 }
 .btn-ghost:hover { background-color: rgb(36, 34, 45); }
 
+/* A ghost button used as a "selected" picker (topic/angle/push/stance) gets both
+   classes at once. Equal-specificity single-class rules resolve by source order,
+   which made a selected pick fall back to the ghost's transparent background while
+   keeping btn-primary's dark text — near-black text on the dark panel behind it.
+   This two-class rule always wins regardless of source order. */
+.btn-ghost.btn-primary {
+    background-color: rgb(231, 165, 68);
+    color: rgb(22, 21, 27);
+    border-color: rgb(255, 205, 140);
+    border-bottom-color: rgb(140, 92, 24);
+}
+.btn-ghost.btn-primary:hover { background-color: rgb(240, 184, 104); }
+
 /* ---- topic cards ---- */
 .topiccard {
     background-color: rgb(26, 25, 33);
@@ -235,6 +276,37 @@
 
 .topiccard-title { font-size: 15px; -unity-font-style: bold; color: rgb(240, 238, 248); }
 
+/* ---- hand cards ---- */
+.card {
+    background-color: rgb(26, 25, 33);
+    border-color: rgb(48, 46, 60);
+    border-width: 2px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+.card-head {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background-color: rgb(35, 31, 27);
+    border-bottom-width: 2px;
+    border-bottom-color: rgb(231, 165, 68);
+}
+.card-head.oneshot {
+    background-color: rgb(24, 27, 35);
+    border-bottom-color: rgb(120, 170, 255);
+}
+.card-kind {
+    font-size: 9px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: rgb(231, 165, 68);
+}
+.card-kind.oneshot { color: rgb(120, 170, 255); }
+.card-body { padding: 10px; }
+
 .chip {
     font-size: 10px;
     -unity-font-style: bold;
@@ -249,10 +321,10 @@
 /* ---- surprise badge ---- */
 .badge {
     -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
-    font-size: 10px;
-    letter-spacing: 1px;
+    font-size: 12px;
+    letter-spacing: 1.5px;
     padding: 5px 10px;
-    border-radius: 999px;
+    border-radius: 6px;
     background-color: rgb(44, 42, 56);
     color: rgb(236, 233, 242);
 }
@@ -281,7 +353,16 @@
 
 /* ---- sliders ---- */
 .prep-row { flex-direction: row; align-items: center; margin-bottom: 4px; }
-.prep-name { width: 92px; font-size: 13px; -unity-font-style: bold; }
+.prep-name {
+    width: 92px;
+    font-size: 13px;
+    -unity-font-style: bold;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.prep-name-wide { width: 176px; }
 .prep-slider { flex-grow: 1; margin-right: 8px; }
 .prep-value { width: 26px; -unity-font-style: bold; -unity-text-align: middle-right; }
 
@@ -291,8 +372,23 @@
 }
 .prep-meter.over { color: rgb(232, 106, 102); }
 
+/* The step-header prep readout — a chip in the same family as .step-chip, not
+   bare text, so it doesn't get lost as an unlabelled fragment next to them. */
+.prep-meter-chip {
+    font-size: 14px;
+    color: rgb(231, 165, 68);
+    background-color: rgb(24, 23, 31);
+    border-color: rgb(231, 165, 68);
+    border-width: 2px;
+    border-radius: 6px;
+    padding: 6px 14px;
+    margin-right: 8px;
+    margin-bottom: 6px;
+}
+.prep-meter-chip.over { color: rgb(232, 106, 102); border-color: rgb(232, 106, 102); }
+
 /* ---- form fields ---- */
-.field { margin-bottom: 12px; }
+.field { margin-bottom: 8px; }
 .field-label { font-size: 11px; -unity-font-style: bold; color: rgb(150, 144, 165); letter-spacing: 1px; margin-bottom: 4px; }
 
 /* Unity's TextField renders its editable area in a nested element — style that
@@ -316,7 +412,7 @@
 
 .swatch-row { flex-direction: row; flex-wrap: wrap; }
 .swatch {
-    width: 34px; height: 34px; border-radius: 7px; margin-right: 7px; margin-bottom: 7px;
+    width: 28px; height: 28px; border-radius: 6px; margin-right: 6px; margin-bottom: 5px;
     border-width: 3px; border-color: rgba(0,0,0,0);
     align-items: center; justify-content: center;
 }
@@ -329,8 +425,8 @@
     border-color: rgb(48, 46, 60);
     border-width: 1px;
     border-radius: 8px;
-    padding: 10px;
-    margin-bottom: 6px;
+    padding: 8px;
+    margin-bottom: 4px;
     margin-right: 6px;
     width: 47%;
     flex-grow: 1;

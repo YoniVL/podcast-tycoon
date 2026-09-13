@@ -205,7 +205,16 @@ namespace PodcastTycoon.Tests
             float skill = e.CandidatesFor(Crew.Producer)[0].Skill;
             Assert.That(e.HireCandidate(Crew.Producer, 0), Is.True);
             Assert.That(e.State.PrepCapacity(e.Config), Is.EqualTo(before + MathX.RoundToInt(2f * skill)));
-            Assert.That(e.HireCandidate(Crew.Producer, 0), Is.False, "can't hire into a filled role");
+
+            // The market keeps moving even while the role is filled: candidates stay visible,
+            // and hiring one now replaces the incumbent (same severance cost as firing them)
+            // instead of being blocked outright.
+            Assert.That(e.CandidatesFor(Crew.Producer).Count, Is.GreaterThan(0), "candidates should still be visible while the role is filled");
+            string firstHireName = e.State.Employed[Crew.Producer].Name;
+            float moneyBeforeReplace = e.State.Money;
+            Assert.That(e.HireCandidate(Crew.Producer, 0), Is.True, "hiring into a filled role now replaces the incumbent");
+            Assert.That(e.State.Employed[Crew.Producer].Name, Is.Not.EqualTo(firstHireName));
+            Assert.That(e.State.Money, Is.LessThan(moneyBeforeReplace), "replacing costs the new wage plus the outgoing severance");
 
             float moneyBeforeFiring = e.State.Money;
             Assert.That(e.FireCrew(Crew.Producer), Is.True);

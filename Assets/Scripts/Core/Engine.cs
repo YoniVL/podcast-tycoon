@@ -692,11 +692,13 @@ namespace PodcastTycoon.Core
         public IReadOnlyList<CrewCandidate> CandidatesFor(Crew role) =>
             State.CandidatePool.TryGetValue(role, out var list) ? list : Array.Empty<CrewCandidate>();
 
+        // A pool of 2-3 candidates is always visible per role, filled or not — the market
+        // keeps moving even while you're staffed, so you can see (and act on) whether
+        // someone better is available instead of the shortlist just vanishing on hire.
         void RefreshCandidatePools()
         {
             foreach (var role in new[] { Crew.Producer, Crew.Researcher, Crew.Clips, Crew.Booker })
             {
-                if (State.HasCrew(role)) { State.CandidatePool.Remove(role); continue; }
                 int n = 2 + (_rng.NextDouble() < 0.4 ? 1 : 0);
                 var list = new List<CrewCandidate>();
                 for (int i = 0; i < n; i++) list.Add(CrewCatalog.Generate(role, Config, _rng));
@@ -704,20 +706,26 @@ namespace PodcastTycoon.Core
             }
         }
 
+        /// <summary>Hiring a candidate while the role is already filled replaces the current
+        /// person (same severance/buyout cost as firing them outright), so poaching a better
+        /// candidate is a real decision, not a free swap.</summary>
         public bool CanHireCandidate(Crew role, int index)
         {
             var pool = CandidatesFor(role);
-            return !State.HasCrew(role) && index >= 0 && index < pool.Count && State.Money >= pool[index].Wage;
+            if (index < 0 || index >= pool.Count) return false;
+            int cost = pool[index].Wage + (State.Employed.ContainsKey(role) ? FireCost(role) : 0);
+            return State.Money >= cost;
         }
 
         public bool HireCandidate(Crew role, int index)
         {
             if (!CanHireCandidate(role, index)) return false;
             var c = CandidatesFor(role)[index];
+            if (State.Employed.ContainsKey(role)) FireCrew(role);
             State.Money -= c.Wage;   // first month up front
             State.Crew |= role;
             State.Employed[role] = c;
-            State.CandidatePool.Remove(role);
+            State.CandidatePool[role].Remove(c);
             return true;
         }
 

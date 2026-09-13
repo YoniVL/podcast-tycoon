@@ -25,10 +25,20 @@ namespace PodcastTycoon.Game
         VisualElement _leversBlock;
         VisualElement _previewBlock;
         Label _prepMeter;
+        Label _stepPrepMeter;
         Button _publish;
         Button _redraw;
         bool _secondExpanded;
         bool _recurringExpanded;
+        int _thisWeekStep;
+        int _lastStepWeek = -1;
+        // Most actions rebuild the whole screen (Build() below), which used to always
+        // recreate the ScrollView at offset zero — every click snapped back to the top.
+        // Preserve the offset across a rebuild by default; only reset it on the moves
+        // that genuinely change context (switching wizard step, redrawing, recording).
+        Vector2 _pendingScrollOffset = Vector2.zero;
+        bool _forceScrollTop = true;
+        static readonly string[] StepNames = { "Rundown", "Push & Cards", "Review" };
         bool _tracksExpanded;
         bool _crewExpanded;
         bool _cardShopExpanded;
@@ -48,6 +58,9 @@ namespace PodcastTycoon.Game
 
         public VisualElement Build()
         {
+            if (_forceScrollTop) { _pendingScrollOffset = Vector2.zero; _forceScrollTop = false; }
+            else if (_scroll != null) { _pendingScrollOffset = _scroll.scrollOffset; }
+
             var ctx = E.CurrentWeek;
             var st = E.State;
 
@@ -87,6 +100,11 @@ namespace PodcastTycoon.Game
             col.Add(_scroll);
 
             RenderActiveTab();
+
+            var scrollRef = _scroll;
+            var restoreOffset = _pendingScrollOffset;
+            scrollRef.schedule.Execute(() => { scrollRef.scrollOffset = restoreOffset; });
+
             return screen;
         }
 
@@ -212,48 +230,17 @@ namespace PodcastTycoon.Game
         {
             var st = E.State;
 
-            // story headlines from the start of this week
-            foreach (var te in ctx.ThreadEvents)
-            {
-                var toast = Ui.Box("toast");
-                if (te.IsResolution) toast.AddToClassList("toast-story");
-                toast.Add(Ui.Text(te.Headline.ToUpperInvariant(), "eyebrow"));
-                toast.Add(Ui.Wrapping(te.Body, "body"));
-                root.Add(toast);
-            }
+            // a fresh rundown starts the wizard back at step 1
+            if (_lastStepWeek != st.GlobalWeek) { _thisWeekStep = 0; _lastStepWeek = st.GlobalWeek; }
 
-            if (!string.IsNullOrEmpty(ctx.CompetitionNote))
-            {
-                var toast = Ui.Box("toast");
-                toast.Add(Ui.Text("CUP & EUROPE", "eyebrow"));
-                toast.Add(Ui.Wrapping(ctx.CompetitionNote, "body"));
-                root.Add(toast);
-            }
-            foreach (var rn in ctx.RivalNews)
-            {
-                var toast = Ui.Box("toast", "toast-story");
-                toast.Add(Ui.Text("RIVAL WATCH", "eyebrow"));
-                toast.Add(Ui.Wrapping(rn, "body"));
-                root.Add(toast);
-            }
-            if (!string.IsNullOrEmpty(ctx.AccessNote))
-            {
-                var toast = Ui.Box("toast");
-                toast.Add(Ui.Text("CLUB ACCESS", "eyebrow"));
-                toast.Add(Ui.Wrapping(ctx.AccessNote, "body"));
-                root.Add(toast);
-            }
-            if (ctx.CardsGained.Count > 0)
-            {
-                var toast = Ui.Box("toast", "toast-story");
-                toast.Add(Ui.Text("NEW CARDS", "eyebrow"));
-                toast.Add(Ui.Wrapping("Added to your hand: " + string.Join(", ", ctx.CardsGained) + ". Play them from Business.", "body"));
-                root.Add(toast);
-            }
+            // Interrupts block everything else, like a modal — resolve them and nothing but
+            // them shows. (A scoop and an event can't both fire the same week, but a stray
+            // buyout offer could land alongside one; show whatever's actually pending.)
+            bool anyInterrupt = false;
 
-            // a scoop awaiting a decision — blocks the week like an event
             if (E.Scoops.Pending != null)
             {
+                anyInterrupt = true;
                 var sc = E.Scoops.Pending;
                 var card = Ui.Box("panel", "event-card");
                 card.Add(Ui.Text("YOU'VE GOT A SCOOP", "eyebrow"));
@@ -271,16 +258,10 @@ namespace PodcastTycoon.Game
                 Choice("Trade it", ScoopChoice.Trade);
                 root.Add(card);
             }
-            else if (!string.IsNullOrEmpty(E.Scoops.LastOutcome))
-            {
-                var toast = Ui.Box("toast");
-                toast.Add(Ui.Wrapping(E.Scoops.LastOutcome, "body"));
-                root.Add(toast);
-            }
 
-            // the 1M buyout decision
             if (st.BuyoutPending)
             {
+                anyInterrupt = true;
                 var card = Ui.Box("panel", "event-card");
                 card.Add(Ui.Text("SOMEONE WANTS TO BUY THE SHOW", "eyebrow"));
                 card.Add(Ui.Text("A media group has made an offer for the whole podcast.", "h2"));
@@ -292,9 +273,9 @@ namespace PodcastTycoon.Game
                 root.Add(card);
             }
 
-            // an interrupt event, if one fired
             if (E.Events.Pending != null)
             {
+                anyInterrupt = true;
                 var ev = E.Events.Pending;
                 var card = Ui.Box("panel", "event-card");
                 card.Add(Ui.Text("SOMETHING'S COME UP", "eyebrow"));
@@ -309,34 +290,8 @@ namespace PodcastTycoon.Game
                 }
                 root.Add(card);
             }
-            else if (!string.IsNullOrEmpty(E.Events.LastOutcome))
-            {
-                var toast = Ui.Box("toast");
-                toast.Add(Ui.Wrapping(E.Events.LastOutcome, "body"));
-                root.Add(toast);
-            }
 
-            if (ctx.SponsorNews != null)
-            {
-                var toast = Ui.Box("toast");
-                if (!ctx.SponsorNews.Good) toast.AddToClassList("toast-bad");
-                toast.Add(Ui.Text(ctx.SponsorNews.Headline.ToUpperInvariant(), "eyebrow"));
-                toast.Add(Ui.Wrapping(ctx.SponsorNews.Body, "body"));
-                root.Add(toast);
-            }
-
-            root.Add(BuildMatchPanel(ctx));
-
-            // running-story reminder (the full panel lives on The Club)
-            if (ctx.ActiveThreads != null && ctx.ActiveThreads.Count > 0)
-            {
-                var note = Ui.Box("toast", "toast-story");
-                note.Add(Ui.Text("RUNNING STORIES", "eyebrow"));
-                foreach (var t in ctx.ActiveThreads)
-                    note.Add(Ui.Wrapping("• " + t.Label + " — " + LeanLabel(t.Momentum), "body"));
-                note.Add(Ui.Wrapping("Pick the STORY topic below to weigh in. Full detail on The Club.", "body", "dim"));
-                root.Add(note);
-            }
+            if (anyInterrupt) return;
 
             // The recording phase (spec §10): once you hit Record, the rundown is locked in and
             // a few quick beats can arise before the episode actually goes out.
@@ -346,38 +301,170 @@ namespace PodcastTycoon.Game
                 return;
             }
 
-            // Landscape's extra width goes here: WHAT to cover on the left (the rundown —
-            // by far the tallest single thing once a topic's picked, so it gets its own
-            // column), HOW to produce it + review + publish on the right. Push and Cards
-            // used to stack under Rundown, making the left column taller than the right —
-            // moved them over so both columns run closer to the same height.
-            var columns = Ui.Box("week-columns");
-            var left = Ui.Box("week-col-left");
-            var right = Ui.Box("week-col-right");
-            columns.Add(left);
-            columns.Add(right);
-            root.Add(columns);
+            // Everything below is a 3-step wizard instead of one long page: Rundown, then
+            // Push & Cards, then Review — only the last step shows Publish. The week's news
+            // (toasts, match result, running stories) is the "front page" and only shows on
+            // step 1, so steps 2-3 stay short.
+            if (_thisWeekStep == 0)
+            {
+                foreach (var te in ctx.ThreadEvents)
+                {
+                    var toast = Ui.Box("toast");
+                    if (te.IsResolution) toast.AddToClassList("toast-story");
+                    toast.Add(Ui.Text(te.Headline.ToUpperInvariant(), "eyebrow"));
+                    toast.Add(Ui.Wrapping(te.Body, "body"));
+                    root.Add(toast);
+                }
+                if (!string.IsNullOrEmpty(ctx.CompetitionNote))
+                {
+                    var toast = Ui.Box("toast");
+                    toast.Add(Ui.Text("CUP & EUROPE", "eyebrow"));
+                    toast.Add(Ui.Wrapping(ctx.CompetitionNote, "body"));
+                    root.Add(toast);
+                }
+                foreach (var rn in ctx.RivalNews)
+                {
+                    var toast = Ui.Box("toast", "toast-story");
+                    toast.Add(Ui.Text("RIVAL WATCH", "eyebrow"));
+                    toast.Add(Ui.Wrapping(rn, "body"));
+                    root.Add(toast);
+                }
+                if (!string.IsNullOrEmpty(ctx.AccessNote))
+                {
+                    var toast = Ui.Box("toast");
+                    toast.Add(Ui.Text("CLUB ACCESS", "eyebrow"));
+                    toast.Add(Ui.Wrapping(ctx.AccessNote, "body"));
+                    root.Add(toast);
+                }
+                if (ctx.CardsGained.Count > 0)
+                {
+                    var toast = Ui.Box("toast", "toast-story");
+                    toast.Add(Ui.Text("NEW CARDS", "eyebrow"));
+                    toast.Add(Ui.Wrapping("Added to your hand: " + string.Join(", ", ctx.CardsGained) + ". Play them from Business.", "body"));
+                    root.Add(toast);
+                }
+                if (!string.IsNullOrEmpty(E.Scoops.LastOutcome))
+                {
+                    var toast = Ui.Box("toast");
+                    toast.Add(Ui.Wrapping(E.Scoops.LastOutcome, "body"));
+                    root.Add(toast);
+                }
+                if (!string.IsNullOrEmpty(E.Events.LastOutcome))
+                {
+                    var toast = Ui.Box("toast");
+                    toast.Add(Ui.Wrapping(E.Events.LastOutcome, "body"));
+                    root.Add(toast);
+                }
+                if (ctx.SponsorNews != null)
+                {
+                    var toast = Ui.Box("toast");
+                    if (!ctx.SponsorNews.Good) toast.AddToClassList("toast-bad");
+                    toast.Add(Ui.Text(ctx.SponsorNews.Headline.ToUpperInvariant(), "eyebrow"));
+                    toast.Add(Ui.Wrapping(ctx.SponsorNews.Body, "body"));
+                    root.Add(toast);
+                }
 
-            // the rundown — three segment slots
-            left.Add(BuildRundownPanel());
+                root.Add(BuildMatchPanel(ctx));
 
-            // the weekly gamble (spec §11) — small, stays with the rundown it modifies
-            left.Add(BuildPushPanel());
+                if (ctx.ActiveThreads != null && ctx.ActiveThreads.Count > 0)
+                {
+                    var note = Ui.Box("toast", "toast-story");
+                    note.Add(Ui.Text("RUNNING STORIES", "eyebrow"));
+                    foreach (var t in ctx.ActiveThreads)
+                        note.Add(Ui.Wrapping("• " + t.Label + " — " + LeanLabel(t.Momentum), "body"));
+                    note.Add(Ui.Wrapping("Pick the STORY topic below to weigh in. Full detail on The Club.", "body", "dim"));
+                    root.Add(note);
+                }
+            }
 
-            // cards — a step in the weekly loop: play up to a couple to shape this episode
-            right.Add(BuildWeeklyCardsPanel());
+            root.Add(BuildStepIndicator());
 
-            // production levers + the live preview of the episode you're building
-            right.Add(BuildLeversPanel());
+            switch (_thisWeekStep)
+            {
+                case 0: BuildStepRundown(root); break;
+                case 1: BuildStepPushCards(root); break;
+                default: BuildStepReview(root); break;
+            }
+
+            SyncSliders();
+            RefreshPreview();
+        }
+
+        VisualElement BuildStepIndicator()
+        {
+            // One wrapping row, left-aligned — the prep chip sits right after the step
+            // chips instead of being pushed to the far edge by a space-between row, where
+            // it read as a stray, tiny fragment of text rather than part of the same group.
+            var outer = Ui.Box("row-wrap", "step-indicator");
+            for (int i = 0; i < StepNames.Length; i++)
+            {
+                var chip = Ui.Text($"{i + 1}. {StepNames[i]}", "step-chip");
+                if (i == _thisWeekStep) chip.AddToClassList("active");
+                else if (i < _thisWeekStep) chip.AddToClassList("done");
+                outer.Add(chip);
+            }
+
+            // Prep points used to be invisible until the Review step — you'd allocate them
+            // on Rundown with no idea of the budget. Surface the running total everywhere,
+            // live-updated by RefreshPreview() as sliders move on any step, styled as a
+            // chip (not bare text) so it's legible at a glance.
+            _stepPrepMeter = Ui.Text("", "prep-meter", "prep-meter-chip");
+            outer.Add(_stepPrepMeter);
+            UpdateStepPrepMeter();
+            return outer;
+        }
+
+        void UpdateStepPrepMeter()
+        {
+            if (_stepPrepMeter == null) return;
+            int cap = E.State.PrepCapacity(E.Config);
+            int used = _plan.TotalPrep;
+            _stepPrepMeter.text = $"Prep {used}/{cap}";
+            _stepPrepMeter.EnableInClassList("over", used > cap);
+        }
+
+        void GoToStep(int step) { _thisWeekStep = step; _forceScrollTop = true; _host.RerenderWeek(); }
+
+        void BuildStepRundown(VisualElement root)
+        {
+            root.Add(BuildRundownPanel());
+
+            var nav = Ui.Row("step-nav");
+            var next = Ui.Btn("Next: Push & Cards →", () => GoToStep(1), "btn-primary");
+            _host.Theme.PaintPrimaryButton(next);
+            next.SetEnabled(!_plan.Main.IsEmpty);
+            nav.Add(new VisualElement());
+            nav.Add(next);
+            root.Add(nav);
+        }
+
+        void BuildStepPushCards(VisualElement root)
+        {
+            root.Add(BuildPushPanel());
+            root.Add(BuildWeeklyCardsPanel());
+
+            var nav = Ui.Row("step-nav");
+            nav.Add(Ui.Btn("← Back", () => GoToStep(0), "btn-ghost"));
+            var next = Ui.Btn("Next: Review →", () => GoToStep(2), "btn-primary");
+            _host.Theme.PaintPrimaryButton(next);
+            nav.Add(next);
+            root.Add(nav);
+        }
+
+        void BuildStepReview(VisualElement root)
+        {
+            root.Add(BuildLeversPanel());
+
+            var nav = Ui.Row("step-nav");
+            nav.Add(Ui.Btn("← Back", () => GoToStep(1), "btn-ghost"));
+            nav.Add(new VisualElement());
+            root.Add(nav);
 
             _publish = Ui.Btn("Record & release", StartRecording, "btn-primary");
             _host.Theme.PaintPrimaryButton(_publish);
             _publish.style.marginTop = 6;
             _publish.SetEnabled(false);
-            right.Add(_publish);
-
-            SyncSliders();
-            RefreshPreview();
+            root.Add(_publish);
         }
 
         VisualElement BuildRecordingPanel()
@@ -585,16 +672,33 @@ namespace PodcastTycoon.Game
                 var card = CardManager.Get(id);
                 if (card == null) continue;
                 string cid = id;
-                var box = Ui.Box("topiccard");
-                box.Add(Ui.Text(card.Name + (card.Kind == CardKind.Permanent ? "   · permanent" : ""), "topiccard-title"));
-                box.Add(Ui.Wrapping(card.Text, "body", "dim"));
                 var play = Ui.Btn("Play", () => { E.PlayCard(cid); _host.RerenderWeek(); }, "btn-ghost");
-                play.style.marginTop = 4;
                 play.SetEnabled(left > 0 && E.Events.Pending == null && E.Scoops.Pending == null);
-                box.Add(play);
-                panel.Add(box);
+                panel.Add(BuildCardVisual(card, play));
             }
             return panel;
+        }
+
+        /// <summary>A hand card rendered as an actual card — a kind-coloured header strip
+        /// (permanent vs. one-shot) over the body text and its action button.</summary>
+        VisualElement BuildCardVisual(Card card, Button action)
+        {
+            bool permanent = card.Kind == CardKind.Permanent;
+            var box = Ui.Box("card");
+            var head = Ui.Row("card-head");
+            if (!permanent) head.AddToClassList("oneshot");
+            head.Add(Ui.Text(card.Name, "topiccard-title"));
+            head.Add(Ui.Text(permanent ? "PERMANENT" : "ONE-SHOT", "card-kind", permanent ? null : "oneshot"));
+            box.Add(head);
+            var body = Ui.Box("card-body");
+            body.Add(Ui.Wrapping(card.Text, "body", "dim"));
+            if (action != null)
+            {
+                action.style.marginTop = 4;
+                body.Add(action);
+            }
+            box.Add(body);
+            return box;
         }
 
         // Business-tab view: hand + shop (spec §21 — deterministic pick, or a cheap random draw)
@@ -621,14 +725,9 @@ namespace PodcastTycoon.Game
                 var card = CardManager.Get(id);
                 if (card == null) continue;
                 string cid = id;
-                var box = Ui.Box("topiccard");
-                box.Add(Ui.Text(card.Name + (card.Kind == CardKind.Permanent ? "   · permanent" : ""), "topiccard-title"));
-                box.Add(Ui.Wrapping(card.Text, "body", "dim"));
                 var play = Ui.Btn("Play now", () => { E.PlayCard(cid); _host.RerenderWeek(); }, "btn-ghost");
-                play.style.marginTop = 4;
                 play.SetEnabled(E.Cards.CanPlay(st) && E.Events.Pending == null && E.Scoops.Pending == null);
-                box.Add(play);
-                panel.Add(box);
+                panel.Add(BuildCardVisual(card, play));
             }
 
             var shopBox = Ui.Box();
@@ -1168,8 +1267,8 @@ namespace PodcastTycoon.Game
 
             foreach (UpgradeTrack track in Enum.GetValues(typeof(UpgradeTrack)))
                 TrackRow(track);
-            string tracksSummary = string.Join(" · ", Enum.GetValues(typeof(UpgradeTrack)).Cast<UpgradeTrack>()
-                .Select(t => $"{TrackLabels[(int)t]} T{UpgradeCatalog.TierOf(st, t)}"));
+            int tiersBought = Enum.GetValues(typeof(UpgradeTrack)).Cast<UpgradeTrack>().Sum(t => UpgradeCatalog.TierOf(st, t));
+            string tracksSummary = $"{tiersBought}/20 tiers bought";
             panel.Add(Ui.Collapsible("Upgrade tracks", tracksSummary, tracksBox,
                 _tracksExpanded, expanded => _tracksExpanded = expanded));
 
@@ -1214,9 +1313,10 @@ namespace PodcastTycoon.Game
             var st = E.State;
             var box = Ui.Box();
             box.style.marginBottom = 6;
-            box.Add(Ui.Text($"{role.Name}  ({role.Effect})", "topiccard-title"));
+            box.Add(Ui.Wrapping($"{role.Name}  ({role.Effect})", "topiccard-title"));
 
-            if (st.Employed.TryGetValue(role.Id, out var emp))
+            bool filled = st.Employed.TryGetValue(role.Id, out var emp);
+            if (filled)
             {
                 var row = Ui.Row();
                 row.style.alignItems = Align.Center;
@@ -1227,6 +1327,7 @@ namespace PodcastTycoon.Game
                 left.Add(Ui.Wrapping(
                     $"{emp.Name} — skill {emp.Skill:0.0}, €{emp.Wage:N0}/mo" + (traits.Length > 0 ? $"  ·  {traits}" : ""),
                     "body"));
+                left.Add(Ui.Wrapping(CrewCatalog.ImpactSummary(role.Id, emp.Skill), "body", "good"));
                 if (emp.ContractWeeksLeft > 0)
                     left.Add(Ui.Wrapping($"Under contract for {emp.ContractWeeksLeft} more week(s) — firing early costs a buyout.", "body", "dim"));
                 row.Add(left);
@@ -1234,32 +1335,36 @@ namespace PodcastTycoon.Game
                 row.Add(fire);
                 box.Add(row);
             }
-            else
+
+            // The market keeps moving whether or not the role is filled — hiring here
+            // replaces whoever's in the role (same severance/buyout as firing them).
+            var candidates = E.CandidatesFor(role.Id);
+            if (filled)
+                box.Add(Ui.Wrapping(candidates.Count > 0 ? "Also on the market:" : "No one else on the market right now — check back in a few weeks.",
+                    "body", "dim"));
+            else if (candidates.Count == 0)
+                box.Add(Ui.Wrapping("No candidates on the market right now — check back in a few weeks.", "body", "dim"));
+
+            for (int i = 0; i < candidates.Count; i++)
             {
-                var candidates = E.CandidatesFor(role.Id);
-                if (candidates.Count == 0)
-                {
-                    box.Add(Ui.Wrapping("No candidates on the market right now — check back in a few weeks.", "body", "dim"));
-                }
-                for (int i = 0; i < candidates.Count; i++)
-                {
-                    var c = candidates[i];
-                    int idx = i;
-                    var row = Ui.Row();
-                    row.style.alignItems = Align.Center;
-                    row.Add(Ui.Portrait(PortraitCache.Crew(role.Id, c.Name), 32, "portrait-inline"));
-                    var left = Ui.Box();
-                    left.style.flexGrow = 1;
-                    string traits = c.TraitText;
-                    left.Add(Ui.Wrapping(
-                        $"{c.Name} — skill {c.Skill:0.0}, €{c.Wage:N0}/mo" + (traits.Length > 0 ? $"  ·  {traits}" : ""),
-                        "body", "dim"));
-                    row.Add(left);
-                    var hire = Ui.Btn("Hire", () => { E.HireCandidate(role.Id, idx); _host.RerenderWeek(); }, "btn-ghost");
-                    hire.SetEnabled(E.CanHireCandidate(role.Id, idx));
-                    row.Add(hire);
-                    box.Add(row);
-                }
+                var c = candidates[i];
+                int idx = i;
+                var row = Ui.Row();
+                row.style.alignItems = Align.Center;
+                row.Add(Ui.Portrait(PortraitCache.Crew(role.Id, c.Name), 32, "portrait-inline"));
+                var left = Ui.Box();
+                left.style.flexGrow = 1;
+                string traits = c.TraitText;
+                left.Add(Ui.Wrapping(
+                    $"{c.Name} — skill {c.Skill:0.0}, €{c.Wage:N0}/mo" + (traits.Length > 0 ? $"  ·  {traits}" : ""),
+                    "body", "dim"));
+                left.Add(Ui.Wrapping(CrewCatalog.ImpactSummary(role.Id, c.Skill), "body", "dim"));
+                row.Add(left);
+                string label = filled ? $"Replace  ({Ui.Money(c.Wage + E.FireCost(role.Id))})" : "Hire";
+                var hire = Ui.Btn(label, () => { E.HireCandidate(role.Id, idx); _host.RerenderWeek(); }, "btn-ghost");
+                hire.SetEnabled(E.CanHireCandidate(role.Id, idx));
+                row.Add(hire);
+                box.Add(row);
             }
             box.Add(Ui.Divider());
             return box;
@@ -1411,7 +1516,7 @@ namespace PodcastTycoon.Game
             var wrap = Ui.Box();
             wrap.style.marginTop = 4;
             var row = Ui.Box("prep-row");
-            row.Add(Ui.Text("Prep on this segment", "prep-name"));
+            row.Add(Ui.Text("Prep on this segment", "prep-name", "prep-name-wide"));
             var s = new SliderInt(0, 10) { value = seg.Prep };
             s.AddToClassList("prep-slider");
             var val = Ui.Text(seg.Prep.ToString(), "prep-value");
@@ -1486,6 +1591,7 @@ namespace PodcastTycoon.Game
 
         void RefreshPreview()
         {
+            UpdateStepPrepMeter();
             if (_prepMeter == null || _publish == null) return;
             int cap = E.State.PrepCapacity(E.Config);
             int used = _plan.TotalPrep;
@@ -1586,6 +1692,7 @@ namespace PodcastTycoon.Game
                 _plan.Second.Clear();
                 _plan.Recurring.Clear();
                 _plan.PrepResearch = _plan.PrepAudio = _plan.PrepPromo = 0;
+                _forceScrollTop = true;
                 _host.RerenderWeek();
             }
             else
@@ -1600,6 +1707,7 @@ namespace PodcastTycoon.Game
         {
             if (_plan.Main.IsEmpty) return;
             E.StartRecording(_plan.Clone());
+            _forceScrollTop = true;
             _host.RerenderWeek();
         }
 

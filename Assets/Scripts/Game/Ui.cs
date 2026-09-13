@@ -110,7 +110,10 @@ namespace PodcastTycoon.Game
         {
             var chip = Row("statchip");
             chip.tooltip = tooltip;
-            chip.Add(Portrait(icon, 20));
+            // 22px matches the icon's native pixel-grid size exactly — downscaling below
+            // that with point filtering drops texels unevenly, so some icons render with
+            // missing/glitchy pixels while others look fine purely by coincidence of shape.
+            chip.Add(Portrait(icon, 22));
             var v = Text(value, "statchip-value");
             if (valueClass != null) v.AddToClassList(valueClass);
             chip.Add(v);
