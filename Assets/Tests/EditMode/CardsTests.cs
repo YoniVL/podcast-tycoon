@@ -25,18 +25,6 @@ namespace PodcastTycoon.Tests
         }
 
         [Test]
-        public void BuyingASpecificCardAddsExactlyThatCard()
-        {
-            var e = NewEngine();
-            e.State.Money = 1000;
-            e.State.Hand.Clear();
-
-            Assert.That(e.BuySpecificCard("hot_mic"), Is.True);
-            Assert.That(e.State.Hand, Contains.Item("hot_mic"));
-            Assert.That(e.BuySpecificCard("hot_mic"), Is.False, "already in hand");
-        }
-
-        [Test]
         public void SlottingAContactAppliesItsWeeklyTick()
         {
             var e = NewEngine();

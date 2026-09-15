@@ -134,16 +134,16 @@ namespace PodcastTycoon.Game
             var grid = Ui.Box("statstrip");
             grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Listeners), Ui.Signed(_result.ListenerDeltaActual), "Listeners",
                 _result.ListenerDeltaActual >= 0 ? "good" : "bad"));
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Reputation), Ui.Signed(_result.ReputationDelta, "0.0"), "Reputation"));
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Credibility), Ui.Signed(_result.CredibilityDelta, "0.0"), "Credibility"));
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.SocialReach),
-                _result.SocialGained >= 0.1f ? "+" + _result.SocialGained.ToString("0.0") : "0", "Social reach"));
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Morale), Ui.Signed(_result.MoraleDelta, "0.0"), "Morale"));
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(_result.AdRevenue), "Ad revenue", "good"));
-            if (_result.SponsorRevenue > 0)
-                grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(_result.SponsorRevenue), "Sponsor", "good"));
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(-_result.WeeklyCosts), "Costs", "bad"));
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(_result.MoneyDelta), "Net cash",
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Reputation), Ui.Signed(Mathf.RoundToInt(_result.ReputationDelta)), "Reputation"));
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Credibility), Ui.Signed(Mathf.RoundToInt(_result.CredibilityDelta)), "Credibility"));
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.SocialReach), Ui.Signed(Mathf.RoundToInt(_result.SocialGained)), "Social reach"));
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Morale), Ui.Signed(Mathf.RoundToInt(_result.MoraleDelta)), "Morale"));
+            // One money figure, not four — ad revenue/sponsor/costs are all folded into this
+            // net change; the breakdown lives in the tooltip for anyone who wants it.
+            string moneyTip = $"Money — €{Mathf.RoundToInt(_result.AdRevenue):N0} ads" +
+                (_result.SponsorRevenue > 0 ? $" + €{Mathf.RoundToInt(_result.SponsorRevenue):N0} sponsor" : "") +
+                $" − €{Mathf.RoundToInt(_result.WeeklyCosts):N0} costs.";
+            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(Mathf.RoundToInt(_result.MoneyDelta)), moneyTip,
                 _result.MoneyDelta >= 0 ? "good" : "bad"));
             deltas.Add(grid);
             if (_result.MonthlyWagesCharged > 0)

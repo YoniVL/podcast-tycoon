@@ -19,7 +19,7 @@ namespace PodcastTycoon.Game
             return c;
         }
 
-        static void Circ(Color?[,] g, float cx, float cy, float r, Color color, int? yMax = null)
+        internal static void Circ(Color?[,] g, float cx, float cy, float r, Color color, int? yMax = null)
         {
             for (int y = 0; y < G; y++)
             {
@@ -29,7 +29,7 @@ namespace PodcastTycoon.Game
             }
         }
 
-        static void Ring(Color?[,] g, float cx, float cy, float rOuter, float rInner, Color color, int? yMax = null)
+        internal static void Ring(Color?[,] g, float cx, float cy, float rOuter, float rInner, Color color, int? yMax = null)
         {
             for (int y = 0; y < G; y++)
             {
@@ -43,7 +43,7 @@ namespace PodcastTycoon.Game
         }
 
         /// <summary>The overlap of two circles — a pointed leaf/eye shape.</summary>
-        static void Lens(Color?[,] g, float cx, float cy, float spread, float r, Color color)
+        internal static void Lens(Color?[,] g, float cx, float cy, float spread, float r, Color color)
         {
             for (int y = 0; y < G; y++)
                 for (int x = 0; x < G; x++)
@@ -54,14 +54,14 @@ namespace PodcastTycoon.Game
                 }
         }
 
-        static void Rect(Color?[,] g, int x0, int y0, int w, int h, Color color)
+        internal static void Rect(Color?[,] g, int x0, int y0, int w, int h, Color color)
         {
             for (int y = y0; y < y0 + h; y++)
                 for (int x = x0; x < x0 + w; x++)
                     if (y >= 0 && y < G && x >= 0 && x < G) g[y, x] = color;
         }
 
-        static void Trap(Color?[,] g, int yTop, int yBot, float wTop, float wBot, float cx, Color color)
+        internal static void Trap(Color?[,] g, int yTop, int yBot, float wTop, float wBot, float cx, Color color)
         {
             for (int y = yTop; y <= yBot; y++)
             {
@@ -144,16 +144,21 @@ namespace PodcastTycoon.Game
                     break;
 
                 case StatIcon.Freshness:
-                    Lens(g, cx, cy, 3.2f, 6f, Hex("#7bbf6a"));
-                    Rect(g, 10, 15, 2, 4, Hex("#5c9448"));
+                    // A fatter leaf than before — the original thin lens (spread 3.2, r 6) had
+                    // far less fill than every other icon and read as a bare sliver at display
+                    // size, not a shape. Tighter spread + bigger radius fills the same silhouette
+                    // solidly.
+                    Lens(g, cx, cy - 0.5f, 2f, 7.5f, Hex("#7bbf6a"));
+                    Rect(g, 10, 17, 2, 4, Hex("#5c9448"));
                     break;
 
                 case StatIcon.Morale:
+                    // Bigger, higher-contrast facial features — the original 1-2px eyes/mouth
+                    // vanished at chip size, leaving what read as a blank circle.
                     Circ(g, cx, cy, 8, Hex("#8fd6e0"));
-                    Rect(g, 7, 9, 2, 2, Hex("#26424a"));
-                    Rect(g, 13, 9, 2, 2, Hex("#26424a"));
-                    Rect(g, 8, 14, 6, 1, Hex("#26424a"));
-                    Dot(g, 7, 15, Hex("#26424a")); Dot(g, 14, 15, Hex("#26424a"));
+                    Rect(g, 6, 8, 3, 3, Hex("#1c3138"));
+                    Rect(g, 13, 8, 3, 3, Hex("#1c3138"));
+                    Rect(g, 7, 14, 8, 2, Hex("#1c3138"));
                     break;
             }
             return g;

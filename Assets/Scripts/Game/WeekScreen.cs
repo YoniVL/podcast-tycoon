@@ -41,7 +41,6 @@ namespace PodcastTycoon.Game
         static readonly string[] StepNames = { "Rundown", "Push & Cards", "Review" };
         bool _tracksExpanded;
         bool _crewExpanded;
-        bool _cardShopExpanded;
         bool _contactsExpanded;
         bool _matchDetailsExpanded;
 
@@ -243,7 +242,7 @@ namespace PodcastTycoon.Game
                 anyInterrupt = true;
                 var sc = E.Scoops.Pending;
                 var card = Ui.Box("panel", "event-card");
-                card.Add(Ui.Text("YOU'VE GOT A SCOOP", "eyebrow"));
+                card.Add(IconEyebrow("Story", "YOU'VE GOT A SCOOP"));
                 card.Add(Ui.Text(sc.Headline, "h2"));
                 card.Add(Ui.Wrapping(sc.Detail, "body"));
                 card.Add(Ui.Wrapping("Break it now for big numbers and a real risk it's wrong; verify and hold to build trust; or trade it to a national outlet for cash.", "body", "dim"));
@@ -263,7 +262,7 @@ namespace PodcastTycoon.Game
             {
                 anyInterrupt = true;
                 var card = Ui.Box("panel", "event-card");
-                card.Add(Ui.Text("SOMEONE WANTS TO BUY THE SHOW", "eyebrow"));
+                card.Add(IconEyebrow("Money", "SOMEONE WANTS TO BUY THE SHOW"));
                 card.Add(Ui.Text("A media group has made an offer for the whole podcast.", "h2"));
                 card.Add(Ui.Wrapping("Take the money and keep making it under their banner, or stay independent. Either way the show goes on.", "body", "dim"));
                 var yes = Ui.Btn("Sell — take the €250,000", () => { E.AcceptBuyout(); _host.RerenderWeek(); }, "btn-ghost");
@@ -278,7 +277,7 @@ namespace PodcastTycoon.Game
                 anyInterrupt = true;
                 var ev = E.Events.Pending;
                 var card = Ui.Box("panel", "event-card");
-                card.Add(Ui.Text("SOMETHING'S COME UP", "eyebrow"));
+                card.Add(IconEyebrow("Story", "SOMETHING'S COME UP"));
                 card.Add(Ui.Text(ev.Prompt, "h2"));
                 card.Add(Ui.Wrapping(ev.Detail, "body"));
                 for (int i = 0; i < ev.Options.Count; i++)
@@ -481,20 +480,29 @@ namespace PodcastTycoon.Game
             var beat = E.CurrentBeat;
             if (beat != null)
             {
-                panel.Add(Ui.Text("RECORDING", "eyebrow"));
+                panel.Add(IconEyebrow("Story", "RECORDING"));
+                if (E.RecordingBeatsTotal > 0) panel.Add(BuildRecordingProgress());
                 panel.Add(Ui.Text(beat.Prompt, "h2"));
                 panel.Add(Ui.Wrapping(beat.Detail, "body"));
                 for (int i = 0; i < beat.Options.Count; i++)
                 {
                     int idx = i;
-                    var b = Ui.Btn(beat.Options[i].Label, () => { E.ResolveBeat(idx); _host.RerenderWeek(); }, "btn-ghost");
+                    var opt = beat.Options[i];
+                    var b = Ui.Btn(opt.Label, () => { E.ResolveBeat(idx); _host.RerenderWeek(); }, "btn-ghost");
                     b.style.marginTop = 4;
                     panel.Add(b);
+                    if (!string.IsNullOrEmpty(opt.Effect))
+                    {
+                        var eff = Ui.Wrapping(opt.Effect, "body", "dim");
+                        eff.style.marginLeft = 4;
+                        panel.Add(eff);
+                    }
                 }
             }
             else
             {
-                panel.Add(Ui.Text("RECORDING", "eyebrow"));
+                panel.Add(IconEyebrow("Story", "RECORDING"));
+                if (E.RecordingBeatsTotal > 0) panel.Add(BuildRecordingProgress());
                 panel.Add(Ui.Text("That's a wrap", "h2"));
                 panel.Add(Ui.Wrapping(
                     string.IsNullOrEmpty(E.LastBeatOutcome)
@@ -507,6 +515,29 @@ namespace PodcastTycoon.Game
             }
             box.Add(panel);
             return box;
+        }
+
+        /// <summary>A row of filled/unfilled dots showing how far through this recording
+        /// session you are — so beats read as points along a session that's actually moving,
+        /// not as random pop-ups with no sense of progress.</summary>
+        VisualElement BuildRecordingProgress()
+        {
+            int total = E.RecordingBeatsTotal;
+            int resolved = E.RecordingBeatsResolved;
+            var wrap = Ui.Box();
+            wrap.style.marginBottom = 8;
+            var dots = Ui.Box("row-wrap");
+            for (int i = 0; i < total; i++)
+            {
+                var dot = Ui.Box("rec-dot");
+                if (i < resolved) dot.AddToClassList("done");
+                dots.Add(dot);
+            }
+            wrap.Add(dots);
+            wrap.Add(Ui.Text(
+                resolved >= total ? $"All {total} moments done — wrapping up." : $"Moment {resolved + 1} of {total}",
+                "body", "dim"));
+            return wrap;
         }
 
         // ================================================================
@@ -679,15 +710,33 @@ namespace PodcastTycoon.Game
             return panel;
         }
 
-        /// <summary>A hand card rendered as an actual card — a kind-coloured header strip
-        /// (permanent vs. one-shot) over the body text and its action button.</summary>
+        /// <summary>An eyebrow label with a small themed icon in front of it — used to give
+        /// every interrupt/event card (scoop, buyout, "something's come up", recording beats)
+        /// a visual instead of being a plain wall of text.</summary>
+        static VisualElement IconEyebrow(string iconCategory, string text)
+        {
+            var row = Ui.Box();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.Add(Ui.Portrait(CardIconCache.Get(iconCategory), 20, "portrait-inline"));
+            row.Add(Ui.Text(text, "eyebrow"));
+            return row;
+        }
+
+        /// <summary>A hand card rendered as an actual card — an icon for its theme, a
+        /// kind-coloured header strip (permanent vs. one-shot), body text and action button.</summary>
         VisualElement BuildCardVisual(Card card, Button action)
         {
             bool permanent = card.Kind == CardKind.Permanent;
             var box = Ui.Box("card");
             var head = Ui.Row("card-head");
             if (!permanent) head.AddToClassList("oneshot");
-            head.Add(Ui.Text(card.Name, "topiccard-title"));
+            var titleRow = Ui.Box();
+            titleRow.style.flexDirection = FlexDirection.Row;
+            titleRow.style.alignItems = Align.Center;
+            titleRow.Add(Ui.Portrait(CardIconCache.Get(card.IconCategory), 18, "portrait-inline"));
+            titleRow.Add(Ui.Text(card.Name, "topiccard-title"));
+            head.Add(titleRow);
             head.Add(Ui.Text(permanent ? "PERMANENT" : "ONE-SHOT", "card-kind", permanent ? null : "oneshot"));
             box.Add(head);
             var body = Ui.Box("card-body");
@@ -701,8 +750,8 @@ namespace PodcastTycoon.Game
             return box;
         }
 
-        // Business-tab view: hand + shop (spec §21 — deterministic pick, or a cheap random draw)
-        // plus the three contact slots.
+        // Business-tab view: hand (spec §21 — RNG only, no deterministic pick) plus the
+        // three contact slots.
         VisualElement BuildCardsPanel()
         {
             var st = E.State;
@@ -715,7 +764,7 @@ namespace PodcastTycoon.Game
             panel.Add(head);
             panel.Add(Ui.Wrapping(
                 $"Hand: {st.Hand.Count}/{E.Config.CardHandLimit}. Play up to {E.Config.CardPlaysPerWeek} a week, on This Week. " +
-                "Most come from resolving threads and hitting milestones; chase a lead for a random one, or book something specific below.",
+                "Most come from resolving threads and hitting milestones; chase a lead for a random one — always the luck of the draw.",
                 "body", "dim"));
 
             if (st.Hand.Count == 0)
@@ -730,20 +779,6 @@ namespace PodcastTycoon.Game
                 panel.Add(BuildCardVisual(card, play));
             }
 
-            var shopBox = Ui.Box();
-            shopBox.Add(Ui.Wrapping($"Pick exactly the card you want for {Ui.Money(E.Config.CardPickCost)}.", "body", "dim"));
-            var shopRow = Ui.Box("row-wrap");
-            foreach (var card in CardManager.Catalog.Values)
-            {
-                string cid = card.Id;
-                var b = Ui.Btn(card.Name, () => { E.BuySpecificCard(cid); _host.RerenderWeek(); }, "btn-ghost");
-                b.SetEnabled(E.Cards.CanBuySpecificCard(st, cid));
-                shopRow.Add(b);
-            }
-            shopBox.Add(shopRow);
-            panel.Add(Ui.Collapsible("Book something", $"{CardManager.Catalog.Count} available", shopBox,
-                _cardShopExpanded, expanded => _cardShopExpanded = expanded));
-
             var contactsBox = Ui.Box();
             contactsBox.Add(Ui.Wrapping(
                 "Each is a passive weekly effect — a real upside, a real downside. Swap freely as the run changes.",
@@ -751,24 +786,35 @@ namespace PodcastTycoon.Game
             foreach (var contact in CardManager.Contacts)
             {
                 bool slotted = st.Contacts.Contains(contact.Id);
-                var box = Ui.Box("topiccard");
-                if (slotted) box.AddToClassList("selected");
-                box.Add(Ui.Text(contact.Name, "topiccard-title"));
-                box.Add(Ui.Wrapping("+ " + contact.Upside, "body", "good"));
-                box.Add(Ui.Wrapping("− " + contact.Downside, "body", "bad"));
+                var box = Ui.Box("card");
+                var chead = Ui.Row("card-head");
+                if (!slotted) chead.AddToClassList("oneshot");
+                var titleRow = Ui.Box();
+                titleRow.style.flexDirection = FlexDirection.Row;
+                titleRow.style.alignItems = Align.Center;
+                titleRow.Add(Ui.Portrait(CardIconCache.Get(contact.IconCategory), 18, "portrait-inline"));
+                titleRow.Add(Ui.Text(contact.Name, "topiccard-title"));
+                chead.Add(titleRow);
+                chead.Add(Ui.Text(slotted ? "SLOTTED" : "AVAILABLE", "card-kind", slotted ? null : "oneshot"));
+                box.Add(chead);
+
+                var body = Ui.Box("card-body");
+                body.Add(Ui.Wrapping("+ " + contact.Upside, "body", "good"));
+                body.Add(Ui.Wrapping("− " + contact.Downside, "body", "bad"));
                 if (slotted)
                 {
                     var unslot = Ui.Btn("Drop", () => { E.UnslotContact(contact.Id); _host.RerenderWeek(); }, "btn-ghost");
                     unslot.style.marginTop = 4;
-                    box.Add(unslot);
+                    body.Add(unslot);
                 }
                 else
                 {
                     var slot = Ui.Btn($"Slot in  ({Ui.Money(E.Config.ContactSlotCost)})", () => { E.SlotContact(contact.Id); _host.RerenderWeek(); }, "btn-ghost");
                     slot.style.marginTop = 4;
                     slot.SetEnabled(E.Cards.CanSlotContact(st, contact.Id));
-                    box.Add(slot);
+                    body.Add(slot);
                 }
+                box.Add(body);
                 contactsBox.Add(box);
             }
             panel.Add(Ui.Collapsible("Contacts", $"{st.Contacts.Count}/{E.Config.ContactSlots} slotted", contactsBox,
@@ -933,7 +979,7 @@ namespace PodcastTycoon.Game
             Term("Scoops", "Advance word on a club decision. Break it now for a huge episode and a real risk it's wrong (which costs access); verify & hold to build trust; or trade it for cash.");
             Term("Crew", "Producer, Researcher, Clips manager, Booker. Each role is filled from 2-3 candidates who refresh every few weeks — skill scales the role's effect, and traits give a real upside and a real downside. Firing someone costs severance, more if they're still under contract.");
             Term("Upgrade tracks", "Five ladders — Set, Audio chain, Post/editing, Studio space, Distribution — each 3-4 tiers. Buy in order; each tier replaces the one below it and usually adds a bit to the monthly bill.");
-            Term("Cards", "Plays — one-shot buffs or permanent lifts, hand of five, up to two a week. Mostly earned from milestones and threads; chase a lead for a random one or book an exact one for more.");
+            Term("Cards", "Plays — one-shot buffs or permanent lifts, hand of five, up to two a week. Mostly earned from milestones and threads; chase a lead for a random one — always the luck of the draw.");
             Term("Contacts", "Up to three passive slots, each a fixed weekly upside and downside. Cheap to swap — worth re-evaluating as the show changes size.");
             Term("Custom run", "Modifiers set at the start (extra prep, gentler churn, sandbox, chaos…). Flags the run as Custom; the endless chase still works.");
             root.Add(gloss);

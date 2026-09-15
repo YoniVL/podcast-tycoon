@@ -160,8 +160,7 @@ namespace PodcastTycoon.Core
         // --- cards (slice 3E; reworked slice 6, spec §21) ---
         public int CardHandLimit = 5;
         public int CardPlaysPerWeek = 2;
-        public int CardDrawCost = 120;     // a random draw, weighted by reputation
-        public int CardPickCost = 300;     // choose an exact card
+        public int CardDrawCost = 120;     // a random draw, weighted by reputation — cards are RNG only, no exact pick
         public int ContactSlots = 3;
         public int ContactSlotCost = 250;
 

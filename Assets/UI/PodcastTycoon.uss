@@ -112,6 +112,19 @@
 
 .step-nav { margin-top: 4px; margin-bottom: 10px; }
 
+/* ---- recording progress ---- */
+.rec-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    background-color: rgb(45, 43, 56);
+    border-color: rgb(64, 61, 78);
+    border-width: 2px;
+    margin-right: 6px;
+    margin-bottom: 4px;
+}
+.rec-dot.done { background-color: rgb(231, 165, 68); border-color: rgb(255, 205, 140); }
+
 /* ---- collapsible sections ---- */
 .collapsible { margin-bottom: 8px; }
 

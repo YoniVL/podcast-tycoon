@@ -56,6 +56,12 @@ namespace PodcastTycoon.Core
         public bool IsRecording => PendingPlan != null;
         public bool RecordingReady => PendingPlan != null && PendingBeats.Count == 0;
 
+        /// <summary>How many beats this recording started with / has resolved so far — lets the
+        /// UI show the session actually moving forward instead of beats just appearing with no
+        /// sense of where you are in it.</summary>
+        public int RecordingBeatsTotal { get; private set; }
+        public int RecordingBeatsResolved => RecordingBeatsTotal - PendingBeats.Count;
+
         int _seasonStartListeners;
         float _seasonStartRep;
 
@@ -322,6 +328,7 @@ namespace PodcastTycoon.Core
         {
             PendingPlan = plan;
             PendingBeats = RecordingBeats.Select(this, plan, CurrentWeek, _rng);
+            RecordingBeatsTotal = PendingBeats.Count;
             LastBeatOutcome = null;
             if (PendingBeats.Count == 0) State.CardQualityBonusThisWeek += 0.04f;
         }
@@ -341,6 +348,7 @@ namespace PodcastTycoon.Core
         {
             PendingPlan = null;
             PendingBeats = new List<RecordingBeat>();
+            RecordingBeatsTotal = 0;
             LastBeatOutcome = null;
         }
 
@@ -761,7 +769,6 @@ namespace PodcastTycoon.Core
 
         public bool PlayCard(string cardId) => Cards.Play(this, cardId);
         public bool DrawRandomCard() => Cards.DrawRandomCard(this);
-        public bool BuySpecificCard(string cardId) => Cards.BuySpecificCard(this, cardId);
         public bool SlotContact(string contactId) => Cards.SlotContact(this, contactId);
         public bool UnslotContact(string contactId) => Cards.UnslotContact(this, contactId);
 
