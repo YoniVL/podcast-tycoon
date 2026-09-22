@@ -469,6 +469,7 @@ namespace PodcastTycoon.Game
         VisualElement BuildRecordingPanel()
         {
             var box = Ui.Box();
+            box.Add(BuildStudioBackdrop());
             if (!string.IsNullOrEmpty(E.LastBeatOutcome))
             {
                 var toast = Ui.Box("toast");
@@ -515,6 +516,39 @@ namespace PodcastTycoon.Game
             }
             box.Add(panel);
             return box;
+        }
+
+        /// <summary>The studio, built from the player's actual upgrades — one opaque room
+        /// shell (Studio-space tier) with four independent transparent overlays stacked on
+        /// top (Set backdrop, Post desk, Distribution shelf, Audio rig — in that z-order, back
+        /// to front, matching the source art), each swapped by its own upgrade tier. Height is
+        /// pinned to the real 16:9 art via a geometry callback rather than USS aspect-ratio,
+        /// which isn't reliably available across UI Toolkit versions.</summary>
+        VisualElement BuildStudioBackdrop()
+        {
+            var st = E.State;
+            var frame = Ui.Box("studio-frame");
+            frame.RegisterCallback<GeometryChangedEvent>(evt =>
+            {
+                if (evt.newRect.width > 0) frame.style.height = evt.newRect.width * 9f / 16f;
+            });
+
+            void Layer(string prefix, UpgradeTrack track)
+            {
+                var tex = StudioArt.Get(prefix, UpgradeCatalog.TierOf(st, track));
+                if (tex == null) return;
+                var img = Ui.Box("studio-layer");
+                img.style.backgroundImage = new StyleBackground(tex);
+                img.style.unityBackgroundScaleMode = ScaleMode.StretchToFill;
+                img.pickingMode = PickingMode.Ignore;
+                frame.Add(img);
+            }
+            Layer("studio_shell", UpgradeTrack.Studio);
+            Layer("set_overlay", UpgradeTrack.Set);
+            Layer("post_overlay", UpgradeTrack.Post);
+            Layer("distribution_overlay", UpgradeTrack.Distribution);
+            Layer("audio_overlay", UpgradeTrack.Audio);
+            return frame;
         }
 
         /// <summary>A row of filled/unfilled dots showing how far through this recording
@@ -723,22 +757,26 @@ namespace PodcastTycoon.Game
             return row;
         }
 
-        /// <summary>A hand card rendered as an actual card — an icon for its theme, a
-        /// kind-coloured header strip (permanent vs. one-shot), body text and action button.</summary>
+        /// <summary>A hand card rendered as an actual card — the illustrated art for its
+        /// theme, a kind-coloured header strip (permanent vs. one-shot), body text and action
+        /// button. Falls back to the small category icon if no illustration exists for it.</summary>
         VisualElement BuildCardVisual(Card card, Button action)
         {
             bool permanent = card.Kind == CardKind.Permanent;
             var box = Ui.Box("card");
             var head = Ui.Row("card-head");
             if (!permanent) head.AddToClassList("oneshot");
-            var titleRow = Ui.Box();
-            titleRow.style.flexDirection = FlexDirection.Row;
-            titleRow.style.alignItems = Align.Center;
-            titleRow.Add(Ui.Portrait(CardIconCache.Get(card.IconCategory), 18, "portrait-inline"));
-            titleRow.Add(Ui.Text(card.Name, "topiccard-title"));
-            head.Add(titleRow);
+            head.Add(Ui.Text(card.Name, "topiccard-title"));
             head.Add(Ui.Text(permanent ? "PERMANENT" : "ONE-SHOT", "card-kind", permanent ? null : "oneshot"));
             box.Add(head);
+
+            var art = CardArtCache.GetCard(card.Id);
+            var artWrap = Ui.Box("card-art");
+            artWrap.Add(art != null
+                ? Ui.Portrait(art, 128)
+                : Ui.Portrait(CardIconCache.Get(card.IconCategory), 40));
+            box.Add(artWrap);
+
             var body = Ui.Box("card-body");
             body.Add(Ui.Wrapping(card.Text, "body", "dim"));
             if (action != null)
@@ -789,14 +827,16 @@ namespace PodcastTycoon.Game
                 var box = Ui.Box("card");
                 var chead = Ui.Row("card-head");
                 if (!slotted) chead.AddToClassList("oneshot");
-                var titleRow = Ui.Box();
-                titleRow.style.flexDirection = FlexDirection.Row;
-                titleRow.style.alignItems = Align.Center;
-                titleRow.Add(Ui.Portrait(CardIconCache.Get(contact.IconCategory), 18, "portrait-inline"));
-                titleRow.Add(Ui.Text(contact.Name, "topiccard-title"));
-                chead.Add(titleRow);
+                chead.Add(Ui.Text(contact.Name, "topiccard-title"));
                 chead.Add(Ui.Text(slotted ? "SLOTTED" : "AVAILABLE", "card-kind", slotted ? null : "oneshot"));
                 box.Add(chead);
+
+                var art = CardArtCache.GetContact(contact.Id);
+                var artWrap = Ui.Box("card-art");
+                artWrap.Add(art != null
+                    ? Ui.Art(art, 160, 112)
+                    : Ui.Portrait(CardIconCache.Get(contact.IconCategory), 40));
+                box.Add(artWrap);
 
                 var body = Ui.Box("card-body");
                 body.Add(Ui.Wrapping("+ " + contact.Upside, "body", "good"));
@@ -1370,9 +1410,8 @@ namespace PodcastTycoon.Game
                 var left = Ui.Box();
                 left.style.flexGrow = 1;
                 string traits = emp.TraitText;
-                left.Add(Ui.Wrapping(
-                    $"{emp.Name} — skill {emp.Skill:0.0}, €{emp.Wage:N0}/mo" + (traits.Length > 0 ? $"  ·  {traits}" : ""),
-                    "body"));
+                left.Add(Ui.Text(emp.Name, "topiccard-title"));
+                left.Add(Ui.Wrapping($"€{emp.Wage:N0}/mo" + (traits.Length > 0 ? $"  ·  {traits}" : ""), "body", "dim"));
                 left.Add(Ui.Wrapping(CrewCatalog.ImpactSummary(role.Id, emp.Skill), "body", "good"));
                 if (emp.ContractWeeksLeft > 0)
                     left.Add(Ui.Wrapping($"Under contract for {emp.ContractWeeksLeft} more week(s) — firing early costs a buyout.", "body", "dim"));
@@ -1401,10 +1440,9 @@ namespace PodcastTycoon.Game
                 var left = Ui.Box();
                 left.style.flexGrow = 1;
                 string traits = c.TraitText;
-                left.Add(Ui.Wrapping(
-                    $"{c.Name} — skill {c.Skill:0.0}, €{c.Wage:N0}/mo" + (traits.Length > 0 ? $"  ·  {traits}" : ""),
-                    "body", "dim"));
-                left.Add(Ui.Wrapping(CrewCatalog.ImpactSummary(role.Id, c.Skill), "body", "dim"));
+                left.Add(Ui.Text(c.Name, "topiccard-title"));
+                left.Add(Ui.Wrapping($"€{c.Wage:N0}/mo" + (traits.Length > 0 ? $"  ·  {traits}" : ""), "body", "dim"));
+                left.Add(Ui.Wrapping(CrewCatalog.ImpactSummary(role.Id, c.Skill), "body", "good"));
                 row.Add(left);
                 string label = filled ? $"Replace  ({Ui.Money(c.Wage + E.FireCost(role.Id))})" : "Hire";
                 var hire = Ui.Btn(label, () => { E.HireCandidate(role.Id, idx); _host.RerenderWeek(); }, "btn-ghost");

@@ -1,0 +1,86 @@
+using NUnit.Framework;
+using PodcastTycoon.Core;
+using PodcastTycoon.Game;
+using UnityEngine;
+
+namespace PodcastTycoon.Tests
+{
+    public class CardArtTests
+    {
+        [Test]
+        public void EveryCardHasAResolvable32x32Illustration()
+        {
+            foreach (var card in CardManager.Catalog.Values)
+            {
+                var tex = CardArtCache.GetCard(card.Id);
+                Assert.That(tex, Is.Not.Null, card.Id + " has no illustration");
+                Assert.That(tex.width, Is.EqualTo(CardArt.CardW));
+                Assert.That(tex.height, Is.EqualTo(CardArt.CardH));
+                Assert.That(tex.filterMode, Is.EqualTo(FilterMode.Point));
+            }
+        }
+
+        [Test]
+        public void EveryContactHasAResolvable40x28Illustration()
+        {
+            foreach (var contact in CardManager.Contacts)
+            {
+                var tex = CardArtCache.GetContact(contact.Id);
+                Assert.That(tex, Is.Not.Null, contact.Id + " has no illustration");
+                Assert.That(tex.width, Is.EqualTo(CardArt.ContactW));
+                Assert.That(tex.height, Is.EqualTo(CardArt.ContactH));
+            }
+        }
+
+        [Test]
+        public void UnknownIdsReturnNullInsteadOfThrowing()
+        {
+            Assert.That(CardArtCache.GetCard("not_a_real_card"), Is.Null);
+            Assert.That(CardArtCache.GetContact("not_a_real_contact"), Is.Null);
+        }
+
+        [Test]
+        public void CardCacheReturnsTheSameTextureInstance()
+        {
+            var a = CardArtCache.GetCard("hot_mic");
+            var b = CardArtCache.GetCard("hot_mic");
+            Assert.That(a, Is.SameAs(b));
+        }
+
+        [Test]
+        public void EveryCardIllustrationHasVisibleContent()
+        {
+            // Catches a generator that silently draws nothing (e.g. an off-canvas shape).
+            foreach (var card in CardManager.Catalog.Values)
+            {
+                var tex = CardArtCache.GetCard(card.Id);
+                int opaque = 0;
+                foreach (var p in tex.GetPixels32()) if (p.a > 200) opaque++;
+                Assert.That(opaque, Is.GreaterThan(20), card.Id + " illustration looks blank");
+            }
+        }
+
+        [Test]
+        public void AllTwentyFiveStudioBackgroundPiecesLoadAt1024x576()
+        {
+            var tracks = new[] { "studio_shell", "set_overlay", "audio_overlay", "post_overlay", "distribution_overlay" };
+            foreach (var prefix in tracks)
+            {
+                for (int tier = 0; tier <= 4; tier++)
+                {
+                    var tex = StudioArt.Get(prefix, tier);
+                    Assert.That(tex, Is.Not.Null, $"{prefix}_{tier} failed to load from Resources/Studio");
+                    Assert.That(tex.width, Is.EqualTo(1024));
+                    Assert.That(tex.height, Is.EqualTo(576));
+                }
+            }
+        }
+
+        [Test]
+        public void StudioArtClampsOutOfRangeTiers()
+        {
+            Assert.That(StudioArt.Get("studio_shell", -1), Is.SameAs(StudioArt.Get("studio_shell", 0)));
+            Assert.That(StudioArt.Get("studio_shell", 9), Is.SameAs(StudioArt.Get("studio_shell", 4)));
+        }
+    }
+}

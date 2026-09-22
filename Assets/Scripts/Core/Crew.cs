@@ -43,7 +43,9 @@ namespace PodcastTycoon.Core
         public readonly List<string> Traits = new List<string>();
         public int ContractWeeksLeft;        // while > 0, firing costs a buyout on top of severance
 
-        public string TraitText => Traits.Count == 0 ? "" : string.Join(", ", Traits.Select(t => CrewCatalog.Trait(t)?.Name ?? t));
+        /// <summary>Trait names with what they actually do, e.g. "Diva (+10 skill, +30% wage)"
+        /// — so it's visible why one candidate costs more than another, not just that they do.</summary>
+        public string TraitText => Traits.Count == 0 ? "" : string.Join(", ", Traits.Select(t => CrewCatalog.TraitDisplayText(t)));
     }
 
     public static class CrewCatalog
@@ -82,6 +84,37 @@ namespace PodcastTycoon.Core
         {
             foreach (var t in Traits) if (t.Id == id) return t;
             return null;
+        }
+
+        /// <summary>What a trait actually does, spelled out — the skill/wage modifiers every
+        /// trait carries, plus the few traits with an extra effect beyond that (hardcoded
+        /// where they're actually applied: <see cref="Engine"/>'s BeginWeek for grafter,
+        /// <see cref="RecordingBeats"/>.Select for loose_cannon, <see cref="Resolution"/> for
+        /// perfectionist's quality-floor bonus).</summary>
+        public static string TraitEffectText(string traitId)
+        {
+            var trait = Trait(traitId);
+            if (trait == null) return "";
+            var parts = new List<string>();
+            if (Math.Abs(trait.SkillMod) > 0.001f)
+                parts.Add($"{(trait.SkillMod > 0 ? "+" : "")}{MathX.RoundToInt(trait.SkillMod * 100f)} skill");
+            if (Math.Abs(trait.WageMult - 1f) > 0.001f)
+                parts.Add($"{(trait.WageMult > 1f ? "+" : "")}{MathX.RoundToInt((trait.WageMult - 1f) * 100f)}% wage");
+            switch (traitId)
+            {
+                case "grafter": parts.Add("+1 morale/week while employed"); break;
+                case "loose_cannon": parts.Add("more happens during recording"); break;
+                case "perfectionist": parts.Add("+quality floor"); break;
+            }
+            return string.Join(", ", parts);
+        }
+
+        public static string TraitDisplayText(string traitId)
+        {
+            var trait = Trait(traitId);
+            if (trait == null) return traitId;
+            string effect = TraitEffectText(traitId);
+            return effect.Length > 0 ? $"{trait.Name} ({effect})" : trait.Name;
         }
 
         // ------------------------------------------------------------------
@@ -152,8 +185,15 @@ namespace PodcastTycoon.Core
                 case Crew.Producer:
                     return $"+{PrepBonusForSkill(skill)} prep point(s)/week, −{EffortReliefForSkill(skill)} effort needed per topic";
                 case Crew.Researcher:
+                    // Spelled out mechanically rather than naming "the Research lever" — that
+                    // only means something once you've already read the Production panel's
+                    // own tooltip, which isn't guaranteed by the time you're staffing crew.
                     int researchPct = MathX.RoundToInt((ResearchMultiplierForSkill(skill) - 1f) * 100f);
-                    return $"Research lever +{researchPct}% effective, +{AnalysisRepBonusForSkill(skill):0.0} reputation per Analysis segment";
+                    // The raw per-segment bonus is well under 1 at every skill level, so a
+                    // straight round would always show "0" and read as no effect — scale it
+                    // up to a whole number over 10 segments instead, same info, no decimals.
+                    int repPerTenSegments = MathX.RoundToInt(AnalysisRepBonusForSkill(skill) * 10f);
+                    return $"Research prep cuts {researchPct}% more risk per point spent, +{repPerTenSegments} reputation per 10 Analysis segments";
                 case Crew.Clips:
                     int socialPct = MathX.RoundToInt((SocialMultiplierForSkill(skill) - 1f) * 100f);
                     return $"+{socialPct}% social reach gains, plus a trickle of new followers every week";

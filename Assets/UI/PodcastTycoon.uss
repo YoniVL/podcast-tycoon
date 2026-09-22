@@ -125,6 +125,24 @@
 }
 .rec-dot.done { background-color: rgb(231, 165, 68); border-color: rgb(255, 205, 140); }
 
+/* ---- studio backdrop (recording screen) ---- */
+.studio-frame {
+    width: 100%;
+    position: relative;
+    margin-bottom: 10px;
+    border-width: 2px;
+    border-color: rgb(48, 46, 60);
+    overflow: hidden;
+    background-color: rgb(10, 9, 14);
+}
+.studio-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
 /* ---- collapsible sections ---- */
 .collapsible { margin-bottom: 8px; }
 
@@ -319,6 +337,12 @@
 }
 .card-kind.oneshot { color: rgb(120, 170, 255); }
 .card-body { padding: 10px; }
+.card-art {
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+    background-color: rgb(19, 18, 24);
+}
 
 .chip {
     font-size: 10px;

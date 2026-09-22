@@ -143,6 +143,19 @@ namespace PodcastTycoon.Game
             return e;
         }
 
+        /// <summary>Like <see cref="Portrait"/> but for non-square art (e.g. the landscape
+        /// contact illustrations) where width and height aren't the same.</summary>
+        public static VisualElement Art(Texture2D tex, float width, float height, params string[] classes)
+        {
+            var e = Box("portrait");
+            AddClasses(e, classes);
+            e.style.width = width;
+            e.style.height = height;
+            e.style.flexShrink = 0;
+            e.style.backgroundImage = new StyleBackground(tex);
+            return e;
+        }
+
         public static Color ParseColor(string hex, Color fallback)
         {
             if (!string.IsNullOrEmpty(hex) && ColorUtility.TryParseHtmlString(hex, out var c)) return c;
