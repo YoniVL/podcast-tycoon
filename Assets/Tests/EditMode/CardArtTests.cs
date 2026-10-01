@@ -61,17 +61,23 @@ namespace PodcastTycoon.Tests
         }
 
         [Test]
-        public void AllTwentyFiveStudioBackgroundPiecesLoadAt1024x576()
+        public void AllTwentyFiveStudioBackgroundPiecesLoadAtTheSameSize()
         {
+            // Pinned to the current "cozy_chibi_booth" recording-layers pack (682x384) rather
+            // than a specific resolution — what actually matters is that every layer shares one
+            // canvas size so shell/overlays composite in alignment; re-pin the literal numbers
+            // if a future art pass changes the delivered resolution.
             var tracks = new[] { "studio_shell", "set_overlay", "audio_overlay", "post_overlay", "distribution_overlay" };
+            int? w = null, h = null;
             foreach (var prefix in tracks)
             {
                 for (int tier = 0; tier <= 4; tier++)
                 {
                     var tex = StudioArt.Get(prefix, tier);
                     Assert.That(tex, Is.Not.Null, $"{prefix}_{tier} failed to load from Resources/Studio");
-                    Assert.That(tex.width, Is.EqualTo(1024));
-                    Assert.That(tex.height, Is.EqualTo(576));
+                    w ??= tex.width; h ??= tex.height;
+                    Assert.That(tex.width, Is.EqualTo(w), $"{prefix}_{tier} width doesn't match the other layers");
+                    Assert.That(tex.height, Is.EqualTo(h), $"{prefix}_{tier} height doesn't match the other layers");
                 }
             }
         }

@@ -41,6 +41,10 @@
 /* ---- typography ---- */
 /* A pixel display face for short, shouty text — titles, tags, tab labels, the
    stat numbers. Never for prose: it's chunky and hard to read at length. */
+.setup-logo {
+    margin-bottom: 10px;
+}
+
 .h1 {
     -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
     font-size: 26px;

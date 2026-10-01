@@ -34,9 +34,19 @@ namespace PodcastTycoon.Game
             screen.Add(col);
 
             scroll.Add(Ui.Text("NEW PODCAST", "eyebrow"));
-            var h1 = Ui.Text("Podcast Tycoon", "h1");
-            h1.tooltip = "Name your show and the club you support, pick your colours, and choose how hard you want it.";
-            scroll.Add(h1);
+            var logoTex = CharacterArt.Logo();
+            if (logoTex != null)
+            {
+                var logo = Ui.Art(logoTex, 84, 84 * logoTex.height / (float)logoTex.width, "setup-logo");
+                logo.tooltip = "Name your show and the club you support, pick your colours, and choose how hard you want it.";
+                scroll.Add(logo);
+            }
+            else
+            {
+                var h1 = Ui.Text("Podcast Tycoon", "h1");
+                h1.tooltip = "Name your show and the club you support, pick your colours, and choose how hard you want it.";
+                scroll.Add(h1);
+            }
 
             var columns = Ui.Box("week-columns");
             var left = Ui.Box("week-col-left");

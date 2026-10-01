@@ -219,7 +219,9 @@ namespace PodcastTycoon.Game
         public static PortraitSpec ForCrew(CrewCandidate c) => ForCrew(c.Role, c.Name);
     }
 
-    /// <summary>Generates portrait textures once per identity and reuses them.</summary>
+    /// <summary>Generates portrait textures once per identity and reuses them. Prefers the
+    /// fixed character art from <see cref="CharacterArt"/> where it exists, falling back to
+    /// the procedural chibi generator only where no baked art has been supplied yet.</summary>
     public static class PortraitCache
     {
         static readonly Dictionary<string, Texture2D> Cache = new Dictionary<string, Texture2D>();
@@ -232,8 +234,9 @@ namespace PodcastTycoon.Game
             return tex;
         }
 
-        public static Texture2D Host() => Get("host", PortraitCasting.ForHost());
-        public static Texture2D CoHost() => Get("cohost", PortraitCasting.ForCoHost());
-        public static Texture2D Crew(Crew role, string name) => Get($"crew|{role}|{name}", PortraitCasting.ForCrew(role, name));
+        public static Texture2D Host() => CharacterArt.Host() ?? Get("host", PortraitCasting.ForHost());
+        public static Texture2D CoHost() => CharacterArt.CoHost() ?? Get("cohost", PortraitCasting.ForCoHost());
+        public static Texture2D Crew(Crew role, string name) =>
+            CharacterArt.ForCrewRole(role) ?? Get($"crew|{role}|{name}", PortraitCasting.ForCrew(role, name));
     }
 }
