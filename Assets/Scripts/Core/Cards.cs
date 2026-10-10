@@ -14,10 +14,6 @@ namespace PodcastTycoon.Core
         public CardKind Kind;
         public int Rarity;             // 0 common, 1 uncommon, 2 rare
         public Action<Engine> Apply;
-        /// <summary>Which pixel-art glyph represents this card — a category (money, risk, the
-        /// team, breaking news...), not one bespoke icon per card. Set in the Game layer's
-        /// CardIcon enum, referenced here by name only so Core stays engine/UI-agnostic.</summary>
-        public string IconCategory;
     }
 
     /// <summary>A passive contact (spec §21) — always a clear upside and a clear downside,
@@ -29,7 +25,6 @@ namespace PodcastTycoon.Core
         public string Upside;
         public string Downside;
         public Action<Engine> WeeklyTick;
-        public string IconCategory;
     }
 
     /// <summary>
@@ -58,78 +53,63 @@ namespace PodcastTycoon.Core
             {
                 new Card { Id = "exclusive_scoop", Name = "Exclusive scoop", Rarity = 2, Kind = CardKind.OneShot,
                     Text = "Break a story nobody else has. Everyone's talking about you, and a jump in listeners right now.",
-                    IconCategory = "Story",
                     Apply = e => { Soc(e, 15f); Lst(e, 0.03f); } },
 
                 new Card { Id = "viral_moment", Name = "Viral moment", Rarity = 1, Kind = CardKind.OneShot,
                     Text = "A clip takes off. This week's episode reaches far further than normal.",
-                    IconCategory = "Social",
                     Apply = e => e.State.CardReachMultThisWeek *= 1.6f },
 
                 new Card { Id = "all_nighter", Name = "All-nighter", Rarity = 0, Kind = CardKind.OneShot,
                     Text = "Pull a long one. +4 prep points this week.",
-                    IconCategory = "Prep",
                     Apply = e => e.State.CardPrepBonusThisWeek += 4 },
 
                 new Card { Id = "ghostwriter", Name = "Ghostwriter", Rarity = 1, Kind = CardKind.OneShot,
                     Text = "A friend scripts it for you. This episode comes out noticeably sharper.",
-                    IconCategory = "Team",
                     Apply = e => e.State.CardQualityBonusThisWeek += 0.25f },
 
                 new Card { Id = "damage_control", Name = "Damage control", Rarity = 1, Kind = CardKind.OneShot,
                     Text = "Get ahead of a bad week. +6 reputation now.",
-                    IconCategory = "Reputation",
                     Apply = e => Rep(e, 6f) },
 
                 new Card { Id = "clip_farm", Name = "Clip farm", Rarity = 0, Kind = CardKind.OneShot,
                     Text = "Chop the back catalogue into shorts. A big spike in how much you're talked about online.",
-                    IconCategory = "Social",
                     Apply = e => Soc(e, 18f) },
 
                 new Card { Id = "sure_thing", Name = "Sure thing", Rarity = 1, Kind = CardKind.OneShot,
                     Text = "You know this one lands. This week's episode gets the best possible reception.",
-                    IconCategory = "Risk",
                     Apply = e => e.State.CardGuaranteeGoodRoll = true },
 
                 new Card { Id = "top_prospect", Name = "Top prospect emerges", Rarity = 2, Kind = CardKind.Permanent,
                     Text = "An academy kid forces his way in. The team is permanently a little better.",
-                    IconCategory = "Team",
                     Apply = e => Str(e, 0.03f) },
 
                 new Card { Id = "genius_appointment", Name = "Genius appointment", Rarity = 2, Kind = CardKind.Permanent,
                     Text = "The club hires brilliantly. A real, lasting lift to the team.",
-                    IconCategory = "Team",
                     Apply = e => Str(e, 0.05f) },
 
                 new Card { Id = "takeover_talks", Name = "Takeover talks", Rarity = 2, Kind = CardKind.Permanent,
                     Text = "New money arrives. The squad strengthens and there's cash in the pot.",
-                    IconCategory = "Money",
                     Apply = e => { Str(e, 0.05f); e.State.Money += 300f; } },
 
                 new Card { Id = "evergreen_segment", Name = "Evergreen segment", Rarity = 1, Kind = CardKind.Permanent,
                     Text = "A format that always works. +1 prep point every week, for good.",
-                    IconCategory = "Prep",
                     Apply = e => e.State.CardPermanentPrepBonus += 1 },
 
                 new Card { Id = "all_in", Name = "All in", Rarity = 2, Kind = CardKind.OneShot,
                     Text = "Swing for it. This episode's reach is doubled — for better or worse.",
-                    IconCategory = "Risk",
                     Apply = e => e.State.CardReachMultThisWeek *= 2f },
 
                 new Card { Id = "rest_the_team", Name = "Rest the team", Rarity = 0, Kind = CardKind.OneShot,
                     Text = "A deliberately light week. Big morale and freshness top-up.",
-                    IconCategory = "Team",
                     Apply = e => { e.State.Morale = MathX.Clamp(e.State.Morale + 12f, 0f, 100f);
                                    e.State.Freshness = MathX.Clamp(e.State.Freshness + 20f, 0f, 100f); } },
 
                 new Card { Id = "trailer", Name = "Trailer", Rarity = 0, Kind = CardKind.OneShot,
                     Text = "A small, safe promo push for this one episode.",
-                    IconCategory = "Social",
                     Apply = e => e.State.CardReachMultThisWeek *= 1.08f },
 
                 new Card { Id = "hot_mic", Name = "Hot mic", Rarity = 2, Kind = CardKind.OneShot,
                     Text = "Say something unfiltered. Big social spike — credibility could go either way.",
-                    IconCategory = "Risk",
                     Apply = e =>
                     {
                         e.State.SocialReach = MathX.Clamp(e.State.SocialReach + 20f, 0f, 100f);
@@ -156,31 +136,26 @@ namespace PodcastTycoon.Core
                 new ContactCard { Id = "club_insider", Name = "Club insider",
                     Upside = "+0.3 credibility a week — you're plugged in.",
                     Downside = "-0.2 social reach a week — the club keeps you discreet.",
-                    IconCategory = "Credibility",
                     WeeklyTick = e => { Cred(e, 0.3f); Soc(e, -0.2f); } },
 
                 new ContactCard { Id = "viral_editor", Name = "Viral editor",
                     Upside = "+1 social reach a week — always something clippable.",
                     Downside = "-0.15 credibility a week — chasing clips corrodes trust.",
-                    IconCategory = "Social",
                     WeeklyTick = e => { Soc(e, 1f); Cred(e, -0.15f); } },
 
                 new ContactCard { Id = "veteran_pundit", Name = "Veteran pundit",
                     Upside = "+0.3 reputation a week — a respected voice in your corner.",
                     Downside = "-€15 a week — the retainer.",
-                    IconCategory = "Reputation",
                     WeeklyTick = e => { Rep(e, 0.3f); e.State.Money -= 15f; } },
 
                 new ContactCard { Id = "tabloid_contact", Name = "Tabloid contact",
                     Upside = "+0.3 social reach a week — they run your lines.",
                     Downside = "-0.2 credibility a week — some of it comes back to bite you.",
-                    IconCategory = "Social",
                     WeeklyTick = e => { Soc(e, 0.3f); Cred(e, -0.2f); } },
 
                 new ContactCard { Id = "fan_liaison", Name = "Fan-group liaison",
                     Upside = "+0.5 morale a week — the room likes having them around.",
                     Downside = "-0.2 reputation a week — a little too parochial for the neutral press.",
-                    IconCategory = "Team",
                     WeeklyTick = e => { e.State.Morale = MathX.Clamp(e.State.Morale + 0.5f, 0f, 100f); Rep(e, -0.2f); } },
             };
         }

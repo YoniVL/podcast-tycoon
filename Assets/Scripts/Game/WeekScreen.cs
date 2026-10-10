@@ -118,10 +118,10 @@ namespace PodcastTycoon.Game
 
             var portraits = Ui.Row();
             portraits.style.marginRight = 10;
-            portraits.Add(Ui.Portrait(PortraitCache.Host(), 40));
+            portraits.Add(Ui.Portrait(CharacterArt.Host(), 40));
             if (st.HasCoHost)
             {
-                var co = Ui.Portrait(PortraitCache.CoHost(), 40);
+                var co = Ui.Portrait(CharacterArt.CoHost(), 40);
                 co.style.marginLeft = -14;
                 portraits.Add(co);
             }
@@ -146,26 +146,26 @@ namespace PodcastTycoon.Game
             // A single thin row — icon + number. Full names and explanations live in the
             // tooltip and in Help, not as permanently-visible labels and paragraphs.
             var strip = Ui.Box("statstrip");
-            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(st.Money),
+            strip.Add(Ui.StatChip(StatIcon.Money, Ui.Money(st.Money),
                 "Money — cash. Overhead bleeds it every week.", st.Money < 0 ? "bad" : null));
-            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Listeners), st.Listeners.ToString("N0"),
+            strip.Add(Ui.StatChip(StatIcon.Listeners, st.Listeners.ToString("N0"),
                 "Listeners — your audience and your score: the loyal core plus the casual listeners who come and go."));
-            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Loyalty), st.LoyaltyLabel,
+            strip.Add(Ui.StatChip(StatIcon.Loyalty, st.LoyaltyLabel,
                 "Loyalty — how much of your audience is loyal core vs. casual. Fragile swings hard and can collapse; Devoted shrugs off a bad week.",
                 st.LoyaltyLabel == "Fragile" ? "bad" : st.LoyaltyLabel == "Devoted" ? "good" : null));
             if (Mathf.RoundToInt(st.Followers) >= 100)
-                strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Followers), Mathf.RoundToInt(st.Followers).ToString("N0"),
+                strip.Add(Ui.StatChip(StatIcon.Followers, Mathf.RoundToInt(st.Followers).ToString("N0"),
                     "Followers — clip-only. They never hear the show and barely pay, but they spread it and feed casual listeners."));
-            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Reputation), Mathf.RoundToInt(st.Reputation).ToString(),
+            strip.Add(Ui.StatChip(StatIcon.Reputation, Mathf.RoundToInt(st.Reputation).ToString(),
                 "Reputation — how respected the show is. Raises your growth ceiling."));
-            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Credibility), Mathf.RoundToInt(st.Credibility).ToString(),
+            strip.Add(Ui.StatChip(StatIcon.Credibility, Mathf.RoundToInt(st.Credibility).ToString(),
                 "Credibility — how much people trust what you say. Built by analysis and verified scoops."));
-            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.SocialReach), Mathf.RoundToInt(st.SocialReach).ToString(),
+            strip.Add(Ui.StatChip(StatIcon.SocialReach, Mathf.RoundToInt(st.SocialReach).ToString(),
                 "Social reach — how much the show is talked about online. Fades if you go quiet."));
-            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Freshness), Mathf.RoundToInt(st.Freshness).ToString(),
+            strip.Add(Ui.StatChip(StatIcon.Freshness, Mathf.RoundToInt(st.Freshness).ToString(),
                 "Freshness — falls when you repeat yourself, same angle, same bit. Vary the show or take a lighter week to recover.",
                 st.Freshness < 45f ? "bad" : null));
-            strip.Add(Ui.StatChip(IconCache.Get(StatIcon.Morale), Mathf.RoundToInt(st.Morale).ToString(),
+            strip.Add(Ui.StatChip(StatIcon.Morale, Mathf.RoundToInt(st.Morale).ToString(),
                 "Morale — the team's energy. Pushing hard costs it; a light week or a win restores it. Low morale caps episode quality.",
                 st.Morale < 40f ? "bad" : null));
             return strip;
@@ -242,7 +242,7 @@ namespace PodcastTycoon.Game
                 anyInterrupt = true;
                 var sc = E.Scoops.Pending;
                 var card = Ui.Box("panel", "event-card");
-                card.Add(IconEyebrow("Story", "YOU'VE GOT A SCOOP"));
+                card.Add(Ui.Text("YOU'VE GOT A SCOOP", "eyebrow"));
                 card.Add(Ui.Text(sc.Headline, "h2"));
                 card.Add(Ui.Wrapping(sc.Detail, "body"));
                 card.Add(Ui.Wrapping("Break it now for big numbers and a real risk it's wrong; verify and hold to build trust; or trade it to a national outlet for cash.", "body", "dim"));
@@ -262,7 +262,7 @@ namespace PodcastTycoon.Game
             {
                 anyInterrupt = true;
                 var card = Ui.Box("panel", "event-card");
-                card.Add(IconEyebrow("Money", "SOMEONE WANTS TO BUY THE SHOW"));
+                card.Add(Ui.Text("SOMEONE WANTS TO BUY THE SHOW", "eyebrow"));
                 card.Add(Ui.Text("A media group has made an offer for the whole podcast.", "h2"));
                 card.Add(Ui.Wrapping("Take the money and keep making it under their banner, or stay independent. Either way the show goes on.", "body", "dim"));
                 var yes = Ui.Btn("Sell — take the €250,000", () => { E.AcceptBuyout(); _host.RerenderWeek(); }, "btn-ghost");
@@ -277,7 +277,7 @@ namespace PodcastTycoon.Game
                 anyInterrupt = true;
                 var ev = E.Events.Pending;
                 var card = Ui.Box("panel", "event-card");
-                card.Add(IconEyebrow("Story", "SOMETHING'S COME UP"));
+                card.Add(Ui.Text("SOMETHING'S COME UP", "eyebrow"));
                 card.Add(Ui.Text(ev.Prompt, "h2"));
                 card.Add(Ui.Wrapping(ev.Detail, "body"));
                 for (int i = 0; i < ev.Options.Count; i++)
@@ -481,7 +481,7 @@ namespace PodcastTycoon.Game
             var beat = E.CurrentBeat;
             if (beat != null)
             {
-                panel.Add(IconEyebrow("Story", "RECORDING"));
+                panel.Add(Ui.Text("RECORDING", "eyebrow"));
                 if (E.RecordingBeatsTotal > 0) panel.Add(BuildRecordingProgress());
                 panel.Add(Ui.Text(beat.Prompt, "h2"));
                 panel.Add(Ui.Wrapping(beat.Detail, "body"));
@@ -502,7 +502,7 @@ namespace PodcastTycoon.Game
             }
             else
             {
-                panel.Add(IconEyebrow("Story", "RECORDING"));
+                panel.Add(Ui.Text("RECORDING", "eyebrow"));
                 if (E.RecordingBeatsTotal > 0) panel.Add(BuildRecordingProgress());
                 panel.Add(Ui.Text("That's a wrap", "h2"));
                 panel.Add(Ui.Wrapping(
@@ -744,22 +744,8 @@ namespace PodcastTycoon.Game
             return panel;
         }
 
-        /// <summary>An eyebrow label with a small themed icon in front of it — used to give
-        /// every interrupt/event card (scoop, buyout, "something's come up", recording beats)
-        /// a visual instead of being a plain wall of text.</summary>
-        static VisualElement IconEyebrow(string iconCategory, string text)
-        {
-            var row = Ui.Box();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
-            row.Add(Ui.Portrait(CardIconCache.Get(iconCategory), 20, "portrait-inline"));
-            row.Add(Ui.Text(text, "eyebrow"));
-            return row;
-        }
-
-        /// <summary>A hand card rendered as an actual card — the illustrated art for its
-        /// theme, a kind-coloured header strip (permanent vs. one-shot), body text and action
-        /// button. Falls back to the small category icon if no illustration exists for it.</summary>
+        /// <summary>A hand card — a kind-coloured header strip (permanent vs. one-shot),
+        /// body text and action button.</summary>
         VisualElement BuildCardVisual(Card card, Button action)
         {
             bool permanent = card.Kind == CardKind.Permanent;
@@ -769,13 +755,6 @@ namespace PodcastTycoon.Game
             head.Add(Ui.Text(card.Name, "topiccard-title"));
             head.Add(Ui.Text(permanent ? "PERMANENT" : "ONE-SHOT", "card-kind", permanent ? null : "oneshot"));
             box.Add(head);
-
-            var art = CardArtCache.GetCard(card.Id);
-            var artWrap = Ui.Box("card-art");
-            artWrap.Add(art != null
-                ? Ui.Portrait(art, 128)
-                : Ui.Portrait(CardIconCache.Get(card.IconCategory), 40));
-            box.Add(artWrap);
 
             var body = Ui.Box("card-body");
             body.Add(Ui.Wrapping(card.Text, "body", "dim"));
@@ -830,13 +809,6 @@ namespace PodcastTycoon.Game
                 chead.Add(Ui.Text(contact.Name, "topiccard-title"));
                 chead.Add(Ui.Text(slotted ? "SLOTTED" : "AVAILABLE", "card-kind", slotted ? null : "oneshot"));
                 box.Add(chead);
-
-                var art = CardArtCache.GetContact(contact.Id);
-                var artWrap = Ui.Box("card-art");
-                artWrap.Add(art != null
-                    ? Ui.Art(art, 160, 112)
-                    : Ui.Portrait(CardIconCache.Get(contact.IconCategory), 40));
-                box.Add(artWrap);
 
                 var body = Ui.Box("card-body");
                 body.Add(Ui.Wrapping("+ " + contact.Upside, "body", "good"));
@@ -952,7 +924,9 @@ namespace PodcastTycoon.Game
                 row.style.alignItems = Align.Center;
                 row.style.marginRight = 18;
                 row.style.marginTop = 8;
-                row.Add(Ui.Portrait(IconCache.Get(icon), 22, "portrait-inline"));
+                var tex = IconArt.Stat(icon);
+                if (tex != null) row.Add(Ui.Portrait(tex, 22, "portrait-inline"));
+                else row.Add(Ui.Text(IconArt.StatLabel(icon), "statchip-label"));
                 row.Add(Ui.Text(label, "body"));
                 legendGrid.Add(row);
             }
@@ -1394,6 +1368,12 @@ namespace PodcastTycoon.Game
             return panel;
         }
 
+        static void AddRoleIcon(VisualElement row, Crew role)
+        {
+            var tex = IconArt.CrewRole(role);
+            if (tex != null) row.Add(Ui.Portrait(tex, 32, "portrait-inline"));
+        }
+
         VisualElement BuildCrewRoleBlock(CrewRole role)
         {
             var st = E.State;
@@ -1406,7 +1386,7 @@ namespace PodcastTycoon.Game
             {
                 var row = Ui.Row();
                 row.style.alignItems = Align.Center;
-                row.Add(Ui.Portrait(PortraitCache.Crew(role.Id, emp.Name), 32, "portrait-inline"));
+                AddRoleIcon(row, role.Id);
                 var left = Ui.Box();
                 left.style.flexGrow = 1;
                 string traits = emp.TraitText;
@@ -1436,7 +1416,7 @@ namespace PodcastTycoon.Game
                 int idx = i;
                 var row = Ui.Row();
                 row.style.alignItems = Align.Center;
-                row.Add(Ui.Portrait(PortraitCache.Crew(role.Id, c.Name), 32, "portrait-inline"));
+                AddRoleIcon(row, role.Id);
                 var left = Ui.Box();
                 left.style.flexGrow = 1;
                 string traits = c.TraitText;

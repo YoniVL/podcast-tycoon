@@ -132,18 +132,18 @@ namespace PodcastTycoon.Game
             var deltas = Ui.Box("panel");
             deltas.Add(Ui.Text("What changed", "h2"));
             var grid = Ui.Box("statstrip");
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Listeners), Ui.Signed(_result.ListenerDeltaActual), "Listeners",
+            grid.Add(Ui.StatChip(StatIcon.Listeners, Ui.Signed(_result.ListenerDeltaActual), "Listeners",
                 _result.ListenerDeltaActual >= 0 ? "good" : "bad"));
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Reputation), Ui.Signed(Mathf.RoundToInt(_result.ReputationDelta)), "Reputation"));
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Credibility), Ui.Signed(Mathf.RoundToInt(_result.CredibilityDelta)), "Credibility"));
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.SocialReach), Ui.Signed(Mathf.RoundToInt(_result.SocialGained)), "Social reach"));
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Morale), Ui.Signed(Mathf.RoundToInt(_result.MoraleDelta)), "Morale"));
+            grid.Add(Ui.StatChip(StatIcon.Reputation, Ui.Signed(Mathf.RoundToInt(_result.ReputationDelta)), "Reputation"));
+            grid.Add(Ui.StatChip(StatIcon.Credibility, Ui.Signed(Mathf.RoundToInt(_result.CredibilityDelta)), "Credibility"));
+            grid.Add(Ui.StatChip(StatIcon.SocialReach, Ui.Signed(Mathf.RoundToInt(_result.SocialGained)), "Social reach"));
+            grid.Add(Ui.StatChip(StatIcon.Morale, Ui.Signed(Mathf.RoundToInt(_result.MoraleDelta)), "Morale"));
             // One money figure, not four — ad revenue/sponsor/costs are all folded into this
             // net change; the breakdown lives in the tooltip for anyone who wants it.
             string moneyTip = $"Money — €{Mathf.RoundToInt(_result.AdRevenue):N0} ads" +
                 (_result.SponsorRevenue > 0 ? $" + €{Mathf.RoundToInt(_result.SponsorRevenue):N0} sponsor" : "") +
                 $" − €{Mathf.RoundToInt(_result.WeeklyCosts):N0} costs.";
-            grid.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(Mathf.RoundToInt(_result.MoneyDelta)), moneyTip,
+            grid.Add(Ui.StatChip(StatIcon.Money, Ui.Money(Mathf.RoundToInt(_result.MoneyDelta)), moneyTip,
                 _result.MoneyDelta >= 0 ? "good" : "bad"));
             deltas.Add(grid);
             if (_result.MonthlyWagesCharged > 0)
@@ -163,13 +163,13 @@ namespace PodcastTycoon.Game
             var totals = Ui.Box("panel");
             totals.Add(Ui.Text("Where things stand", "h2"));
             var tgrid = Ui.Box("statstrip");
-            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.Money), Ui.Money(st.Money), "Money", st.Money < 0 ? "bad" : null));
-            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.Listeners), st.Listeners.ToString("N0"), "Listeners"));
-            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.Loyalty), st.LoyaltyLabel, "Loyalty"));
-            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.Reputation), Mathf.RoundToInt(st.Reputation).ToString(), "Reputation"));
-            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.Credibility), Mathf.RoundToInt(st.Credibility).ToString(), "Credibility"));
-            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.SocialReach), Mathf.RoundToInt(st.SocialReach).ToString(), "Social reach"));
-            tgrid.Add(Ui.StatChip(IconCache.Get(StatIcon.Morale), Mathf.RoundToInt(st.Morale).ToString(), "Morale",
+            tgrid.Add(Ui.StatChip(StatIcon.Money, Ui.Money(st.Money), "Money", st.Money < 0 ? "bad" : null));
+            tgrid.Add(Ui.StatChip(StatIcon.Listeners, st.Listeners.ToString("N0"), "Listeners"));
+            tgrid.Add(Ui.StatChip(StatIcon.Loyalty, st.LoyaltyLabel, "Loyalty"));
+            tgrid.Add(Ui.StatChip(StatIcon.Reputation, Mathf.RoundToInt(st.Reputation).ToString(), "Reputation"));
+            tgrid.Add(Ui.StatChip(StatIcon.Credibility, Mathf.RoundToInt(st.Credibility).ToString(), "Credibility"));
+            tgrid.Add(Ui.StatChip(StatIcon.SocialReach, Mathf.RoundToInt(st.SocialReach).ToString(), "Social reach"));
+            tgrid.Add(Ui.StatChip(StatIcon.Morale, Mathf.RoundToInt(st.Morale).ToString(), "Morale",
                 st.Morale < 40f ? "bad" : null));
             totals.Add(tgrid);
 

@@ -7,39 +7,46 @@ namespace PodcastTycoon.Tests
     public class CharacterArtTests
     {
         [Test]
-        public void HostCoHostLogoAndCoveredRolesLoadFromResources()
+        public void HostCoHostAndLogoLoadFromResources()
         {
             Assert.That(CharacterArt.Host(), Is.Not.Null);
             Assert.That(CharacterArt.CoHost(), Is.Not.Null);
             Assert.That(CharacterArt.Logo(), Is.Not.Null);
-            Assert.That(CharacterArt.ForCrewRole(Crew.Producer), Is.Not.Null);
-            Assert.That(CharacterArt.ForCrewRole(Crew.Clips), Is.Not.Null);
         }
 
         [Test]
-        public void RolesWithoutCommissionedArtReturnNull()
+        public void EveryStatAndCrewIconHasADistinctLowercaseFileName()
         {
-            // Documents the known gap (see CharacterArt's own header comment) rather than
-            // letting it silently resolve to the wrong thing — if this starts failing because
-            // someone added art for these roles, update PortraitCache's expectations too.
-            Assert.That(CharacterArt.ForCrewRole(Crew.Researcher), Is.Null);
-            Assert.That(CharacterArt.ForCrewRole(Crew.Booker), Is.Null);
+            var seen = new System.Collections.Generic.HashSet<string>();
+            foreach (StatIcon i in System.Enum.GetValues(typeof(StatIcon)))
+                Assert.That(seen.Add(IconArt.StatFile(i)), Is.True, i + " collides with another icon file");
+            foreach (Crew r in System.Enum.GetValues(typeof(Crew)))
+                if (r != Crew.None)
+                Assert.That(seen.Add(IconArt.CrewFile(r)), Is.True, r + " collides with another icon file");
+            foreach (var name in seen) Assert.That(name, Is.EqualTo(name.ToLowerInvariant()));
         }
 
         [Test]
-        public void PortraitCacheFallsBackToProceduralForUncoveredRoles()
+        public void EveryStatAndCrewIconLoadsAtTheSameSize()
         {
-            // Must still resolve to *something* renderable even without fixed art.
-            var tex = PortraitCache.Crew(Crew.Researcher, "Test Person");
-            Assert.That(tex, Is.Not.Null);
-            Assert.That(tex.width, Is.EqualTo(PixelPortraits.Grid), "should be the procedural generator's own size, not baked art");
+            int? size = null;
+            void Check(UnityEngine.Texture2D tex, string what)
+            {
+                Assert.That(tex, Is.Not.Null, what + " is missing from Resources/Icons");
+                size ??= tex.width;
+                Assert.That(tex.width, Is.EqualTo(size), what + " width differs from the other icons");
+                Assert.That(tex.height, Is.EqualTo(size), what + " is not square");
+            }
+            foreach (StatIcon i in System.Enum.GetValues(typeof(StatIcon))) Check(IconArt.Stat(i), IconArt.StatFile(i));
+            foreach (Crew r in System.Enum.GetValues(typeof(Crew)))
+                if (r != Crew.None) Check(IconArt.CrewRole(r), IconArt.CrewFile(r));
         }
 
         [Test]
-        public void PortraitCacheUsesFixedArtForCoveredRoles()
+        public void EveryStatHasAFallbackLabelForWhenAnIconFileIsMissing()
         {
-            var tex = PortraitCache.Crew(Crew.Producer, "Test Person");
-            Assert.That(tex, Is.SameAs(CharacterArt.ForCrewRole(Crew.Producer)));
+            foreach (StatIcon i in System.Enum.GetValues(typeof(StatIcon)))
+                Assert.That(IconArt.StatLabel(i), Is.Not.Empty);
         }
     }
 }

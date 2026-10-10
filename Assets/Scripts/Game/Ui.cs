@@ -106,14 +106,13 @@ namespace PodcastTycoon.Game
         /// <summary>A compact icon + value chip for the persistent resource strip — the full
         /// name and explanation live in the tooltip instead of always-on text, so the strip
         /// stays a single thin row (the glossary in Help still covers all of this in full).</summary>
-        public static VisualElement StatChip(Texture2D icon, string value, string tooltip, string valueClass = null)
+        public static VisualElement StatChip(StatIcon icon, string value, string tooltip, string valueClass = null)
         {
             var chip = Row("statchip");
             chip.tooltip = tooltip;
-            // 22px matches the icon's native pixel-grid size exactly — downscaling below
-            // that with point filtering drops texels unevenly, so some icons render with
-            // missing/glitchy pixels while others look fine purely by coincidence of shape.
-            chip.Add(Portrait(icon, 22));
+            var tex = IconArt.Stat(icon);
+            if (tex != null) chip.Add(Portrait(tex, 22));
+            else chip.Add(Text(IconArt.StatLabel(icon), "statchip-label"));
             var v = Text(value, "statchip-value");
             if (valueClass != null) v.AddToClassList(valueClass);
             chip.Add(v);
@@ -131,7 +130,7 @@ namespace PodcastTycoon.Game
             return Box("divider");
         }
 
-        /// <summary>A fixed-size pixel portrait. The texture is point-filtered, so it stays crisp scaled up.</summary>
+        /// <summary>A fixed-size square image.</summary>
         public static VisualElement Portrait(Texture2D tex, float size, params string[] classes)
         {
             var e = Box("portrait");
@@ -143,8 +142,8 @@ namespace PodcastTycoon.Game
             return e;
         }
 
-        /// <summary>Like <see cref="Portrait"/> but for non-square art (e.g. the landscape
-        /// contact illustrations) where width and height aren't the same.</summary>
+        /// <summary>Like <see cref="Portrait"/> but for non-square art where width and height
+        /// aren't the same.</summary>
         public static VisualElement Art(Texture2D tex, float width, float height, params string[] classes)
         {
             var e = Box("portrait");

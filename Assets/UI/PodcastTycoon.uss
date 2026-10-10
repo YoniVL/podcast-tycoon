@@ -173,7 +173,7 @@
     margin-left: 8px;
 }
 
-/* ---- pixel portraits ---- */
+/* ---- fixed images ---- */
 .portrait {
     -unity-background-scale-mode: scale-to-fit;
     border-radius: 0;
@@ -202,6 +202,15 @@
     padding: 4px 10px 4px 6px;
     margin-right: 6px;
     margin-bottom: 4px;
+}
+
+/* Text stand-in for a stat icon that has no image file yet. */
+.statchip-label {
+    font-size: 10px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: rgb(150, 144, 166);
+    margin-left: 2px;
 }
 
 .statchip-value {
@@ -341,12 +350,6 @@
 }
 .card-kind.oneshot { color: rgb(120, 170, 255); }
 .card-body { padding: 10px; }
-.card-art {
-    align-items: center;
-    justify-content: center;
-    padding: 8px 0;
-    background-color: rgb(19, 18, 24);
-}
 
 .chip {
     font-size: 10px;
