@@ -1,0 +1,4 @@
+<linker>
+  <!-- The save system reads and writes every field of the game state by reflection. -->
+  <assembly fullname="PodcastTycoon.Core" preserve="all"/>
+</linker>

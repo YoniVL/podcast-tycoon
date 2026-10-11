@@ -2,7 +2,8 @@
   "name": "PodcastTycoon.Game",
   "rootNamespace": "PodcastTycoon.Game",
   "references": [
-    "PodcastTycoon.Core"
+    "PodcastTycoon.Core",
+    "Unity.InputSystem"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

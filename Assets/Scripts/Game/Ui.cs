@@ -28,6 +28,18 @@ namespace PodcastTycoon.Game
             return e;
         }
 
+        /// <summary>The page's vertical scroller: touch-friendly, no scrollbars (a phone has
+        /// none), mouse wheel still works in the Editor.</summary>
+        public static ScrollView Scroll()
+        {
+            var s = new ScrollView(ScrollViewMode.Vertical);
+            s.AddToClassList("scroll");
+            s.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            s.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            s.touchScrollBehavior = ScrollView.TouchScrollBehavior.Clamped;
+            return s;
+        }
+
         public static Label Text(string text, params string[] classes)
         {
             var l = new Label(text);
@@ -111,7 +123,7 @@ namespace PodcastTycoon.Game
             var chip = Row("statchip");
             chip.tooltip = tooltip;
             var tex = IconArt.Stat(icon);
-            if (tex != null) chip.Add(Portrait(tex, 22));
+            if (tex != null) chip.Add(Portrait(tex, 18));
             else chip.Add(Text(IconArt.StatLabel(icon), "statchip-label"));
             var v = Text(value, "statchip-value");
             if (valueClass != null) v.AddToClassList(valueClass);
@@ -153,6 +165,35 @@ namespace PodcastTycoon.Game
             e.style.flexShrink = 0;
             e.style.backgroundImage = new StyleBackground(tex);
             return e;
+        }
+
+        /// <summary>The recording-room picture: five stacked layers (shell + Set, Post, Distribution,
+        /// Audio overlays), each swapped by its own upgrade tier (0-4). Height is pinned to the 16:9
+        /// art through a geometry callback, since USS aspect-ratio isn't reliably available.</summary>
+        public static VisualElement StudioBackdrop(int studio, int set, int post, int distribution, int audio)
+        {
+            var frame = Box("studio-frame");
+            frame.RegisterCallback<GeometryChangedEvent>(evt =>
+            {
+                if (evt.newRect.width > 0) frame.style.height = evt.newRect.width * 9f / 16f;
+            });
+
+            void Layer(string prefix, int tier)
+            {
+                var tex = StudioArt.Get(prefix, tier);
+                if (tex == null) return;
+                var img = Box("studio-layer");
+                img.style.backgroundImage = new StyleBackground(tex);
+                img.style.unityBackgroundScaleMode = ScaleMode.StretchToFill;
+                img.pickingMode = PickingMode.Ignore;
+                frame.Add(img);
+            }
+            Layer("studio_shell", studio);
+            Layer("set_overlay", set);
+            Layer("post_overlay", post);
+            Layer("distribution_overlay", distribution);
+            Layer("audio_overlay", audio);
+            return frame;
         }
 
         public static Color ParseColor(string hex, Color fallback)

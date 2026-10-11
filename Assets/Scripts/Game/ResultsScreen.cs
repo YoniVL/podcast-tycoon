@@ -25,15 +25,14 @@ namespace PodcastTycoon.Game
             var st = _host.Engine.State;
             var screen = Ui.Box("screen");
             var col = Ui.Box("column-wide");
-            var scroll = new ScrollView(ScrollViewMode.Vertical);
-            scroll.AddToClassList("scroll");
+            var scroll = Ui.Scroll();
             col.Add(scroll);
             screen.Add(col);
 
             scroll.Add(Ui.Text("EPISODE PUBLISHED", "eyebrow"));
             scroll.Add(Ui.Text($"“{_result.Topic.Name}”", "h1"));
             scroll.Add(Ui.Wrapping(
-                $"{_result.QualityLabel} episode — quality {_result.Quality:0.00}" +
+                $"{_result.QualityLabel} episode — quality {Mathf.RoundToInt(_result.Quality * 100f)}" +
                 (_result.SegmentCount > 1 ? $", {_result.SegmentCount} segments." : "."), "body"));
 
             var columns = Ui.Box("week-columns");

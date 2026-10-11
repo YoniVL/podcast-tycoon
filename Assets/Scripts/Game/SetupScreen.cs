@@ -28,16 +28,18 @@ namespace PodcastTycoon.Game
         {
             var screen = Ui.Box("screen");
             var col = Ui.Box("column-wide");
-            var scroll = new ScrollView(ScrollViewMode.Vertical);
-            scroll.AddToClassList("scroll");
+            var scroll = Ui.Scroll();
             col.Add(scroll);
             screen.Add(col);
 
+            var back = Ui.Btn("← Back", _host.ShowMenu, "btn-ghost");
+            back.style.alignSelf = Align.FlexStart;
+            scroll.Add(back);
             scroll.Add(Ui.Text("NEW PODCAST", "eyebrow"));
             var logoTex = CharacterArt.Logo();
             if (logoTex != null)
             {
-                var logo = Ui.Art(logoTex, 84, 84 * logoTex.height / (float)logoTex.width, "setup-logo");
+                var logo = Ui.Art(logoTex, 200, 200 * logoTex.height / (float)logoTex.width, "setup-logo");
                 logo.tooltip = "Name your show and the club you support, pick your colours, and choose how hard you want it.";
                 scroll.Add(logo);
             }

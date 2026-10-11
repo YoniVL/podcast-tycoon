@@ -72,7 +72,6 @@ namespace PodcastTycoon.Game
 
             // --- persistent chrome ---
             col.Add(BuildHeaderBar(ctx, st));
-            col.Add(BuildResourceStrip(st));
 
             if (E.Events.Pending != null || E.Scoops.Pending != null || E.State.BuyoutPending)
             {
@@ -90,13 +89,12 @@ namespace PodcastTycoon.Game
                 col.Add(banner);
             }
 
-            col.Add(BuildTabBar());
-
-            _scroll = new ScrollView(ScrollViewMode.Vertical);
-            _scroll.AddToClassList("scroll");
+            _scroll = Ui.Scroll();
+            _scroll.Add(BuildResourceStrip(st)); // scrolls away with the page, header + tabs stay put
             _tabContent = Ui.Box();
             _scroll.Add(_tabContent);
             col.Add(_scroll);
+            col.Add(BuildTabBar()); // bottom navigation
 
             RenderActiveTab();
 
@@ -118,10 +116,10 @@ namespace PodcastTycoon.Game
 
             var portraits = Ui.Row();
             portraits.style.marginRight = 10;
-            portraits.Add(Ui.Portrait(CharacterArt.Host(), 40));
+            portraits.Add(Ui.Portrait(CharacterArt.Host(), 34));
             if (st.HasCoHost)
             {
-                var co = Ui.Portrait(CharacterArt.CoHost(), 40);
+                var co = Ui.Portrait(CharacterArt.CoHost(), 34);
                 co.style.marginLeft = -14;
                 portraits.Add(co);
             }
@@ -135,6 +133,7 @@ namespace PodcastTycoon.Game
             var t2 = Ui.Text(
                 $"Season {st.Season} · Week {ctx.Turn} · {st.ClubName} sit {ctx.LeaguePositionLabel}", "body");
             t2.style.color = ink;
+            t2.style.fontSize = 12;
             text.Add(t1);
             text.Add(t2);
             bar.Add(text);
@@ -192,7 +191,7 @@ namespace PodcastTycoon.Game
             {
                 bool active = i == _activeTab;
                 _tabButtons[i].EnableInClassList("active", active);
-                _tabButtons[i].style.borderBottomColor = active
+                _tabButtons[i].style.borderTopColor = active
                     ? new StyleColor(_host.Theme.Secondary)
                     : new StyleColor(new Color(0, 0, 0, 0));
             }
@@ -371,7 +370,6 @@ namespace PodcastTycoon.Game
                     note.Add(Ui.Text("RUNNING STORIES", "eyebrow"));
                     foreach (var t in ctx.ActiveThreads)
                         note.Add(Ui.Wrapping("• " + t.Label + " — " + LeanLabel(t.Momentum), "body"));
-                    note.Add(Ui.Wrapping("Pick the STORY topic below to weigh in. Full detail on The Club.", "body", "dim"));
                     root.Add(note);
                 }
             }
@@ -422,6 +420,16 @@ namespace PodcastTycoon.Game
             _stepPrepMeter.EnableInClassList("over", used > cap);
         }
 
+        /// <summary>The phone's back button: step back through the week wizard / tabs first.
+        /// Returns false when there is nothing left to go back to (the caller then offers to quit).</summary>
+        public bool HandleBack()
+        {
+            if (E.IsRecording) return true; // mid-recording there's nothing sensible to undo
+            if (_activeTab != 0) { SwitchTab(0); return true; }
+            if (_thisWeekStep > 0) { GoToStep(_thisWeekStep - 1); return true; }
+            return false;
+        }
+
         void GoToStep(int step) { _thisWeekStep = step; _forceScrollTop = true; _host.RerenderWeek(); }
 
         void BuildStepRundown(VisualElement root)
@@ -432,7 +440,6 @@ namespace PodcastTycoon.Game
             var next = Ui.Btn("Next: Push & Cards →", () => GoToStep(1), "btn-primary");
             _host.Theme.PaintPrimaryButton(next);
             next.SetEnabled(!_plan.Main.IsEmpty);
-            nav.Add(new VisualElement());
             nav.Add(next);
             root.Add(nav);
         }
@@ -456,7 +463,6 @@ namespace PodcastTycoon.Game
 
             var nav = Ui.Row("step-nav");
             nav.Add(Ui.Btn("← Back", () => GoToStep(1), "btn-ghost"));
-            nav.Add(new VisualElement());
             root.Add(nav);
 
             _publish = Ui.Btn("Record & release", StartRecording, "btn-primary");
@@ -527,28 +533,10 @@ namespace PodcastTycoon.Game
         VisualElement BuildStudioBackdrop()
         {
             var st = E.State;
-            var frame = Ui.Box("studio-frame");
-            frame.RegisterCallback<GeometryChangedEvent>(evt =>
-            {
-                if (evt.newRect.width > 0) frame.style.height = evt.newRect.width * 9f / 16f;
-            });
-
-            void Layer(string prefix, UpgradeTrack track)
-            {
-                var tex = StudioArt.Get(prefix, UpgradeCatalog.TierOf(st, track));
-                if (tex == null) return;
-                var img = Ui.Box("studio-layer");
-                img.style.backgroundImage = new StyleBackground(tex);
-                img.style.unityBackgroundScaleMode = ScaleMode.StretchToFill;
-                img.pickingMode = PickingMode.Ignore;
-                frame.Add(img);
-            }
-            Layer("studio_shell", UpgradeTrack.Studio);
-            Layer("set_overlay", UpgradeTrack.Set);
-            Layer("post_overlay", UpgradeTrack.Post);
-            Layer("distribution_overlay", UpgradeTrack.Distribution);
-            Layer("audio_overlay", UpgradeTrack.Audio);
-            return frame;
+            return Ui.StudioBackdrop(
+                UpgradeCatalog.TierOf(st, UpgradeTrack.Studio), UpgradeCatalog.TierOf(st, UpgradeTrack.Set),
+                UpgradeCatalog.TierOf(st, UpgradeTrack.Post), UpgradeCatalog.TierOf(st, UpgradeTrack.Distribution),
+                UpgradeCatalog.TierOf(st, UpgradeTrack.Audio));
         }
 
         /// <summary>A row of filled/unfilled dots showing how far through this recording
@@ -916,7 +904,7 @@ namespace PodcastTycoon.Game
 
             var legend = Ui.Box("panel");
             legend.Add(Ui.Text("ICON KEY", "eyebrow"));
-            legend.Add(Ui.Wrapping("What each icon in the resource strip up top means — hover any of them in play for the full explanation.", "body", "dim"));
+            legend.Add(Ui.Wrapping("What each icon in the resource strip up top means — tap any of them in play for the full explanation.", "body", "dim"));
             var legendGrid = Ui.Box("row-wrap");
             void LegendIcon(StatIcon icon, string label)
             {
@@ -997,13 +985,21 @@ namespace PodcastTycoon.Game
             Term("Contacts", "Up to three passive slots, each a fixed weekly upside and downside. Cheap to swap — worth re-evaluating as the show changes size.");
             Term("Custom run", "Modifiers set at the start (extra prep, gentler churn, sandbox, chaos…). Flags the run as Custom; the endless chase still works.");
             root.Add(gloss);
+
+            var game = Ui.Box("panel");
+            game.Add(Ui.Text("GAME", "eyebrow"));
+            game.Add(Ui.Wrapping("Your run saves itself every time you release an episode.", "body", "dim"));
+            var menu = Ui.Btn("Main menu", _host.RequestMainMenu, "btn-ghost");
+            menu.style.marginTop = 8;
+            game.Add(menu);
+            root.Add(game);
         }
 
         // ------------------------------------------------------------------
         VisualElement BuildMatchPanel(WeekContext ctx)
         {
             var panel = Ui.Box("panel");
-            panel.Add(Ui.Text("The week", "h2"));
+            panel.Add(Ui.Text("THE WEEK", "eyebrow"));
 
             if (ctx.IsMatchless)
             {
@@ -1307,7 +1303,7 @@ namespace PodcastTycoon.Game
             {
                 var current = E.CurrentUpgrade(track);
                 var next = E.NextUpgrade(track);
-                var row = Ui.Row();
+                var row = Ui.Row("row-stack");
                 var left = Ui.Box();
                 left.style.flexGrow = 1;
                 left.Add(Ui.Text($"{TrackLabels[(int)track]} — {current.Name}", "topiccard-title"));
@@ -1334,7 +1330,7 @@ namespace PodcastTycoon.Game
 
             void HireRow(string name, bool have, string effect, string cost, bool canAfford, System.Action doHire)
             {
-                var row = Ui.Row();
+                var row = Ui.Row("row-stack");
                 var left = Ui.Box();
                 left.style.flexGrow = 1;
                 left.Add(Ui.Text(name + (have ? "  ✓" : ""), "topiccard-title"));
@@ -1384,9 +1380,9 @@ namespace PodcastTycoon.Game
             bool filled = st.Employed.TryGetValue(role.Id, out var emp);
             if (filled)
             {
-                var row = Ui.Row();
-                row.style.alignItems = Align.Center;
-                AddRoleIcon(row, role.Id);
+                var row = Ui.Row("row-stack");
+                var top = Ui.Row("row-top");
+                AddRoleIcon(top, role.Id);
                 var left = Ui.Box();
                 left.style.flexGrow = 1;
                 string traits = emp.TraitText;
@@ -1395,7 +1391,8 @@ namespace PodcastTycoon.Game
                 left.Add(Ui.Wrapping(CrewCatalog.ImpactSummary(role.Id, emp.Skill), "body", "good"));
                 if (emp.ContractWeeksLeft > 0)
                     left.Add(Ui.Wrapping($"Under contract for {emp.ContractWeeksLeft} more week(s) — firing early costs a buyout.", "body", "dim"));
-                row.Add(left);
+                top.Add(left);
+                row.Add(top);
                 var fire = Ui.Btn($"Fire  ({Ui.Money(E.FireCost(role.Id))})", () => { E.FireCrew(role.Id); _host.RerenderWeek(); }, "btn-ghost");
                 row.Add(fire);
                 box.Add(row);
@@ -1414,16 +1411,17 @@ namespace PodcastTycoon.Game
             {
                 var c = candidates[i];
                 int idx = i;
-                var row = Ui.Row();
-                row.style.alignItems = Align.Center;
-                AddRoleIcon(row, role.Id);
+                var row = Ui.Row("row-stack");
+                var top = Ui.Row("row-top");
+                AddRoleIcon(top, role.Id);
                 var left = Ui.Box();
                 left.style.flexGrow = 1;
                 string traits = c.TraitText;
                 left.Add(Ui.Text(c.Name, "topiccard-title"));
                 left.Add(Ui.Wrapping($"€{c.Wage:N0}/mo" + (traits.Length > 0 ? $"  ·  {traits}" : ""), "body", "dim"));
                 left.Add(Ui.Wrapping(CrewCatalog.ImpactSummary(role.Id, c.Skill), "body", "good"));
-                row.Add(left);
+                top.Add(left);
+                row.Add(top);
                 string label = filled ? $"Replace  ({Ui.Money(c.Wage + E.FireCost(role.Id))})" : "Hire";
                 var hire = Ui.Btn(label, () => { E.HireCandidate(role.Id, idx); _host.RerenderWeek(); }, "btn-ghost");
                 hire.SetEnabled(E.CanHireCandidate(role.Id, idx));

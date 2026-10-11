@@ -8,22 +8,22 @@
     font-size: 15px;
 }
 
+/* Portrait phone layout: one full-width column, small side gutters. */
 .screen {
     flex-grow: 1;
     align-items: center;
-    padding: 24px;
+    padding: 8px 8px 0 8px;
 }
 
 .column {
-    width: 90%;
+    width: 100%;
     max-width: 860px;
     flex-grow: 1;
 }
 
-/* The main gameplay screen gets the most benefit from landscape's extra width. */
 .column-wide {
-    width: 94%;
-    max-width: 1180px;
+    width: 100%;
+    max-width: 860px;
     flex-grow: 1;
 }
 
@@ -32,11 +32,10 @@
     width: 100%;
 }
 
-/* This Week: the decision (rundown/push/cards) and its consequence (levers/preview)
-   sit side by side instead of stacking, so landscape actually buys you something. */
-.week-columns { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
-.week-col-left { flex-grow: 1.6; flex-shrink: 1; flex-basis: 420px; min-width: 380px; margin-right: 18px; }
-.week-col-right { flex-grow: 1; flex-shrink: 1; flex-basis: 320px; min-width: 300px; }
+/* This Week: portrait, so the decision (rundown/push/cards) and its consequence
+   (levers/preview) simply stack as full-width blocks. */
+.week-columns { flex-direction: column; align-items: stretch; }
+.week-col-left, .week-col-right { width: 100%; flex-shrink: 0; }
 
 /* ---- typography ---- */
 /* A pixel display face for short, shouty text — titles, tags, tab labels, the
@@ -55,6 +54,8 @@
 }
 
 .h2 {
+    white-space: normal;
+    flex-shrink: 1;
     font-size: 19px;
     -unity-font-style: bold;
     color: rgb(240, 238, 248);
@@ -83,31 +84,42 @@
     border-color: rgb(48, 46, 60);
     border-width: 2px;
     border-radius: 10px;
-    padding: 12px;
-    margin-bottom: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
 }
 
-.panel-tight { padding: 10px; }
+.panel-tight { padding: 8px 10px; }
+
+/* Text may wrap everywhere (a phone is narrow); a row that no longer fits drops its
+   trailing control (usually a button) onto the next line instead of overlapping it. */
+.unity-label { white-space: normal; }
 
 .row {
     flex-direction: row;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
 }
 
+/* Text on top, its action button full-width underneath (long labels + prices). */
+.row-stack { flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; }
+.row-stack > .btn { margin-right: 0; margin-top: 4px; flex-shrink: 0; -unity-text-align: middle-center; }
+.row-top { flex-direction: row; flex-wrap: nowrap; justify-content: flex-start; align-items: flex-start; }
+
 .row-wrap { flex-direction: row; flex-wrap: wrap; }
+.row > .btn { flex-shrink: 0; margin-top: 2px; }
 
 /* ---- This Week wizard ---- */
-.step-indicator { margin-bottom: 14px; }
+.step-indicator { margin-bottom: 8px; }
 .step-chip {
-    font-size: 12px;
+    font-size: 11px;
     -unity-font-style: bold;
     color: rgb(120, 114, 132);
     background-color: rgb(24, 23, 31);
     border-color: rgb(45, 43, 56);
     border-width: 2px;
     border-radius: 6px;
-    padding: 6px 14px;
+    padding: 5px 7px;
     margin-right: 8px;
     margin-bottom: 6px;
 }
@@ -115,6 +127,8 @@
 .step-chip.done { color: rgb(200, 196, 210); border-color: rgb(90, 86, 104); }
 
 .step-nav { margin-top: 4px; margin-bottom: 10px; }
+.step-nav > .btn { flex-grow: 1; flex-basis: 0; margin-left: 6px; margin-right: 0; -unity-text-align: middle-center; }
+.step-nav > .btn:first-child { margin-left: 0; }
 
 /* ---- recording progress ---- */
 .rec-dot {
@@ -194,13 +208,14 @@
 .statstrip { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 6px 4px; }
 
 .statchip {
+    flex-direction: row;
     align-items: center;
     background-color: rgb(24, 23, 31);
     border-color: rgb(45, 43, 56);
     border-width: 1px;
     border-radius: 8px;
-    padding: 4px 10px 4px 6px;
-    margin-right: 6px;
+    padding: 3px 8px 3px 5px;
+    margin-right: 4px;
     margin-bottom: 4px;
 }
 
@@ -215,9 +230,9 @@
 
 .statchip-value {
     -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
-    font-size: 13px;
+    font-size: 11px;
     color: rgb(240, 238, 248);
-    margin-left: 7px;
+    margin-left: 5px;
 }
 
 .stat {
@@ -255,6 +270,7 @@
    A chunkier, game-ier press: a heavier bottom edge reads as depth, and it
    thins out on :active so the button visibly "presses" when clicked. */
 .btn {
+    -unity-text-align: middle-center;
     -unity-font-style: bold;
     font-size: 14px;
     padding: 9px 16px;
@@ -378,7 +394,7 @@
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    padding: 14px;
+    padding: 10px 6px;
     border-radius: 10px;
     background-color: rgb(17, 16, 22);
     border-width: 1px;
@@ -387,13 +403,23 @@
 
 .score {
     -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
-    font-size: 28px;
+    font-size: 20px;
     color: rgb(244, 242, 250);
-    margin-left: 14px;
-    margin-right: 14px;
+    margin-left: 8px;
+    margin-right: 8px;
+    flex-shrink: 0;
 }
 
-.club-name { font-size: 15px; -unity-font-style: bold; color: rgb(220, 216, 230); }
+.club-name {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: rgb(220, 216, 230);
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
 
 /* ---- sliders ---- */
 .prep-row { flex-direction: row; align-items: center; margin-bottom: 4px; }
@@ -407,8 +433,25 @@
     white-space: nowrap;
 }
 .prep-name-wide { width: 176px; }
-.prep-slider { flex-grow: 1; margin-right: 8px; }
-.prep-value { width: 26px; -unity-font-style: bold; -unity-text-align: middle-right; }
+.prep-slider { flex-grow: 1; margin-right: 10px; min-height: 36px; }
+/* Finger-sized slider: a fat handle on a visible track. */
+.prep-slider .unity-base-slider__tracker {
+    height: 8px;
+    border-radius: 4px;
+    background-color: rgb(52, 50, 64);
+    border-width: 0;
+    margin-top: -4px;
+}
+.prep-slider .unity-base-slider__dragger {
+    width: 28px;
+    height: 28px;
+    border-radius: 14px;
+    background-color: rgb(231, 165, 68);
+    border-color: rgb(255, 205, 140);
+    border-width: 2px;
+    margin-top: -14px;
+}
+.prep-value { width: 30px; font-size: 16px; -unity-font-style: bold; -unity-text-align: middle-right; }
 
 .prep-meter {
     -unity-font-style: bold;
@@ -419,14 +462,14 @@
 /* The step-header prep readout — a chip in the same family as .step-chip, not
    bare text, so it doesn't get lost as an unlabelled fragment next to them. */
 .prep-meter-chip {
-    font-size: 14px;
+    font-size: 12px;
     color: rgb(231, 165, 68);
     background-color: rgb(24, 23, 31);
     border-color: rgb(231, 165, 68);
     border-width: 2px;
     border-radius: 6px;
-    padding: 6px 14px;
-    margin-right: 8px;
+    padding: 5px 7px;
+    margin-right: 0;
     margin-bottom: 6px;
 }
 .prep-meter-chip.over { color: rgb(232, 106, 102); border-color: rgb(232, 106, 102); }
@@ -528,27 +571,30 @@
 }
 .unity-foldout__text { color: rgb(236, 233, 242); }
 
-/* ---- tab bar ---- */
+/* ---- tab bar (bottom navigation, thumb reach) ---- */
 .tabbar {
     flex-direction: row;
-    flex-wrap: wrap;
-    margin-top: 4px;
-    margin-bottom: 14px;
-    border-bottom-width: 1px;
-    border-bottom-color: rgb(48, 46, 60);
+    flex-shrink: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    background-color: rgb(24, 23, 31);
+    border-top-width: 1px;
+    border-top-color: rgb(48, 46, 60);
 }
 
 .tab {
-    -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
-    font-size: 11px;
-    padding: 10px 14px;
-    margin-right: 2px;
-    margin-bottom: 0;
+    flex-grow: 1;
+    flex-basis: 0;
+    font-size: 12px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    padding: 14px 2px;
+    margin: 0;
     background-color: rgba(0, 0, 0, 0);
     color: rgb(150, 144, 165);
     border-width: 0;
-    border-bottom-width: 2px;
-    border-bottom-color: rgba(0, 0, 0, 0);
+    border-top-width: 3px;
+    border-top-color: rgba(0, 0, 0, 0);
     border-radius: 0;
 }
 .tab:hover { background-color: rgba(0, 0, 0, 0); color: rgb(219, 215, 229); }
@@ -566,3 +612,60 @@
 .unity-toggle:checked .unity-toggle__checkmark {
     background-color: rgb(231, 165, 68);
 }
+
+/* ---- tap-for-explanation bubble (replaces hover tooltips on touch) ---- */
+.tip-bubble {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 76px;
+    padding: 12px 14px;
+    background-color: rgb(40, 38, 52);
+    border-color: rgb(231, 165, 68);
+    border-width: 2px;
+    border-radius: 10px;
+}
+.tip-bubble > Label { white-space: normal; color: rgb(240, 238, 248); font-size: 14px; }
+
+/* ---- confirm dialog (Android back button) ---- */
+.modal-backdrop {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    align-items: center;
+    justify-content: center;
+}
+.modal { width: 80%; max-width: 360px; }
+.modal > .btn { margin-right: 0; margin-top: 6px; }
+
+/* ---- title screen ---- */
+.title-screen { flex-grow: 1; background-color: rgb(14, 13, 19); }
+.title-screen .studio-frame { border-width: 0; }
+.title-middle { align-items: center; justify-content: center; flex-grow: 1; padding: 0 16px 40px 16px; }
+.title-tagline {
+    font-size: 14px;
+    color: rgb(178, 172, 190);
+    margin-top: 6px;
+    -unity-text-align: middle-center;
+}
+.title-tap {
+    -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
+    font-size: 16px;
+    letter-spacing: 2px;
+    color: rgb(231, 165, 68);
+    -unity-text-align: middle-center;
+    margin-top: 48px;
+    transition-property: opacity;
+    transition-duration: 0.45s;
+}
+.title-version {
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    right: 0;
+    font-size: 11px;
+    color: rgb(110, 105, 124);
+    -unity-text-align: middle-center;
+}
+.menu-logo { align-self: center; margin-top: 8px; margin-bottom: 14px; }
+.club-name-left { font-size: 14px; -unity-font-style: bold; color: rgb(220, 216, 230); margin-bottom: 2px; }
