@@ -12,12 +12,21 @@ namespace PodcastTycoon.Core
         int Range(int minInclusive, int maxExclusive);
     }
 
-    public sealed class SystemRng : IRng
+    /// <summary>An RNG that can be put back on a known sequence — the engine does this at the start
+    /// of every week, so a saved game replays that week exactly instead of re-rolling it.</summary>
+    public interface IReseedable
     {
-        readonly Random _r;
+        void Reseed(int seed);
+    }
+
+    public sealed class SystemRng : IRng, IReseedable
+    {
+        Random _r;
 
         public SystemRng() : this(Environment.TickCount) { }
         public SystemRng(int seed) { _r = new Random(seed); }
+
+        public void Reseed(int seed) { _r = new Random(seed); }
 
         public double NextDouble() => _r.NextDouble();
         public int Range(int minInclusive, int maxExclusive) => _r.Next(minInclusive, maxExclusive);

@@ -93,7 +93,7 @@ namespace PodcastTycoon.Game
         {
             var wrap = Box("collapsible");
             var header = Row("collapsible-header");
-            var chevron = Text(startExpanded ? "▾" : "▸", "collapsible-chevron");
+            var chevron = Text(startExpanded ? "-" : "+", "collapsible-chevron");
             var titleLabel = Text(title, "collapsible-title");
             titleLabel.style.flexGrow = 1;
             header.Add(chevron);
@@ -109,7 +109,7 @@ namespace PodcastTycoon.Game
             {
                 bool expanded = content.style.display == DisplayStyle.Flex;
                 content.style.display = expanded ? DisplayStyle.None : DisplayStyle.Flex;
-                chevron.text = expanded ? "▸" : "▾";
+                chevron.text = expanded ? "+" : "-";
                 onToggle?.Invoke(!expanded);
             });
             return wrap;

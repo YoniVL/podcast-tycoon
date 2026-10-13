@@ -80,17 +80,17 @@ namespace PodcastTycoon.Game
                     "There's a decision waiting on This Week — sort it before you can release.", "body"));
                 col.Add(banner);
             }
-            else if (E.IsRecording)
+            else if (E.IsRecording && E.CurrentBeat == null)
             {
                 var banner = Ui.Box("toast", "toast-story");
-                banner.Add(Ui.Wrapping(
-                    E.CurrentBeat != null ? "You're recording — something's come up." : "Recording's done — ready to release.",
-                    "body"));
+                banner.Add(Ui.Wrapping("Recording's done — ready to release.", "body"));
                 col.Add(banner);
             }
 
             _scroll = Ui.Scroll();
-            _scroll.Add(BuildResourceStrip(st)); // scrolls away with the page, header + tabs stay put
+            // The stats scroll away with the page (header + tabs stay put) and are left out while a
+            // beat is on screen, so the choice isn't pushed below the fold.
+            if (!(E.IsRecording && E.CurrentBeat != null)) _scroll.Add(BuildResourceStrip(st));
             _tabContent = Ui.Box();
             _scroll.Add(_tabContent);
             col.Add(_scroll);

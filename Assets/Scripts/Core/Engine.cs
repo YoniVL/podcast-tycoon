@@ -65,6 +65,11 @@ namespace PodcastTycoon.Core
         int _seasonStartListeners;
         float _seasonStartRep;
 
+        // Each week runs on its own RNG sequence, started from this seed (saved with the run).
+        // Loading a save therefore replays the next week exactly — same match, same offer,
+        // same events — so reloading can't be used to re-roll a result you didn't like.
+        int _weekSeed;
+
         public event Action<MilestoneEvent> MilestoneReached;
         public event Action<string> GameOver;
         public event Action GoalReached;
@@ -131,6 +136,7 @@ namespace PodcastTycoon.Core
 
             _seasonStartListeners = State.Listeners;
             _seasonStartRep = State.Reputation;
+            _weekSeed = _rng.Range(1, int.MaxValue);
         }
 
         int GraceWeeks => State.Modifiers.LongRunway ? 5 : Config.BankruptcyGraceWeeks;
@@ -142,6 +148,7 @@ namespace PodcastTycoon.Core
         // ------------------------------------------------------------------
         public WeekContext BeginWeek()
         {
+            (_rng as IReseedable)?.Reseed(_weekSeed);
             HasRedrawnThisWeek = false;
             PendingPlan = null;
             PendingBeats = new List<RecordingBeat>();
@@ -430,6 +437,7 @@ namespace PodcastTycoon.Core
             CheckGoal();
 
             AdvanceWeek();
+            _weekSeed = _rng.Range(1, int.MaxValue);
             return result;
         }
 

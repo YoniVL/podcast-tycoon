@@ -175,7 +175,7 @@
     overflow: hidden;
 }
 
-.collapsible-chevron { color: rgb(231, 165, 68); margin-right: 8px; font-size: 12px; flex-shrink: 0; }
+.collapsible-chevron { color: rgb(231, 165, 68); margin-right: 8px; font-size: 16px; -unity-font-style: bold; width: 14px; -unity-text-align: middle-center; flex-shrink: 0; }
 .collapsible-title { font-size: 14px; -unity-font-style: bold; color: rgb(236, 233, 242); flex-shrink: 0; }
 .collapsible-summary {
     font-size: 12px;
@@ -227,6 +227,10 @@
     color: rgb(150, 144, 166);
     margin-left: 2px;
 }
+
+.statchip { flex-shrink: 0; flex-wrap: nowrap; justify-content: flex-start; }
+.statchip-value, .statchip-label { white-space: nowrap; flex-shrink: 0; }
+.statstrip { flex-shrink: 0; }
 
 .statchip-value {
     -unity-font-definition: url("Fonts/PressStart2P-Regular.ttf");
@@ -602,7 +606,10 @@
 
 /* ---- toggles (setup screen modifiers) ---- */
 .unity-toggle .unity-text-element { color: rgb(206, 202, 216); white-space: normal; }
-.unity-toggle > .unity-toggle__input { margin-right: 8px; }
+/* Label fills the row and wraps; the checkbox sits at the right edge. */
+.unity-toggle { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; margin-left: 0; margin-right: 0; }
+.unity-toggle > .unity-label { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 0; margin-right: 10px; }
+.unity-toggle > .unity-toggle__input { flex-shrink: 0; margin-right: 0; margin-left: 0; }
 .unity-toggle__checkmark {
     background-color: rgb(24, 23, 31);
     border-color: rgb(90, 86, 104);
@@ -669,3 +676,8 @@
 }
 .menu-logo { align-self: center; margin-top: 8px; margin-bottom: 14px; }
 .club-name-left { font-size: 14px; -unity-font-style: bold; color: rgb(220, 216, 230); margin-bottom: 2px; }
+
+/* ---- setup: modifier rows ---- */
+.mod-row { flex-wrap: nowrap; min-height: 40px; margin-bottom: 4px; }
+.mod-row > .unity-toggle { width: auto; flex-grow: 0; flex-shrink: 0; margin-left: 10px; }
+.mod-row .unity-toggle__checkmark { width: 24px; height: 24px; }

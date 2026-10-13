@@ -54,7 +54,7 @@ namespace PodcastTycoon.Game
         public static string Describe(SaveHeader h)
         {
             string when = "";
-            if (DateTime.TryParse(h.SavedAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind, out var utc))
+            if (DateTime.TryParse(h.SavedAtUtc, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var utc))
                 when = utc.ToLocalTime().ToString("d MMM, HH:mm");
             return $"Season {h.Season} · Week {h.Week} · {h.Listeners:N0} listeners\n" +
                    $"{h.EpisodesPublished} episode{(h.EpisodesPublished == 1 ? "" : "s")} published" +

@@ -110,3 +110,6 @@ InitTestScene*.unity*
 
 # Headless screenshot output
 /CaptureOut/
+
+# Local player builds
+Builds/

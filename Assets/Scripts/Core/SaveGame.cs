@@ -123,7 +123,8 @@ namespace PodcastTycoon.Core
                 ["engine"] = new JObject
                 {
                     ["seasonStartListeners"] = GetField<int>(e, "_seasonStartListeners"),
-                    ["seasonStartRep"] = GetField<float>(e, "_seasonStartRep")
+                    ["seasonStartRep"] = GetField<float>(e, "_seasonStartRep"),
+                    ["weekSeed"] = GetField<int>(e, "_weekSeed")
                 }
             };
 
@@ -200,6 +201,7 @@ namespace PodcastTycoon.Core
                 var eng = (JObject)parts["engine"];
                 SetField(engine, "_seasonStartListeners", (int)eng["seasonStartListeners"]);
                 SetField(engine, "_seasonStartRep", (float)eng["seasonStartRep"]);
+                if (eng["weekSeed"] != null) SetField(engine, "_weekSeed", (int)eng["weekSeed"]);   // saves from before this existed keep a fresh seed
                 return engine;
             }
             catch (SaveFormatException) { throw; }

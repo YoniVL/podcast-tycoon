@@ -102,6 +102,47 @@ namespace PodcastTycoon.Tests
         }
 
         [Test]
+        public void ALoadedRunReplaysTheNextWeekExactly()
+        {
+            // The whole point of saving the week's seed: loading must not re-roll the match,
+            // the topic offer, the events or the episode result.
+            var e = NewEngine(seed: 21);
+            for (int i = 0; i < 9; i++) PlayWeek(e);
+            string saved = SaveGame.Serialize(e);
+
+            var a = SaveGame.Deserialize(saved, new SystemRng(111));
+            var b = SaveGame.Deserialize(saved, new SystemRng(222));   // different live RNG on purpose
+
+            foreach (var other in new[] { a, b })
+            {
+                var ctxOrig = e.BeginWeek();
+                var ctxLoaded = other.BeginWeek();
+                Assert.That(ctxLoaded.Fixture?.Opponent, Is.EqualTo(ctxOrig.Fixture?.Opponent));
+                Assert.That(ctxLoaded.Match?.ScoreLine, Is.EqualTo(ctxOrig.Match?.ScoreLine));
+                Assert.That(ctxLoaded.Surprise, Is.EqualTo(ctxOrig.Surprise));
+                Assert.That(other.Offer.Select(t => t.Name), Is.EqualTo(e.Offer.Select(t => t.Name)));
+                Assert.That(other.Events.Pending?.Id, Is.EqualTo(e.Events.Pending?.Id));
+
+                var planA = new ProductionPlan();
+                planA.Main.Set(e.Offer[0]); planA.Main.Angle = Angle.HotTake; planA.Main.Prep = 3; planA.Push = 4;
+                var planB = new ProductionPlan();
+                planB.Main.Set(other.Offer[0]); planB.Main.Angle = Angle.HotTake; planB.Main.Prep = 3; planB.Push = 4;
+                if (e.Events.Pending != null) { e.ResolveEvent(0); other.ResolveEvent(0); }
+                if (e.Scoops.Pending != null) { e.ResolveScoop(ScoopChoice.VerifyHold); other.ResolveScoop(ScoopChoice.VerifyHold); }
+                if (e.State.BuyoutPending) { e.DeclineBuyout(); other.DeclineBuyout(); }
+                var ra = e.Publish(planA);
+                var rb = other.Publish(planB);
+                Assert.That(rb.Quality, Is.EqualTo(ra.Quality));
+                Assert.That(rb.ListenerDeltaActual, Is.EqualTo(ra.ListenerDeltaActual));
+                Assert.That(other.State.Listeners, Is.EqualTo(e.State.Listeners));
+                Assert.That(other.State.Money, Is.EqualTo(e.State.Money));
+
+                // rewind the original for the second comparison
+                e = SaveGame.Deserialize(saved, new SystemRng(5));
+            }
+        }
+
+        [Test]
         public void HeaderDescribesTheSaveWithoutLoadingIt()
         {
             var e = NewEngine();

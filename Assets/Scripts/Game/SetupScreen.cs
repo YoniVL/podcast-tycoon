@@ -112,10 +112,18 @@ namespace PodcastTycoon.Game
 
         VisualElement ModToggle(string label, System.Func<bool> get, System.Action<bool> set)
         {
-            var t = new Toggle(label) { value = get() };
+            var row = Ui.Row("mod-row");
+            var text = Ui.Wrapping(label, "body");
+            text.style.flexGrow = 1;
+            text.style.flexShrink = 1;
+            text.style.flexBasis = 0;
+            var t = new Toggle { value = get() };
             t.RegisterValueChangedCallback(e => set(e.newValue));
-            t.style.marginBottom = 4;
-            return t;
+            // Tapping the words toggles it too — the checkbox alone is a small target.
+            text.RegisterCallback<ClickEvent>(_ => t.value = !t.value);
+            row.Add(text);
+            row.Add(t);
+            return row;
         }
 
         VisualElement Field(string label, string value, System.Action<string> onChange)
