@@ -23,7 +23,7 @@ namespace PodcastTycoon.Game
             var middle = Ui.Box("title-middle");
             var logoTex = CharacterArt.Logo();
             if (logoTex != null)
-                middle.Add(Ui.Art(logoTex, 280, 280 * logoTex.height / (float)logoTex.width, "title-logo"));
+                middle.Add(Ui.Art(logoTex, 300, 300 * logoTex.height / (float)logoTex.width, "title-logo"));
             else
                 middle.Add(Ui.Text("Podcast Tycoon", "h1"));
             middle.Add(Ui.Text("A football podcast tycoon", "title-tagline"));
@@ -69,7 +69,7 @@ namespace PodcastTycoon.Game
 
             var logoTex = CharacterArt.Logo();
             if (logoTex != null)
-                col.Add(Ui.Art(logoTex, 220, 220 * logoTex.height / (float)logoTex.width, "menu-logo"));
+                col.Add(Ui.Art(logoTex, 170, 170 * logoTex.height / (float)logoTex.width, "menu-logo"));
             else
                 col.Add(Ui.Text("Podcast Tycoon", "h1"));
 

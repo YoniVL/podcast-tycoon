@@ -39,7 +39,7 @@ namespace PodcastTycoon.Game
             var logoTex = CharacterArt.Logo();
             if (logoTex != null)
             {
-                var logo = Ui.Art(logoTex, 200, 200 * logoTex.height / (float)logoTex.width, "setup-logo");
+                var logo = Ui.Art(logoTex, 150, 150 * logoTex.height / (float)logoTex.width, "setup-logo");
                 logo.tooltip = "Name your show and the club you support, pick your colours, and choose how hard you want it.";
                 scroll.Add(logo);
             }
